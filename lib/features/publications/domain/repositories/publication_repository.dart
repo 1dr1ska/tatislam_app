@@ -19,7 +19,7 @@ abstract class PublicationRepository {
     String? searchQuery,
     int limit = 20,
     int offset = 0,
-    bool includeAllStatuses = false, // New parameter to include all statuses for admin
+    bool includeAllStatuses = false,
   });
 
   /// Used to resolve favorites (stored locally as ids only) into full
@@ -39,10 +39,6 @@ abstract class PublicationRepository {
     required DateTime publishedAt,
     required String type,
     String? status,
-    String? content,
-    String? imageUrl,
-    String? mediaUrl,
-    String? videoProvider,
   });
 
   Future<Publication> updatePublication({
@@ -53,10 +49,6 @@ abstract class PublicationRepository {
     required DateTime publishedAt,
     required String type,
     String? status,
-    String? content,
-    String? imageUrl,
-    String? mediaUrl,
-    String? videoProvider,
   });
 
   /// Deletes the publication and, via DB cascade, its blocks and section

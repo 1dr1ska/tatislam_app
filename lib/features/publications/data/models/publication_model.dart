@@ -11,10 +11,6 @@ class PublicationModel {
   final DateTime updatedAt;
   final String type;
   final String? status;
-  final String? content;
-  final String? imageUrl;
-  final String? mediaUrl;
-  final String? videoProvider;
 
   const PublicationModel({
     required this.id,
@@ -26,10 +22,6 @@ class PublicationModel {
     required this.updatedAt,
     required this.type,
     this.status,
-    this.content,
-    this.imageUrl,
-    this.mediaUrl,
-    this.videoProvider,
   });
 
   factory PublicationModel.fromJson(Map<String, dynamic> json) {
@@ -49,10 +41,6 @@ class PublicationModel {
           : DateTime.now(),
       type: json['type'] as String? ?? 'article',
       status: json['status'] as String?,
-      content: json['content'] as String?,
-      imageUrl: json['image_url'] as String?,
-      mediaUrl: json['media_url'] as String?,
-      videoProvider: json['video_provider'] as String?,
     );
   }
 
@@ -63,10 +51,6 @@ class PublicationModel {
         'published_at': publishedAt.toIso8601String(),
         'type': type,
         if (status != null) 'status': status,
-        if (content != null) 'content': content,
-        if (imageUrl != null) 'image_url': imageUrl,
-        if (mediaUrl != null) 'media_url': mediaUrl,
-        if (videoProvider != null) 'video_provider': videoProvider,
       };
 
   Publication toEntity() => Publication(
@@ -79,9 +63,5 @@ class PublicationModel {
         updatedAt: updatedAt,
         type: type,
         status: status,
-        content: content,
-        imageUrl: imageUrl,
-        mediaUrl: mediaUrl,
-        videoProvider: videoProvider,
       );
 }

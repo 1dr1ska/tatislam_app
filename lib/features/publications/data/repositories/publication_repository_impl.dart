@@ -19,14 +19,14 @@ class PublicationRepositoryImpl implements PublicationRepository {
     String? searchQuery,
     int limit = 20,
     int offset = 0,
-    bool includeAllStatuses = false, // New parameter to include all statuses for admin
+    bool includeAllStatuses = false,
   }) async {
     final models = await _remote.getPublications(
       sectionId: sectionId,
       searchQuery: searchQuery,
       limit: limit,
       offset: offset,
-      includeAllStatuses: includeAllStatuses, // Pass the parameter to the remote data source
+      includeAllStatuses: includeAllStatuses,
     );
     return models.map((m) => m.toEntity()).toList();
   }
@@ -55,10 +55,6 @@ class PublicationRepositoryImpl implements PublicationRepository {
     required DateTime publishedAt,
     required String type,
     String? status,
-    String? content,
-    String? imageUrl,
-    String? mediaUrl,
-    String? videoProvider,
   }) async {
     final now = DateTime.now();
     final model = PublicationModel(
@@ -71,10 +67,6 @@ class PublicationRepositoryImpl implements PublicationRepository {
       updatedAt: now,
       type: type,
       status: status,
-      content: content,
-      imageUrl: imageUrl,
-      mediaUrl: mediaUrl,
-      videoProvider: videoProvider,
     );
     final created = await _remote.createPublication(model);
     return created.toEntity();
@@ -89,10 +81,6 @@ class PublicationRepositoryImpl implements PublicationRepository {
     required DateTime publishedAt,
     required String type,
     String? status,
-    String? content,
-    String? imageUrl,
-    String? mediaUrl,
-    String? videoProvider,
   }) async {
     final previous = await _remote.getPublicationDetail(id);
     final now = DateTime.now();
@@ -106,10 +94,6 @@ class PublicationRepositoryImpl implements PublicationRepository {
       updatedAt: now,
       type: type,
       status: status ?? previous.publication.status,
-      content: content ?? previous.publication.content,
-      imageUrl: imageUrl ?? previous.publication.imageUrl,
-      mediaUrl: mediaUrl ?? previous.publication.mediaUrl,
-      videoProvider: videoProvider ?? previous.publication.videoProvider,
     );
     final updated = await _remote.updatePublication(id, model);
 

@@ -16,10 +16,6 @@ class Publication extends Equatable {
   final DateTime updatedAt;
   final String type;
   final String? status;
-  final String? content;
-  final String? imageUrl;
-  final String? mediaUrl;
-  final String? videoProvider;
 
   const Publication({
     required this.id,
@@ -31,10 +27,6 @@ class Publication extends Equatable {
     required this.updatedAt,
     required this.type,
     this.status,
-    this.content,
-    this.imageUrl,
-    this.mediaUrl,
-    this.videoProvider,
   });
 
   Publication copyWith({
@@ -46,10 +38,6 @@ class Publication extends Equatable {
     DateTime? updatedAt,
     String? type,
     String? status,
-    String? content,
-    String? imageUrl,
-    String? mediaUrl,
-    String? videoProvider,
   }) {
     return Publication(
       id: id,
@@ -61,10 +49,6 @@ class Publication extends Equatable {
       updatedAt: updatedAt ?? this.updatedAt,
       type: type ?? this.type,
       status: status ?? this.status,
-      content: content ?? this.content,
-      imageUrl: imageUrl ?? this.imageUrl,
-      mediaUrl: mediaUrl ?? this.mediaUrl,
-      videoProvider: videoProvider ?? this.videoProvider,
     );
   }
 
@@ -79,9 +63,5 @@ class Publication extends Equatable {
         updatedAt,
         type,
         status,
-        content,
-        imageUrl,
-        mediaUrl,
-        videoProvider,
       ];
 }

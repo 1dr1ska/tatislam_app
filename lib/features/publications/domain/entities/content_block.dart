@@ -86,9 +86,6 @@ class ImageContentBlock extends ContentBlock {
   /// For backward compatibility, get the first caption
   String? get caption => captions.first;
 
-  /// Whether this block represents a gallery (multiple images)
-  bool get isGallery => imagePaths.length > 1;
-
   ImageContentBlock copyWith({
     List<String>? imagePaths,
     List<String?>? captions,

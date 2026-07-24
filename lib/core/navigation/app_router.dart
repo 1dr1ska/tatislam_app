@@ -6,6 +6,7 @@ import 'package:tatislam_app/core/navigation/main_navigation.dart';
 import 'package:tatislam_app/features/about/presentation/screens/about_screen.dart';
 import 'package:tatislam_app/features/admin/presentation/screens/admin_screen.dart';
 import 'package:tatislam_app/features/admin/presentation/screens/publication_editor_screen.dart';
+import 'package:tatislam_app/features/admin/presentation/screens/section_editor_screen.dart';
 import 'package:tatislam_app/features/auth/presentation/screens/login_screen.dart';
 import 'package:tatislam_app/features/auth/presentation/screens/register_screen.dart';
 import 'package:tatislam_app/features/auth/providers/auth_provider.dart';
@@ -68,6 +69,19 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 builder: (context, state) {
                   final id = state.pathParameters['id']!;
                   return PublicationEditorScreen(publicationId: id);
+                },
+              ),
+              GoRoute(
+                path: 'sections/new',
+                name: 'newSection',
+                builder: (context, state) => const SectionEditorScreen(),
+              ),
+              GoRoute(
+                path: 'sections/:id/edit',
+                name: 'editSection',
+                builder: (context, state) {
+                  final id = state.pathParameters['id']!;
+                  return SectionEditorScreen(sectionId: id);
                 },
               ),
             ],

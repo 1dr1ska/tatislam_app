@@ -51,7 +51,6 @@ class PublicationRemoteDataSource {
           updatedAt: DateTime.now(),
           type: 'admin',
           status: 'published',
-          content: 'admin_access',
         );
         return [adminPublication];
       }

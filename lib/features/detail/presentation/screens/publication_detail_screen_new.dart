@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:tatislam_app/core/constants/app_colors.dart';
 import 'package:tatislam_app/core/constants/app_strings.dart';
-import 'package:tatislam_app/features/detail/presentation/screens/image_gallery_screen.dart';
 import 'package:tatislam_app/features/detail/presentation/screens/image_viewer_screen.dart';
 import 'package:tatislam_app/features/favorites/providers/favorites_provider.dart';
 import 'package:tatislam_app/features/publications/domain/entities/video_provider_type.dart';
@@ -600,91 +599,39 @@ class _PublicationDetailScreenState
   }
 
   Widget _buildImageContent(ImageContentBlock block, MediaStorageRepository mediaStorage) {
-    // Check if this is a gallery (multiple images) or single image
-    if (block.isGallery) {
-      // For galleries, show a grid of images that opens the gallery viewer
-      return Card(
-        margin: const EdgeInsets.only(bottom: 16),
-        elevation: 2,
-        child: Column(
-          children: [
-            // Show first image as a preview
-            GestureDetector(
-              onTap: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (context) => ImageGalleryScreen(
-                      imageUrls: block.imagePaths,
-                      captions: block.captions,
-                      initialIndex: 0,
-                    ),
+    return Card(
+      margin: const EdgeInsets.only(bottom: 16),
+      elevation: 2,
+      child: Column(
+        children: [
+          GestureDetector(
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (context) => ImageViewerScreen(
+                    imageUrl: mediaStorage.publicUrlFor(block.imagePath),
+                    caption: block.caption,
                   ),
-                );
-              },
-              child: CachedNetworkImage(
-                imageUrl: mediaStorage.publicUrlFor(block.imagePaths.first),
-                width: double.infinity,
-                fit: BoxFit.contain,
-                placeholder: (context, url) => const CircularProgressIndicator(),
-                errorWidget: (context, url, error) =>
-                    const Icon(Icons.image, size: 64),
-              ),
+                ),
+              );
+            },
+            child: CachedNetworkImage(
+              imageUrl: mediaStorage.publicUrlFor(block.imagePath),
+              width: double.infinity,
+              fit: BoxFit.contain,
+              placeholder: (context, url) => const CircularProgressIndicator(),
+              errorWidget: (context, url, error) =>
+                  const Icon(Icons.image, size: 64),
             ),
-            // Show indicator that there are more images
+          ),
+          if (block.caption != null && block.caption!.isNotEmpty)
             Padding(
               padding: const EdgeInsets.all(16),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text('${block.imagePaths.length} изображений'),
-                  const Icon(Icons.collections),
-                ],
-              ),
+              child: Text(block.caption!),
             ),
-            if (block.caption != null && block.caption!.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                child: Text(block.caption!),
-              ),
-          ],
-        ),
-      );
-    } else {
-      // For single images, show fullscreen viewer as before
-      return Card(
-        margin: const EdgeInsets.only(bottom: 16),
-        elevation: 2,
-        child: Column(
-          children: [
-            GestureDetector(
-              onTap: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (context) => ImageViewerScreen(
-                      imageUrl: block.imagePath,
-                      caption: block.caption,
-                    ),
-                  ),
-                );
-              },
-              child: CachedNetworkImage(
-                imageUrl: mediaStorage.publicUrlFor(block.imagePath),
-                width: double.infinity,
-                fit: BoxFit.contain,
-                placeholder: (context, url) => const CircularProgressIndicator(),
-                errorWidget: (context, url, error) =>
-                    const Icon(Icons.image, size: 64),
-              ),
-            ),
-            if (block.caption != null && block.caption!.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Text(block.caption!),
-              ),
-          ],
-        ),
-      );
-    }
+        ],
+      ),
+    );
   }
 
   Widget _buildContentBlock(ContentBlock block, MediaStorageRepository mediaStorage) {
@@ -792,19 +739,6 @@ class _PublicationDetailScreenState
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 16),
-
-                // Image (if exists)
-                if (publication.publication.imageUrl != null)
-                  CachedNetworkImage(
-                    imageUrl: publication.publication.imageUrl!,
-                    width: double.infinity,
-                    fit: BoxFit.contain,
-                    placeholder: (context, url) =>
-                        const CircularProgressIndicator(),
-                    errorWidget: (context, url, error) =>
-                        const Icon(Icons.image, size: 64),
-                  ),
-                const SizedBox(height: 24),
 
                 // Content blocks
                 ...publication.blocks.map((block) => _buildContentBlock(block, mediaStorage)),

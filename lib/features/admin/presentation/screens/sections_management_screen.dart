@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:tatislam_app/features/sections/data/section_providers.dart';
 import 'package:tatislam_app/features/sections/domain/entities/section.dart';
 
@@ -32,119 +33,17 @@ class _SectionsManagementScreenState extends ConsumerState<SectionsManagementScr
   }
 
   Future<void> _createSection() async {
-    final name = await _showCreateSectionDialog();
-    if (name != null && name.isNotEmpty) {
-      setState(() {
-        _isLoading = true;
-      });
-
-      try {
-        final repository = ref.read(sectionRepositoryProvider);
-        await repository.createSection(name);
-        await _refreshSections();
-        
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Раздел создан')),
-          );
-        }
-      } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Ошибка создания раздела: $e')),
-          );
-        }
-      } finally {
-        setState(() {
-          _isLoading = false;
-        });
-      }
+    final result = await context.push<bool>('/admin/sections/new');
+    if (result == true && mounted) {
+      _refreshSections();
     }
-  }
-
-  Future<String?> _showCreateSectionDialog() async {
-    final controller = TextEditingController();
-    return showDialog<String?>(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('Создать раздел'),
-          content: TextField(
-            controller: controller,
-            decoration: const InputDecoration(labelText: 'Название раздела'),
-            autofocus: true,
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Отмена'),
-            ),
-            ElevatedButton(
-              onPressed: () => Navigator.pop(context, controller.text),
-              child: const Text('Создать'),
-            ),
-          ],
-        );
-      },
-    );
   }
 
   Future<void> _renameSection(Section section) async {
-    final name = await _showRenameSectionDialog(section.name);
-    if (name != null && name.isNotEmpty && name != section.name) {
-      setState(() {
-        _isLoading = true;
-      });
-
-      try {
-        final repository = ref.read(sectionRepositoryProvider);
-        await repository.renameSection(section.id, name);
-        await _refreshSections();
-        
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Раздел переименован')),
-          );
-        }
-      } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Ошибка переименования раздела: $e')),
-          );
-        }
-      } finally {
-        setState(() {
-          _isLoading = false;
-        });
-      }
+    final result = await context.push<bool>('/admin/sections/${section.id}/edit');
+    if (result == true && mounted) {
+      _refreshSections();
     }
-  }
-
-  Future<String?> _showRenameSectionDialog(String currentName) async {
-    final controller = TextEditingController(text: currentName);
-    return showDialog<String?>(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('Переименовать раздел'),
-          content: TextField(
-            controller: controller,
-            decoration: const InputDecoration(labelText: 'Новое название'),
-            autofocus: true,
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Отмена'),
-            ),
-            ElevatedButton(
-              onPressed: () => Navigator.pop(context, controller.text),
-              child: const Text('Сохранить'),
-            ),
-          ],
-        );
-      },
-    );
   }
 
   Future<void> _setVisibility(Section section, bool isVisible) async {

@@ -6,7 +6,7 @@ import 'package:tatislam_app/core/constants/app_colors.dart';
 import 'package:tatislam_app/features/publications/domain/entities/publication.dart';
 import 'package:tatislam_app/features/favorites/providers/favorites_provider.dart';
 import 'package:tatislam_app/features/favorites/data/favorites_providers.dart';
-import 'package:tatislam_app/features/catalog/providers/catalog_favorites_provider.dart';
+import 'package:tatislam_app/features/catalog/presentation/providers/catalog_favorites_provider.dart';
 
 class FavoritesScreen extends ConsumerWidget {
   const FavoritesScreen({super.key});

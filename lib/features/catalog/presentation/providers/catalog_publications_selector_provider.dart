@@ -1,6 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:tatislam_app/features/publications/domain/entities/publication.dart';
-import 'package:tatislam_app/features/catalog/providers/catalog_favorites_provider.dart';
+import 'package:tatislam_app/features/catalog/presentation/providers/catalog_favorites_provider.dart';
 import 'package:tatislam_app/features/catalog/domain/entities/catalog_mode.dart';
 import 'package:tatislam_app/features/catalog/presentation/providers/catalog_mode_provider.dart';
 import 'package:tatislam_app/features/catalog/presentation/providers/selected_section_provider.dart';

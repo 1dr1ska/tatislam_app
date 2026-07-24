@@ -1,0 +1,4 @@
+enum CatalogMode {
+  all,
+  favorites,
+}

@@ -1,0 +1,104 @@
+name: tatislam_app
+description: "A Flutter app for TatIslam content platform."
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.12.2
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  cupertino_icons: ^1.0.8
+  
+  # State Management
+  flutter_riverpod: ^3.3.2
+  riverpod_annotation: ^4.0.3
+  
+  # Equatable for value comparison
+  equatable: ^2.0.5
+  
+  # Navigation
+  go_router: ^17.3.0
+  
+  # Backend & Database
+  supabase_flutter: ^2.3.4
+  
+  # Local Storage (Hive for offline cache)
+  hive: ^2.2.3
+  hive_flutter: ^1.1.0
+  
+  # Audio
+  just_audio: ^0.10.6
+  audio_session: ^0.2.4
+  
+  # Video
+  video_player: ^2.8.2
+  chewie: ^1.7.0
+  # youtube_player_flutter: ^9.1.3 - removed due to flutter_inappwebview dependency
+  
+  # UI & Network
+  cached_network_image: ^3.3.1
+  image_picker: ^1.0.7
+  url_launcher: ^6.2.6
+  share_plus: ^10.1.2
+
+  # Embedded video playback (YouTube/RuTube/VK iframe embeds)
+  webview_flutter: ^4.10.0
+
+  # UUID for file naming
+  uuid: ^4.3.3
+
+  
+  # Localization
+  intl: ^0.20.2
+  flutter_localizations:
+    sdk: flutter
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  flutter_lints: ^6.0.0
+  
+  # Code generation
+  riverpod_generator: ^4.0.4
+  build_runner: ^2.4.8
+
+  
+  # Launcher icons for app icon
+  flutter_launcher_icons: ^0.14.4
+  
+  # Mocking for tests
+  mockito: ^5.4.4
+
+flutter:
+  uses-material-design: true
+
+  # Assets for images
+  assets:
+    - assets/images/
+
+# Flutter Launcher Icons configuration
+flutter_launcher_icons:
+  android: true
+  ios: true
+  web:
+    generate: true
+    image_path: "assets/images/app_icon.png"
+    background_color: "#FFFFFF"
+    theme_color: "#FFFFFF"
+  windows:
+    generate: true
+    image_path: "assets/images/app_icon.png"
+    icon_size: 256
+  macos:
+    generate: true
+    image_path: "assets/images/app_icon.png"
+  linux:
+    enabled: true
+  image_path: "assets/images/app_icon.png"
+  adaptive_icon_background: "#FFFFFF"
+  adaptive_icon_foreground: "assets/images/app_icon.png"

@@ -911,6 +911,10 @@ class _PublicationEditorScreenState extends ConsumerState<PublicationEditorScree
               ),
               items: const [
                 DropdownMenuItem(
+                  value: VideoProviderType.youtube,
+                  child: Text('YouTube'),
+                ),
+                DropdownMenuItem(
                   value: VideoProviderType.rutube,
                   child: Text('RuTube'),
                 ),

@@ -6,6 +6,8 @@ import 'package:tatislam_app/core/constants/app_colors.dart';
 import 'package:tatislam_app/features/auth/providers/auth_provider.dart';
 import 'package:tatislam_app/features/publications/domain/entities/publication.dart';
 import 'package:tatislam_app/features/search/providers/search_provider.dart';
+import 'package:tatislam_app/features/favorites/providers/favorites_provider.dart';
+import 'package:tatislam_app/features/catalog/presentation/providers/catalog_favorites_provider.dart';
 import 'package:tatislam_app/core/storage/storage_providers.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 
@@ -174,6 +176,10 @@ class _PublicationCard extends ConsumerWidget {
     // Watch the auth state to determine if user is admin
     final authState = ref.watch(authStateProvider);
     final mediaStorage = ref.watch(mediaStorageRepositoryProvider);
+    final isSpecialAdminCard = publication.id == 'admin_access';
+    final isFavorite = !isSpecialAdminCard
+        ? ref.watch(favoritesIsFavoriteProvider(publication.id))
+        : false;
     
     return GestureDetector(
       onTap: () {
@@ -226,28 +232,30 @@ class _PublicationCard extends ConsumerWidget {
                     // Cover image
                     ClipRRect(
                       borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-                      child: Container(
-                        height: 120,
-                        color: isSpecialAdminCard 
-                          ? (isAdmin ? Colors.green.withValues(alpha: 0.1) : Colors.orange.withValues(alpha: 0.1))
-                          : AppColors.primary.withValues(alpha: 0.1),
-                        child: publication.coverImagePath.isNotEmpty
-                            ? CachedNetworkImage(
-                                imageUrl: mediaStorage.publicUrlFor(publication.coverImagePath),
-                                fit: BoxFit.cover,
-                                placeholder: (context, url) => const CircularProgressIndicator(),
-                                errorWidget: (context, url, error) => 
-                                  const Icon(Icons.image_not_supported, size: 32),
-                              )
-                            : Icon(
-                                isSpecialAdminCard 
-                                  ? Icons.admin_panel_settings 
-                                  : Icons.image, 
-                                size: 32, 
-                                color: isSpecialAdminCard 
-                                  ? (isAdmin ? Colors.green : Colors.orange)
-                                  : AppColors.primary
-                              ),
+                      child: AspectRatio(
+                        aspectRatio: 16 / 9,
+                        child: Container(
+                          color: isSpecialAdminCard 
+                            ? (isAdmin ? Colors.green.withValues(alpha: 0.1) : Colors.orange.withValues(alpha: 0.1))
+                            : AppColors.primary.withValues(alpha: 0.1),
+                          child: publication.coverImagePath.isNotEmpty
+                              ? CachedNetworkImage(
+                                  imageUrl: mediaStorage.publicUrlFor(publication.coverImagePath),
+                                  fit: BoxFit.cover,
+                                  placeholder: (context, url) => const Center(child: CircularProgressIndicator()),
+                                  errorWidget: (context, url, error) => 
+                                    const Center(child: Icon(Icons.image_not_supported, size: 32)),
+                                )
+                              : Center(child: Icon(
+                                  isSpecialAdminCard 
+                                    ? Icons.admin_panel_settings 
+                                    : Icons.image, 
+                                  size: 32, 
+                                  color: isSpecialAdminCard 
+                                    ? (isAdmin ? Colors.green : Colors.orange)
+                                    : AppColors.primary
+                                )),
+                        ),
                       ),
                     ),
                     Padding(
@@ -276,7 +284,25 @@ class _PublicationCard extends ConsumerWidget {
                                 _formatDate(publication.publishedAt),
                                 style: Theme.of(context).textTheme.bodySmall,
                               ),
-                              const Icon(Icons.favorite_border, size: 16),
+                              if (isSpecialAdminCard)
+                                Icon(Icons.admin_panel_settings, size: 16, color: AppColors.primary)
+                              else
+                                IconButton(
+                                  icon: Icon(
+                                    isFavorite ? Icons.star : Icons.star_border,
+                                    color: isFavorite ? Colors.amber : null,
+                                  ),
+                                  onPressed: () async {
+                                    final toggleFavorite = ref.read(toggleFavoriteProvider);
+                                    await toggleFavorite(publication.id);
+                                    Future.microtask(() {
+                                      ref.invalidate(favoritesProvider);
+                                      ref.invalidate(catalogFavoritesProvider);
+                                    });
+                                  },
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints(),
+                                ),
                             ],
                           ),
                         ],

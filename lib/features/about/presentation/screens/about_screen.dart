@@ -1,16 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:tatislam_app/core/constants/app_colors.dart';
 import 'package:tatislam_app/core/constants/app_strings.dart';
+import 'package:tatislam_app/features/auth/providers/auth_provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-class AboutScreen extends StatefulWidget {
+class AboutScreen extends ConsumerStatefulWidget {
   const AboutScreen({super.key});
 
   @override
-  State<AboutScreen> createState() => _AboutScreenState();
+  ConsumerState<AboutScreen> createState() => _AboutScreenState();
 }
 
-class _AboutScreenState extends State<AboutScreen> {
+class _AboutScreenState extends ConsumerState<AboutScreen> {
 
   Future<void> _launchUrl(BuildContext context, String url) async {
     final uri = Uri.parse(url);
@@ -32,18 +35,26 @@ class _AboutScreenState extends State<AboutScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // App Icon at the top
+          // App Icon at the top — tap to open admin if authorized
           Center(
-            child: Container(
-              width: 120,
-              height: 120,
-              decoration: const BoxDecoration(
-                shape: BoxShape.circle,
-              ),
-              child: const CircleAvatar(
-                radius: 56,
-                backgroundColor: Colors.black,
-                backgroundImage: AssetImage('assets/images/app_icon.png'),
+            child: GestureDetector(
+              onTap: () {
+                final isAdmin = ref.read(isAdminProvider);
+                if (isAdmin) {
+                  GoRouter.of(context).go('/admin');
+                }
+              },
+              child: Container(
+                width: 120,
+                height: 120,
+                decoration: const BoxDecoration(
+                  shape: BoxShape.circle,
+                ),
+                child: const CircleAvatar(
+                  radius: 56,
+                  backgroundColor: Colors.black,
+                  backgroundImage: AssetImage('assets/images/app_icon.png'),
+                ),
               ),
             ),
           ),
@@ -99,10 +110,10 @@ class _AboutScreenState extends State<AboutScreen> {
           ),
           _buildFeatureItem(
             context,
-            Icons.favorite,
+            Icons.star,
             'Сайланганнар',
             'Язмаларны соңрак уку өчен саклагыз',
-            AppColors.navFavorites,
+            Colors.amber,
           ),
           const SizedBox(height: 32),
 

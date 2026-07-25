@@ -215,7 +215,7 @@ class _CatalogScreenState extends ConsumerState<CatalogScreen> {
             crossAxisCount: 2,
             crossAxisSpacing: 16,
             mainAxisSpacing: 16,
-            childAspectRatio: 1.5,
+            childAspectRatio: 0.85,
           ),
           itemCount: publications.length,
           padding: const EdgeInsets.all(16),
@@ -286,18 +286,20 @@ class _PublicationCard extends ConsumerWidget {
                     // Cover image
                     ClipRRect(
                       borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-                      child: Container(
-                        height: 80,
-                        color: AppColors.primary.withValues(alpha: 0.1),
-                        child: publication.coverImagePath.isNotEmpty
-                            ? CachedNetworkImage(
-                                imageUrl: mediaStorage.publicUrlFor(publication.coverImagePath),
-                                fit: BoxFit.cover,
-                                placeholder: (context, url) => const CircularProgressIndicator(),
-                                errorWidget: (context, url, error) => 
-                                  const Icon(Icons.image_not_supported, size: 32),
-                              )
-                            : const Icon(Icons.image, size: 32, color: AppColors.primary),
+                      child: AspectRatio(
+                        aspectRatio: 16 / 9,
+                        child: Container(
+                          color: AppColors.primary.withValues(alpha: 0.1),
+                          child: publication.coverImagePath.isNotEmpty
+                              ? CachedNetworkImage(
+                                  imageUrl: mediaStorage.publicUrlFor(publication.coverImagePath),
+                                  fit: BoxFit.cover,
+                                  placeholder: (context, url) => const Center(child: CircularProgressIndicator()),
+                                  errorWidget: (context, url, error) => 
+                                    const Center(child: Icon(Icons.image_not_supported, size: 32)),
+                                )
+                              : const Center(child: Icon(Icons.image, size: 32, color: AppColors.primary)),
+                        ),
                       ),
                     ),
                     Padding(
@@ -318,7 +320,8 @@ class _PublicationCard extends ConsumerWidget {
                             children: [
                               IconButton(
                                 icon: Icon(
-                                  isFavorite ? Icons.favorite : Icons.favorite_border,
+                                  isFavorite ? Icons.star : Icons.star_border,
+                                  color: isFavorite ? Colors.amber : null,
                                 ),
                                 onPressed: () async {
                                   final toggleFavorite = ref.read(toggleFavoriteProvider);

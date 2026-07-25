@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:share_plus/share_plus.dart';
 import 'package:tatislam_app/core/constants/app_strings.dart';
 import 'package:tatislam_app/core/constants/app_colors.dart';
 import 'package:tatislam_app/features/home/providers/home_provider.dart';
 import 'package:tatislam_app/features/home/data/home_providers.dart';
 import 'package:tatislam_app/features/home/domain/entities/home_layout_mode.dart';
 import 'package:tatislam_app/features/publications/domain/entities/publication.dart';
+import 'package:tatislam_app/features/favorites/providers/favorites_provider.dart';
+import 'package:tatislam_app/features/catalog/presentation/providers/catalog_favorites_provider.dart';
 import 'package:tatislam_app/core/storage/storage_providers.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 
@@ -143,7 +144,7 @@ class HomeScreen extends ConsumerWidget {
             crossAxisCount: 2,
             crossAxisSpacing: 16,
             mainAxisSpacing: 16,
-            childAspectRatio: 1.5,
+            childAspectRatio: 0.85,
           ),
       itemCount: publications.length,
       itemBuilder: (context, index) {
@@ -159,20 +160,10 @@ class _FeedCard extends ConsumerWidget {
 
   const _FeedCard({required this.publication});
 
-  void _sharePublication(BuildContext context, Publication publication) {
-    final String shareText = 
-        'Посмотрите эту публикацию: ${publication.title}\n\n'
-        '#TatIslam #Публикации';
-
-    Share.share(
-      shareText,
-      subject: 'Поделиться публикацией: ${publication.title}',
-    );
-  }
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final mediaStorage = ref.watch(mediaStorageRepositoryProvider);
+    final isFavorite = ref.watch(favoritesIsFavoriteProvider(publication.id));
     
     return GestureDetector(
       onTap: () {
@@ -191,18 +182,20 @@ class _FeedCard extends ConsumerWidget {
             // Cover image
             ClipRRect(
               borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-              child: Container(
-                height: 200,
-                color: AppColors.primary.withValues(alpha: 0.1),
-                child: publication.coverImagePath.isNotEmpty
-                    ? CachedNetworkImage(
-                        imageUrl: mediaStorage.publicUrlFor(publication.coverImagePath),
-                        fit: BoxFit.cover,
-                        placeholder: (context, url) => const CircularProgressIndicator(),
-                        errorWidget: (context, url, error) => 
-                          const Icon(Icons.image_not_supported, size: 48),
-                      )
-                    : const Icon(Icons.image, size: 48, color: AppColors.primary),
+              child: AspectRatio(
+                aspectRatio: 16 / 9,
+                child: Container(
+                  color: AppColors.primary.withValues(alpha: 0.1),
+                  child: publication.coverImagePath.isNotEmpty
+                      ? CachedNetworkImage(
+                          imageUrl: mediaStorage.publicUrlFor(publication.coverImagePath),
+                          fit: BoxFit.cover,
+                          placeholder: (context, url) => const Center(child: CircularProgressIndicator()),
+                          errorWidget: (context, url, error) => 
+                            const Center(child: Icon(Icons.image_not_supported, size: 48)),
+                        )
+                      : const Center(child: Icon(Icons.image, size: 48, color: AppColors.primary)),
+                ),
               ),
             ),
             Padding(
@@ -211,14 +204,6 @@ class _FeedCard extends ConsumerWidget {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Section chips
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      // TODO: Add section chips
-                      const SizedBox(height: 8),
-                    ],
-                  ),
                   // Title
                   Text(
                     publication.title,
@@ -226,17 +211,23 @@ class _FeedCard extends ConsumerWidget {
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(height: 8),
                   const SizedBox(height: 12),
                   // Actions
                   Row(
                     mainAxisAlignment: MainAxisAlignment.end,
                     children: [
                       IconButton(
-                        icon: const Icon(Icons.share),
-                        onPressed: () {
-                          // TODO: Implement share functionality
-                          _sharePublication(context, publication);
+                        icon: Icon(
+                          isFavorite ? Icons.star : Icons.star_border,
+                          color: isFavorite ? Colors.amber : null,
+                        ),
+                        onPressed: () async {
+                          final toggleFavorite = ref.read(toggleFavoriteProvider);
+                          await toggleFavorite(publication.id);
+                          Future.microtask(() {
+                            ref.invalidate(favoritesProvider);
+                            ref.invalidate(catalogFavoritesProvider);
+                          });
                         },
                       ),
                     ],
@@ -259,6 +250,7 @@ class _CardGridItem extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final mediaStorage = ref.watch(mediaStorageRepositoryProvider);
+    final isFavorite = ref.watch(favoritesIsFavoriteProvider(publication.id));
     
     return GestureDetector(
       onTap: () {
@@ -281,18 +273,20 @@ class _CardGridItem extends ConsumerWidget {
                     // Cover image
                     ClipRRect(
                       borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-                      child: Container(
-                        height: 80,
-                        color: AppColors.primary.withValues(alpha: 0.1),
-                        child: publication.coverImagePath.isNotEmpty
-                            ? CachedNetworkImage(
-                                imageUrl: mediaStorage.publicUrlFor(publication.coverImagePath),
-                                fit: BoxFit.cover,
-                                placeholder: (context, url) => const CircularProgressIndicator(),
-                                errorWidget: (context, url, error) => 
-                                  const Icon(Icons.image_not_supported, size: 32),
-                              )
-                            : const Icon(Icons.image, size: 32, color: AppColors.primary),
+                      child: AspectRatio(
+                        aspectRatio: 16 / 9,
+                        child: Container(
+                          color: AppColors.primary.withValues(alpha: 0.1),
+                          child: publication.coverImagePath.isNotEmpty
+                              ? CachedNetworkImage(
+                                  imageUrl: mediaStorage.publicUrlFor(publication.coverImagePath),
+                                  fit: BoxFit.cover,
+                                  placeholder: (context, url) => const Center(child: CircularProgressIndicator()),
+                                  errorWidget: (context, url, error) => 
+                                    const Center(child: Icon(Icons.image_not_supported, size: 32)),
+                                )
+                              : const Center(child: Icon(Icons.image, size: 32, color: AppColors.primary)),
+                        ),
                       ),
                     ),
                     Padding(
@@ -312,7 +306,22 @@ class _CardGridItem extends ConsumerWidget {
                           Row(
                             mainAxisAlignment: MainAxisAlignment.end,
                             children: [
-                              const Icon(Icons.favorite_border, size: 16),
+                              IconButton(
+                                icon: Icon(
+                                  isFavorite ? Icons.star : Icons.star_border,
+                                  color: isFavorite ? Colors.amber : null,
+                                ),
+                                onPressed: () async {
+                                  final toggleFavorite = ref.read(toggleFavoriteProvider);
+                                  await toggleFavorite(publication.id);
+                                  Future.microtask(() {
+                                    ref.invalidate(favoritesProvider);
+                                    ref.invalidate(catalogFavoritesProvider);
+                                  });
+                                },
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(),
+                              ),
                             ],
                           ),
                         ],

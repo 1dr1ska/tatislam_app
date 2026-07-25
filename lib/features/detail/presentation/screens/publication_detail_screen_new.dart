@@ -49,19 +49,14 @@ class _PublicationDetailScreenState
 
     if (asyncPublication != null && mounted) {
       final favoritesAsync = ref.read(favoritesProvider);
-      favoritesAsync.when(
-        data: (favorites) {
-          final isFav =
-              favorites.any((p) => p.id == asyncPublication.publication.id);
-          if (mounted) {
-            setState(() {
-              _isFavorite = isFav;
-            });
-          }
-        },
-        loading: () {},
-        error: (error, stackTrace) {},
-      );
+      final favorites = favoritesAsync.asData?.value ?? [];
+      final isFav =
+          favorites.any((p) => p.id == asyncPublication.publication.id);
+      if (mounted) {
+        setState(() {
+          _isFavorite = isFav;
+        });
+      }
     }
   }
 
@@ -73,6 +68,10 @@ class _PublicationDetailScreenState
         _isFavorite = newFavoriteState;
       });
     }
+    // Invalidate favorites cache so other screens stay in sync
+    Future.microtask(() {
+      ref.invalidate(favoritesProvider);
+    });
   }
 
   /// Safely navigate back, falling back to go to home if pop fails.
@@ -145,7 +144,10 @@ class _PublicationDetailScreenState
         title: Text(AppStrings.catalogTab),
         actions: [
           IconButton(
-            icon: Icon(_isFavorite ? Icons.favorite : Icons.favorite_border),
+            icon: Icon(
+              _isFavorite ? Icons.star : Icons.star_border,
+              color: _isFavorite ? Colors.amber : null,
+            ),
             onPressed: _toggleFavorite,
           ),
         ],

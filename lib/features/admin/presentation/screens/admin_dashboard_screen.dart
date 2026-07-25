@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:tatislam_app/features/admin/presentation/screens/publications_list_screen.dart';
 import 'package:tatislam_app/features/admin/presentation/screens/sections_management_screen.dart';
-import 'package:tatislam_app/features/auth/providers/auth_provider.dart';
 
 class AdminDashboardScreen extends ConsumerStatefulWidget {
   const AdminDashboardScreen({super.key});
@@ -33,13 +32,9 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
         title: const Text('Панель администратора'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: () async {
-              final signOut = ref.read(signOutProvider);
-              await signOut();
-              if (context.mounted) {
-                context.go('/');
-              }
+            icon: const Icon(Icons.home),
+            onPressed: () {
+              context.go('/');
             },
           ),
         ],

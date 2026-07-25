@@ -17,6 +17,9 @@ import 'package:tatislam_app/features/search/presentation/screens/search_screen.
 
 /// App router configuration using go_router with ShellRoute for bottom navigation
 final appRouterProvider = Provider<GoRouter>((ref) {
+  // Watch current user to make redirect reactive when session resolves
+  ref.watch(currentUserProvider);
+  
   return GoRouter(
     routes: [
       // Login route (outside shell)
@@ -44,12 +47,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 }
                 
                 final container = ProviderScope.containerOf(context);
-                final authState = container.read(authStateProvider);
+                final userAsync = container.read(currentUserProvider);
                 
-                // If auth state is loading or error, redirect to login
-                return authState.when(
+                // Wait for the future to resolve before deciding
+                return userAsync.when(
                   data: (user) => (user?.isAdmin ?? false) ? null : '/login',
-                  loading: () => '/login',
+                  loading: () => null, // Don't redirect yet — wait for Supabase to restore session
                   error: (error, stackTrace) => '/login',
                 );
               } catch (e) {

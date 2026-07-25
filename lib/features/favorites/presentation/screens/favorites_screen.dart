@@ -144,17 +144,19 @@ class _PublicationCard extends StatelessWidget {
                 // Cover image
                 ClipRRect(
                   borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-                  child: Container(
-                    height: 120,
-                    color: AppColors.primary.withValues(alpha: 0.1),
-                    child: publication.coverImagePath.isNotEmpty
-                        ? Image.network(
-                            publication.coverImagePath,
-                            fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) => 
-                              const Icon(Icons.image_not_supported, size: 32),
-                          )
-                        : const Icon(Icons.image, size: 32, color: AppColors.primary),
+                  child: AspectRatio(
+                    aspectRatio: 16 / 9,
+                    child: Container(
+                      color: AppColors.primary.withValues(alpha: 0.1),
+                      child: publication.coverImagePath.isNotEmpty
+                          ? Image.network(
+                              publication.coverImagePath,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) => 
+                                const Center(child: Icon(Icons.image_not_supported, size: 32)),
+                            )
+                          : const Center(child: Icon(Icons.image, size: 32, color: AppColors.primary)),
+                    ),
                   ),
                 ),
                 Padding(
@@ -178,7 +180,7 @@ class _PublicationCard extends StatelessWidget {
                             style: Theme.of(context).textTheme.bodySmall,
                           ),
                           IconButton(
-                            icon: const Icon(Icons.favorite),
+                            icon: const Icon(Icons.star, color: Colors.amber),
                             onPressed: onRemoveFavorite,
                             padding: EdgeInsets.zero,
                             constraints: const BoxConstraints(),

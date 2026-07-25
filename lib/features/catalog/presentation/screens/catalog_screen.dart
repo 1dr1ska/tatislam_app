@@ -254,6 +254,19 @@ class _PublicationCard extends ConsumerWidget {
 
   const _PublicationCard({required this.publication});
 
+  String _formatDate(DateTime date) {
+    final now = DateTime.now();
+    final diff = now.difference(date);
+
+    if (diff.inMinutes < 60) {
+      return '${diff.inMinutes} мин. элек';
+    } else if (diff.inHours < 24) {
+      return '${diff.inHours} сәг. элек';
+    } else {
+      return '${diff.inDays} көн элек';
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final isFavorite = ref.watch(favoritesIsFavoriteProvider(publication.id));
@@ -313,11 +326,14 @@ class _PublicationCard extends ConsumerWidget {
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                           ),
-                          const SizedBox(height: 4),
                           const SizedBox(height: 8),
                           Row(
-                            mainAxisAlignment: MainAxisAlignment.end,
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
+                              Text(
+                                _formatDate(publication.publishedAt),
+                                style: Theme.of(context).textTheme.bodySmall,
+                              ),
                               IconButton(
                                 icon: Icon(
                                   isFavorite ? Icons.star : Icons.star_border,

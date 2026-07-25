@@ -308,17 +308,4 @@ class _SectionsManagementScreenState extends ConsumerState<SectionsManagementScr
     );
   }
 
-  Future<void> _updateSectionOrder(List<Section> sections) async {
-    try {
-      final repository = ref.read(sectionRepositoryProvider);
-      final orderedIds = sections.map((s) => s.id).toList();
-      await repository.reorderSections(orderedIds);
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Ошибка сохранения порядка: $e')),
-        );
-      }
-    }
-  }
 }

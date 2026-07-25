@@ -4,8 +4,6 @@ import 'package:go_router/go_router.dart';
 import 'package:tatislam_app/features/publications/data/publication_providers.dart';
 import 'package:tatislam_app/features/publications/domain/entities/publication.dart';
 import 'package:tatislam_app/core/constants/app_colors.dart';
-import 'dart:math';
-
 class PublicationsListScreen extends ConsumerStatefulWidget {
   const PublicationsListScreen({super.key});
 

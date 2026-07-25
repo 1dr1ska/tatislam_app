@@ -7,6 +7,9 @@ class AdminScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return const AdminDashboardScreen();
+    return const PopScope(
+      canPop: false,
+      child: AdminDashboardScreen(),
+    );
   }
 }

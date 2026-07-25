@@ -106,51 +106,51 @@ class _SectionEditorScreenState extends ConsumerState<SectionEditorScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text(_isEditing ? 'Редактировать раздел' : 'Создать раздел'),
-        actions: [
-          TextButton(
-            onPressed: _isSaving ? null : _save,
-            child: _isSaving
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Text('Сохранить'),
-          ),
-        ],
-      ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  TextField(
-                    controller: _nameController,
-                    decoration: const InputDecoration(
-                      labelText: 'Название раздела',
-                      border: OutlineInputBorder(),
-                    ),
-                    autofocus: !_isEditing,
-                    textCapitalization: TextCapitalization.sentences,
-                  ),
-                  if (_isEditing) ...[
-                    const SizedBox(height: 24),
-                    SwitchListTile(
-                      title: const Text('Отображать раздел'),
-                      subtitle: const Text('Если выключено, раздел будет скрыт из каталога'),
-                      value: _isVisible ?? true,
-                      onChanged: (value) {
-                        setState(() => _isVisible = value);
-                      },
-                    ),
-                  ],
-                ],
-              ),
+        appBar: AppBar(
+          title: Text(_isEditing ? 'Редактировать раздел' : 'Создать раздел'),
+          actions: [
+            TextButton(
+              onPressed: _isSaving ? null : _save,
+              child: _isSaving
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Text('Сохранить'),
             ),
+          ],
+        ),
+        body: _isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    TextField(
+                      controller: _nameController,
+                      decoration: const InputDecoration(
+                        labelText: 'Название раздела',
+                        border: OutlineInputBorder(),
+                      ),
+                      autofocus: !_isEditing,
+                      textCapitalization: TextCapitalization.sentences,
+                    ),
+                    if (_isEditing) ...[
+                      const SizedBox(height: 24),
+                      SwitchListTile(
+                        title: const Text('Отображать раздел'),
+                        subtitle: const Text('Если выключено, раздел будет скрыт из каталога'),
+                        value: _isVisible ?? true,
+                        onChanged: (value) {
+                          setState(() => _isVisible = value);
+                        },
+                      ),
+                    ],
+                  ],
+                ),
+      ),
     );
   }
 }

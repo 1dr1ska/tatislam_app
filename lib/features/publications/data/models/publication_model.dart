@@ -31,13 +31,13 @@ class PublicationModel {
       description: json['description'] as String? ?? '',
       coverImagePath: json['cover_image_path'] as String? ?? '',
       publishedAt: json['published_at'] != null 
-          ? DateTime.parse(json['published_at'] as String) 
+          ? (DateTime.parse(json['published_at'] as String).toLocal())
           : DateTime.now(),
       createdAt: json['created_at'] != null 
-          ? DateTime.parse(json['created_at'] as String) 
+          ? (DateTime.parse(json['created_at'] as String).toLocal())
           : DateTime.now(),
       updatedAt: json['updated_at'] != null 
-          ? DateTime.parse(json['updated_at'] as String) 
+          ? (DateTime.parse(json['updated_at'] as String).toLocal())
           : DateTime.now(),
       type: json['type'] as String? ?? 'article',
       status: json['status'] as String?,
@@ -48,7 +48,7 @@ class PublicationModel {
         'title': title,
         'description': description,
         'cover_image_path': coverImagePath,
-        'published_at': publishedAt.toIso8601String(),
+        'published_at': publishedAt.toUtc().toIso8601String(),
         'type': type,
         if (status != null) 'status': status,
       };

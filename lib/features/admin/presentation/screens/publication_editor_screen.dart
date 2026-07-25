@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:tatislam_app/features/publications/data/publication_providers.dart';
 import 'package:tatislam_app/features/publications/domain/entities/publication_detail.dart';
 import 'package:tatislam_app/features/publications/domain/entities/content_block.dart';
@@ -414,17 +415,23 @@ class _PublicationEditorScreenState extends ConsumerState<PublicationEditorScree
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.publicationId == null ? 'Новая публикация' : 'Редактировать публикацию'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.save),
-            onPressed: _isSaving ? null : _savePublication,
+    return PopScope(
+      canPop: false,
+      child: Scaffold(
+        appBar: AppBar(
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back),
+            onPressed: () => context.go('/admin'),
           ),
-        ],
-      ),
-      body: FutureBuilder<PublicationDetail?>(
+          title: Text(widget.publicationId == null ? 'Новая публикация' : 'Редактировать публикацию'),
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.save),
+              onPressed: _isSaving ? null : _savePublication,
+            ),
+          ],
+        ),
+        body: FutureBuilder<PublicationDetail?>(
         future: _publicationFuture,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
@@ -666,6 +673,7 @@ class _PublicationEditorScreenState extends ConsumerState<PublicationEditorScree
             ),
           );
         },
+      ),
       ),
     );
   }

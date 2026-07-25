@@ -160,6 +160,19 @@ class _FeedCard extends ConsumerWidget {
 
   const _FeedCard({required this.publication});
 
+  String _formatDate(DateTime date) {
+    final now = DateTime.now();
+    final diff = now.difference(date);
+
+    if (diff.inMinutes < 60) {
+      return '${diff.inMinutes} мин. элек';
+    } else if (diff.inHours < 24) {
+      return '${diff.inHours} сәг. элек';
+    } else {
+      return '${diff.inDays} көн элек';
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final mediaStorage = ref.watch(mediaStorageRepositoryProvider);
@@ -211,11 +224,15 @@ class _FeedCard extends ConsumerWidget {
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 8),
                   // Actions
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
+                      Text(
+                        _formatDate(publication.publishedAt),
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
                       IconButton(
                         icon: Icon(
                           isFavorite ? Icons.star : Icons.star_border,
@@ -246,6 +263,19 @@ class _CardGridItem extends ConsumerWidget {
   final Publication publication;
 
   const _CardGridItem({required this.publication});
+
+  String _formatDate(DateTime date) {
+    final now = DateTime.now();
+    final diff = now.difference(date);
+
+    if (diff.inMinutes < 60) {
+      return '${diff.inMinutes} мин. элек';
+    } else if (diff.inHours < 24) {
+      return '${diff.inHours} сәг. элек';
+    } else {
+      return '${diff.inDays} көн элек';
+    }
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -301,11 +331,14 @@ class _CardGridItem extends ConsumerWidget {
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                           ),
-                          const SizedBox(height: 4),
                           const SizedBox(height: 8),
                           Row(
-                            mainAxisAlignment: MainAxisAlignment.end,
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
+                              Text(
+                                _formatDate(publication.publishedAt),
+                                style: Theme.of(context).textTheme.bodySmall,
+                              ),
                               IconButton(
                                 icon: Icon(
                                   isFavorite ? Icons.star : Icons.star_border,

@@ -189,7 +189,7 @@ class _PublicationCard extends ConsumerWidget {
           final isAdmin = authState.when(
             data: (user) => user?.isAdmin ?? false,
             loading: () => false,
-            error: (_, __) => false,
+            error: (_, _) => false,
           );
           
           if (isAdmin) {
@@ -217,7 +217,7 @@ class _PublicationCard extends ConsumerWidget {
             final isAdmin = authState.when(
               data: (user) => user?.isAdmin ?? false,
               loading: () => false,
-              error: (_, __) => false,
+              error: (_, _) => false,
             );
             
             final isSpecialAdminCard = publication.id == 'admin_access';

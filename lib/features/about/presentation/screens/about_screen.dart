@@ -30,6 +30,7 @@ class _AboutScreenState extends ConsumerState<AboutScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isAdmin = ref.watch(isAdminProvider);
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -39,7 +40,6 @@ class _AboutScreenState extends ConsumerState<AboutScreen> {
           Center(
             child: GestureDetector(
               onTap: () {
-                final isAdmin = ref.read(isAdminProvider);
                 if (isAdmin) {
                   GoRouter.of(context).go('/admin');
                 }

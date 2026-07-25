@@ -92,10 +92,48 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       // Main app routes with bottom navigation
       ShellRoute(
         builder: (context, state, child) => StatefulBuilder(
-          builder: (context, setState) => Scaffold(
-            body: child,
-            bottomNavigationBar: MainNavigation(setState: setState),
-          ),
+          builder: (context, setState) {
+            return PopScope(
+              canPop: false,
+              onPopInvokedWithResult: (didPop, result) {
+                if (!didPop) {
+                  final location = state.matchedLocation;
+                  if (location.startsWith('/publication/')) {
+                    final uri = Uri.parse(location);
+                    final source = uri.queryParameters['source'];
+                    final section = uri.queryParameters['section'];
+                    final mode = uri.queryParameters['mode'];
+                    
+                    switch (source) {
+                      case 'catalog':
+                        String route = '/catalog';
+                        if (section != null && section.isNotEmpty) {
+                          route += '?section=$section';
+                        }
+                        if (mode != null && mode.isNotEmpty) {
+                          route += '${route.contains('?') ? '&' : '?'}mode=$mode';
+                        }
+                        context.go(route);
+                        break;
+                      case 'search':
+                        context.go('/search');
+                        break;
+                      case 'favorites':
+                        context.go('/favorites');
+                        break;
+                      default:
+                        context.go('/');
+                    }
+                  }
+                  // на табах — ничего, приложение не закрывается
+                }
+              },
+              child: Scaffold(
+                body: child,
+                bottomNavigationBar: MainNavigation(setState: setState),
+              ),
+            );
+          },
         ),
         routes: [
           GoRoute(

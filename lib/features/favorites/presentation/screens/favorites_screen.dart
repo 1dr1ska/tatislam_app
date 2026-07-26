@@ -151,7 +151,7 @@ class _PublicationCard extends StatelessWidget {
                       child: publication.coverImagePath.isNotEmpty
                           ? Image.network(
                               publication.coverImagePath,
-                              fit: BoxFit.cover,
+                              fit: BoxFit.contain,
                               errorBuilder: (context, error, stackTrace) => 
                                 const Center(child: Icon(Icons.image_not_supported, size: 32)),
                             )

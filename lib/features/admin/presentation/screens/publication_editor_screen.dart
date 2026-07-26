@@ -27,6 +27,7 @@ class _PublicationEditorScreenState extends ConsumerState<PublicationEditorScree
   final _formKey = GlobalKey<FormState>();
   final _titleController = TextEditingController();
   final _coverImageController = TextEditingController();
+  final _dateController = TextEditingController();
   final _uuid = const Uuid();
 
   late Future<PublicationDetail?> _publicationFuture;
@@ -37,6 +38,7 @@ class _PublicationEditorScreenState extends ConsumerState<PublicationEditorScree
   List<ContentBlock> _contentBlocks = [];
   Set<String> _selectedSectionIds = {};
   String _status = 'draft'; // Default status
+  DateTime? _publishedAt; // Preserved on update, set on creation
   
   // Map to store selected image files for each content block
   final Map<String, File> _selectedBlockImageFiles = {};
@@ -73,6 +75,8 @@ class _PublicationEditorScreenState extends ConsumerState<PublicationEditorScree
       _contentBlocks = List.from(detail.blocks);
       _selectedSectionIds = Set.from(detail.sectionIds);
       _status = detail.publication.status ?? 'draft'; // Initialize status from publication data
+      _publishedAt = detail.publication.publishedAt; // Preserve original date
+      _dateController.text = _formatDate(_publishedAt!);
       
       setState(() {});
       
@@ -282,13 +286,13 @@ class _PublicationEditorScreenState extends ConsumerState<PublicationEditorScree
           Navigator.pop(context, true);
         }
       } else {
-        // Update existing publication
+        // Update existing publication — preserve original publishedAt
         final publication = await repository.updatePublication(
           id: widget.publicationId!,
           title: title,
           description: '',
           coverImagePath: coverImagePath,
-          publishedAt: DateTime.now(),
+          publishedAt: _publishedAt ?? DateTime.now(),
           type: 'article',
           status: _status,
         );
@@ -339,13 +343,13 @@ class _PublicationEditorScreenState extends ConsumerState<PublicationEditorScree
       
       final repository = ref.read(publicationRepositoryProvider);
       
-      // Update existing publication
+      // Update existing publication — preserve original publishedAt
       final publication = await repository.updatePublication(
         id: widget.publicationId!,
         title: title,
         description: '',
         coverImagePath: coverImagePath,
-        publishedAt: DateTime.now(),
+        publishedAt: _publishedAt ?? DateTime.now(),
         type: 'article',
         status: _status,
       );
@@ -390,6 +394,36 @@ class _PublicationEditorScreenState extends ConsumerState<PublicationEditorScree
         _contentBlocks.insert(index + 1, block);
         _updateOrderIndices();
       });
+    }
+  }
+
+  String _formatDate(DateTime date) {
+    return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')} ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
+  }
+
+  Future<void> _pickDate() async {
+    final now = _publishedAt ?? DateTime.now();
+    final date = await showDatePicker(
+      context: context,
+      initialDate: now,
+      firstDate: DateTime(2000),
+      lastDate: DateTime(2100),
+    );
+    if (date != null && mounted) {
+      final time = TimeOfDay.fromDateTime(now);
+      final timePicked = await showTimePicker(
+        context: context,
+        initialTime: time,
+      );
+      if (timePicked != null && mounted) {
+        setState(() {
+          _publishedAt = DateTime(
+            date.year, date.month, date.day,
+            timePicked.hour, timePicked.minute,
+          );
+          _dateController.text = _formatDate(_publishedAt!);
+        });
+      }
     }
   }
 
@@ -502,10 +536,10 @@ class _PublicationEditorScreenState extends ConsumerState<PublicationEditorScree
                                 border: Border.all(color: Colors.grey),
                               ),
                               child: _selectedCoverImageFile != null
-                                  ? Image.file(_selectedCoverImageFile!, fit: BoxFit.cover)
+                                  ? Image.file(_selectedCoverImageFile!, fit: BoxFit.contain)
                                   : Image.network(
                                       ref.read(mediaStorageRepositoryProvider).publicUrlFor(_selectedCoverImagePath),
-                                      fit: BoxFit.cover,
+                                      fit: BoxFit.contain,
                                       errorBuilder: (context, error, stackTrace) => const Icon(Icons.broken_image),
                                     ),
                             ),
@@ -567,6 +601,17 @@ class _PublicationEditorScreenState extends ConsumerState<PublicationEditorScree
                                 });
                               }
                             },
+                          ),
+                          const SizedBox(height: 16),
+                          TextFormField(
+                            controller: _dateController,
+                            decoration: const InputDecoration(
+                              labelText: 'Дата публикации',
+                              border: OutlineInputBorder(),
+                              suffixIcon: Icon(Icons.calendar_today),
+                            ),
+                            readOnly: true,
+                            onTap: _pickDate,
                           ),
                         ],
                       ),
@@ -747,10 +792,7 @@ class _PublicationEditorScreenState extends ConsumerState<PublicationEditorScree
     );
   }
 
-  Widget _buildImageBlockWidget(ImageContentBlock block, int index) {
-    // For now, we'll keep the existing UI for single images
-    // In the future, we can enhance this to support multiple images
-    
+  Widget _buildImageBlockWidget(ImageContentBlock block, int index) {    
     // Get the selected image file for this block if it exists
     final selectedImageFile = _selectedBlockImageFiles[block.id];
 
@@ -816,27 +858,31 @@ class _PublicationEditorScreenState extends ConsumerState<PublicationEditorScree
             if (selectedImageFile != null) ...[
               const SizedBox(height: 16),
               Container(
-                height: 200,
                 decoration: BoxDecoration(
                   border: Border.all(color: Colors.grey),
                 ),
-                child: Image.file(
-                  selectedImageFile,
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) => const Icon(Icons.broken_image),
+                child: AspectRatio(
+                  aspectRatio: 3 / 2,
+                  child: Image.file(
+                    selectedImageFile,
+                    fit: BoxFit.contain,
+                    errorBuilder: (context, error, stackTrace) => const Icon(Icons.broken_image),
+                  ),
                 ),
               ),
             ] else if (block.imagePath.isNotEmpty) ...[
               const SizedBox(height: 16),
               Container(
-                height: 200,
                 decoration: BoxDecoration(
                   border: Border.all(color: Colors.grey),
                 ),
-                child: Image.network(
-                  ref.read(mediaStorageRepositoryProvider).publicUrlFor(block.imagePath),
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) => const Icon(Icons.broken_image),
+                child: AspectRatio(
+                  aspectRatio: 3 / 2,
+                  child: Image.network(
+                    ref.read(mediaStorageRepositoryProvider).publicUrlFor(block.imagePath),
+                    fit: BoxFit.contain,
+                    errorBuilder: (context, error, stackTrace) => const Icon(Icons.broken_image),
+                  ),
                 ),
               ),
             ],

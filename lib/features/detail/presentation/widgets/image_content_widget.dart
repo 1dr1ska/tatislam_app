@@ -6,6 +6,9 @@ import 'package:tatislam_app/features/publications/domain/entities/content_block
 
 /// Renders an [ImageContentBlock] with a tappable preview that opens
 /// [ImageViewerScreen] on full screen.
+///
+/// The image is displayed in a fixed 3:2 container with [BoxFit.contain],
+/// centered by default.
 class ImageContentWidget extends StatelessWidget {
   final ImageContentBlock block;
   final MediaStorageRepository mediaStorage;
@@ -18,6 +21,8 @@ class ImageContentWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final imageUrl = mediaStorage.publicUrlFor(block.imagePath);
+
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
       elevation: 2,
@@ -28,19 +33,23 @@ class ImageContentWidget extends StatelessWidget {
               Navigator.of(context).push(
                 MaterialPageRoute(
                   builder: (context) => ImageViewerScreen(
-                    imageUrl: mediaStorage.publicUrlFor(block.imagePath),
+                    imageUrl: imageUrl,
                     caption: block.caption,
                   ),
                 ),
               );
             },
-            child: CachedNetworkImage(
-              imageUrl: mediaStorage.publicUrlFor(block.imagePath),
-              width: double.infinity,
-              fit: BoxFit.contain,
-              placeholder: (context, url) => const CircularProgressIndicator(),
-              errorWidget: (context, url, error) =>
-                  const Icon(Icons.image, size: 64),
+            child: AspectRatio(
+              aspectRatio: 3 / 2,
+              child: CachedNetworkImage(
+                imageUrl: imageUrl,
+                width: double.infinity,
+                fit: BoxFit.contain,
+                placeholder: (context, url) =>
+                    const Center(child: CircularProgressIndicator()),
+                errorWidget: (context, url, error) =>
+                    const Icon(Icons.image, size: 64),
+              ),
             ),
           ),
           if (block.caption != null && block.caption!.isNotEmpty)

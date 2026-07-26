@@ -27,37 +27,37 @@ class ContentBlockModel {
           orderIndex: orderIndex,
           text: data['text'] as String,
         );
-      case _typeImage:
-        // Check if this is a gallery (multiple images) or single image
-        if (data['paths'] != null) {
-          // Gallery format with multiple images
-          final paths = List<String>.from(data['paths'] as List);
-          final captions = data['captions'] != null 
-              ? List<String?>.from(data['captions'] as List) 
-              : List<String?>.filled(paths.length, null);
-          // Ensure captions list matches paths length
-          if (captions.length < paths.length) {
-            captions.addAll(List<String?>.filled(paths.length - captions.length, null));
-          } else if (captions.length > paths.length) {
-            captions.removeRange(paths.length, captions.length);
-          }
-          return ImageContentBlock.gallery(
-            id: id,
-            publicationId: publicationId,
-            orderIndex: orderIndex,
-            imagePaths: paths,
-            captions: captions,
-          );
-        } else {
-          // Single image format (backward compatibility)
-          return ImageContentBlock.single(
-            id: id,
-            publicationId: publicationId,
-            orderIndex: orderIndex,
-            imagePath: data['path'] as String,
-            caption: data['caption'] as String?,
-          );
+    case _typeImage:
+      // Check if this is a gallery (multiple images) or single image
+      if (data['paths'] != null) {
+        // Gallery format with multiple images
+        final paths = List<String>.from(data['paths'] as List);
+        final captions = data['captions'] != null 
+            ? List<String?>.from(data['captions'] as List) 
+            : List<String?>.filled(paths.length, null);
+        // Ensure captions list matches paths length
+        if (captions.length < paths.length) {
+          captions.addAll(List<String?>.filled(paths.length - captions.length, null));
+        } else if (captions.length > paths.length) {
+          captions.removeRange(paths.length, captions.length);
         }
+        return ImageContentBlock.gallery(
+          id: id,
+          publicationId: publicationId,
+          orderIndex: orderIndex,
+          imagePaths: paths,
+          captions: captions,
+        );
+      } else {
+        // Single image format (backward compatibility)
+        return ImageContentBlock.single(
+          id: id,
+          publicationId: publicationId,
+          orderIndex: orderIndex,
+          imagePath: data['path'] as String,
+          caption: data['caption'] as String?,
+        );
+      }
       case _typeVideo:
         return VideoContentBlock(
           id: id,

@@ -202,7 +202,7 @@ class _FeedCard extends ConsumerWidget {
                   child: publication.coverImagePath.isNotEmpty
                       ? CachedNetworkImage(
                           imageUrl: mediaStorage.publicUrlFor(publication.coverImagePath),
-                          fit: BoxFit.cover,
+                          fit: BoxFit.contain,
                           placeholder: (context, url) => const Center(child: CircularProgressIndicator()),
                           errorWidget: (context, url, error) => 
                             const Center(child: Icon(Icons.image_not_supported, size: 48)),
@@ -310,7 +310,7 @@ class _CardGridItem extends ConsumerWidget {
                           child: publication.coverImagePath.isNotEmpty
                               ? CachedNetworkImage(
                                   imageUrl: mediaStorage.publicUrlFor(publication.coverImagePath),
-                                  fit: BoxFit.cover,
+                                  fit: BoxFit.contain,
                                   placeholder: (context, url) => const Center(child: CircularProgressIndicator()),
                                   errorWidget: (context, url, error) => 
                                     const Center(child: Icon(Icons.image_not_supported, size: 32)),

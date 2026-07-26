@@ -1,14 +1,25 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:just_audio/just_audio.dart' show ProcessingState;
+import 'package:just_audio/just_audio.dart' show AudioPlayer, ProcessingState;
 import 'package:tatislam_app/core/constants/app_colors.dart';
+import 'package:tatislam_app/core/services/local_storage_service.dart';
 import 'package:tatislam_app/core/storage/media_storage_repository.dart';
 import 'package:tatislam_app/features/detail/presentation/providers/audio_player_provider.dart';
 import 'package:tatislam_app/features/publications/domain/entities/audio_source_type.dart';
 import 'package:tatislam_app/features/publications/domain/entities/content_block.dart';
 
-/// Renders an [AudioContentBlock] with play/pause control and a seek slider.
-class AudioContentWidget extends ConsumerWidget {
+/// Available playback speed options.
+const _speedOptions = [1.0, 1.25, 1.5, 2.0];
+
+/// Prefix for Hive keys used to persist audio playback positions.
+/// Key format: `audio_position_<publicationId>_<blockId>`
+const _positionKeyPrefix = 'audio_position_';
+
+/// Renders an [AudioContentBlock] with play/pause control, seek slider,
+/// playback speed selector, and persisted playback position.
+class AudioContentWidget extends ConsumerStatefulWidget {
   final AudioContentBlock block;
   final MediaStorageRepository mediaStorage;
 
@@ -19,26 +30,112 @@ class AudioContentWidget extends ConsumerWidget {
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<AudioContentWidget> createState() =>
+      _AudioContentWidgetState();
+}
+
+class _AudioContentWidgetState extends ConsumerState<AudioContentWidget> {
+  double _speed = 1.0;
+  String? _mediaUrl;
+  String? _positionKey;
+  Duration _lastPosition = Duration.zero;
+  StreamSubscription<Duration>? _positionSub;
+  AudioPlayer? _audioPlayer;
+
+  @override
+  void initState() {
+    super.initState();
+
+    // Resolve media URL once
+    if (widget.block.source == AudioSourceType.upload &&
+        widget.block.audioPath != null) {
+      _mediaUrl = widget.mediaStorage.publicUrlFor(widget.block.audioPath!);
+    } else if (widget.block.source == AudioSourceType.external &&
+        widget.block.audioUrl != null) {
+      _mediaUrl = widget.block.audioUrl;
+    }
+
+    if (_mediaUrl != null && _mediaUrl!.isNotEmpty && _isValidUrl(_mediaUrl!)) {
+      // Key based on publication + block id for uniqueness
+      _positionKey =
+          '$_positionKeyPrefix${widget.block.publicationId}_${widget.block.id}';
+
+      // Keep a reference to the player for safe access in dispose()
+      _audioPlayer = ref.read(audioPlayerProvider);
+      _positionSub = _audioPlayer!.positionStream.listen((pos) {
+        _lastPosition = pos;
+      });
+
+      // Restore saved position after the audio source is set
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _restorePosition();
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _positionSub?.cancel();
+    _audioPlayer?.pause();
+    _savePosition();
+    super.dispose();
+  }
+
+  /// Saves the current playback position to Hive.
+  void _savePosition() {
+    if (_positionKey == null) return;
+
+    try {
+      if (_lastPosition.inSeconds > 0) {
+        LocalStorageService.settingsBox
+            .put(_positionKey!, _lastPosition.inSeconds);
+        debugPrint('Saved audio position: ${_lastPosition.inSeconds}s');
+      }
+    } catch (e) {
+      debugPrint('Error saving audio position: $e');
+    }
+  }
+
+  /// Restores the saved playback position after the audio source is loaded.
+  Future<void> _restorePosition() async {
+    if (_positionKey == null || _mediaUrl == null) return;
+
+    try {
+      final audioPlayer = ref.read(audioPlayerProvider);
+
+      // Check if the player already has this source loaded
+      final currentSource = audioPlayer.audioSource;
+      final currentUrl = currentSource?.toString() ?? '';
+      final needsReload = !currentUrl.contains(_mediaUrl!);
+
+      if (needsReload) {
+        await audioPlayer.setUrl(_mediaUrl!);
+        // Wait for the audio to be loaded before seeking
+        await audioPlayer.load();
+      }
+
+      final savedSeconds =
+          LocalStorageService.settingsBox.get(_positionKey, defaultValue: 0);
+      if (savedSeconds is int && savedSeconds > 0) {
+        await audioPlayer.seek(Duration(seconds: savedSeconds));
+        debugPrint('Restored audio position: ${savedSeconds}s');
+      }
+    } catch (e) {
+      debugPrint('Error restoring audio position: $e');
+    } finally {
+      if (mounted) {
+        setState(() {});
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final audioPlayer = ref.watch(audioPlayerProvider);
 
-    String? mediaUrl;
-    if (block.source == AudioSourceType.upload && block.audioPath != null) {
-      mediaUrl = mediaStorage.publicUrlFor(block.audioPath!);
-    } else if (block.source == AudioSourceType.external &&
-        block.audioUrl != null) {
-      mediaUrl = block.audioUrl;
-    }
-
-    if (mediaUrl == null || mediaUrl.isEmpty || !_isValidUrl(mediaUrl)) {
+    if (_mediaUrl == null || _mediaUrl!.isEmpty || !_isValidUrl(_mediaUrl!)) {
       return _buildUnavailable(context);
     }
-
-    // Set audio source (idempotent — safe to call on rebuild)
-    audioPlayer.setUrl(mediaUrl).catchError((error) {
-      debugPrint('Error setting audio URL: $error');
-      return null;
-    });
 
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
@@ -50,10 +147,14 @@ class AudioContentWidget extends ConsumerWidget {
             const Icon(Icons.audiotrack,
                 size: 48, color: AppColors.audioColor),
             const SizedBox(height: 16),
+            // Play / Pause button
             ElevatedButton.icon(
               onPressed: () async {
                 try {
+                  // Apply current speed before playing
+                  await audioPlayer.setSpeed(_speed);
                   if (audioPlayer.playerState.playing) {
+                    _savePosition();
                     await audioPlayer.pause();
                   } else {
                     await audioPlayer.play();
@@ -77,6 +178,29 @@ class AudioContentWidget extends ConsumerWidget {
               label: const Text('Уйнату'),
             ),
             const SizedBox(height: 16),
+            // Playback speed selector
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: _speedOptions.map((speed) {
+                final isSelected = speed == _speed;
+                return ChoiceChip(
+                  label: Text('${speed}x'),
+                  selected: isSelected,
+                  selectedColor: AppColors.audioColor.withValues(alpha: 0.3),
+                  onSelected: (selected) {
+                    if (selected) {
+                      setState(() {
+                        _speed = speed;
+                      });
+                      audioPlayer.setSpeed(speed);
+                    }
+                  },
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 16),
+            // Seek slider
             StreamBuilder(
               stream: audioPlayer.positionStream,
               builder: (context, snapshot) {
@@ -96,10 +220,11 @@ class AudioContentWidget extends ConsumerWidget {
                 );
               },
             ),
-            if (block.caption != null && block.caption!.isNotEmpty)
+            if (widget.block.caption != null &&
+                widget.block.caption!.isNotEmpty)
               Padding(
                 padding: const EdgeInsets.only(top: 16),
-                child: Text(block.caption!),
+                child: Text(widget.block.caption!),
               ),
           ],
         ),

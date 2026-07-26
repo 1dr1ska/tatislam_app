@@ -48,6 +48,9 @@ dependencies:
   # Embedded video playback (YouTube/RuTube/VK iframe embeds)
   webview_flutter: ^4.10.0
 
+  # Image optimization (pure Dart, cross-platform)
+  image: ^4.0.17
+
   # UUID for file naming
   uuid: ^4.3.3
 

@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -7,6 +8,8 @@ import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:uuid/uuid.dart';
 
+import 'package:tatislam_app/core/services/media_optimization_service.dart';
+import 'package:tatislam_app/core/services/models/image_optimization_result.dart';
 import 'package:tatislam_app/core/storage/storage_paths.dart';
 import 'package:tatislam_app/core/storage/storage_providers.dart';
 import 'package:tatislam_app/features/publications/data/publication_providers.dart';
@@ -60,10 +63,22 @@ class _PublicationEditorScreenState
   // Map to store selected image files for each content block
   final Map<String, File> _selectedBlockImageFiles = {};
 
+  // Map to store optimization results for each content block image
+  final Map<String, ImageOptimizationResult> _blockImageOptimizationResults =
+      {};
+
+  // Optimization result for the cover image
+  ImageOptimizationResult? _coverImageOptimizationResult;
+
   // Map to store selected audio files for each content block
   final Map<String, File> _selectedBlockAudioFiles = {};
 
+  bool _isProcessing = false;
   bool _isSaving = false;
+
+  final MediaOptimizationService _optimizationService =
+      const MediaOptimizationService();
+
   _SaveStep _currentSaveStep = _SaveStep.idle;
   int _uploadedFileCount = 0;
   int _totalFileCount = 0;
@@ -127,10 +142,33 @@ class _PublicationEditorScreenState
 
     if (pickedFile != null) {
       setState(() {
-        _selectedCoverImageFile = File(pickedFile.path);
-        _coverImageController.text = pickedFile.path.split('/').last;
+        _isProcessing = true;
       });
-      _scheduleAutoSave();
+
+      try {
+        final bytes = await pickedFile.readAsBytes();
+        final result = await _optimizationService.optimizeImage(
+          originalBytes: bytes,
+          originalFileName: pickedFile.name,
+        );
+
+        setState(() {
+          _selectedCoverImageFile = File(pickedFile.path);
+          _coverImageOptimizationResult = result;
+          _coverImageController.text = result.fileName;
+        });
+      } catch (e) {
+        // Если оптимизация не удалась — используем исходный файл
+        setState(() {
+          _selectedCoverImageFile = File(pickedFile.path);
+          _coverImageOptimizationResult = null;
+          _coverImageController.text = pickedFile.path.split('/').last;
+        });
+      } finally {
+        setState(() {
+          _isProcessing = false;
+        });
+      }
     }
   }
 
@@ -140,9 +178,31 @@ class _PublicationEditorScreenState
 
     if (pickedFile != null) {
       setState(() {
-        _selectedBlockImageFiles[blockId] = File(pickedFile.path);
+        _isProcessing = true;
       });
-      _scheduleAutoSave();
+
+      try {
+        final bytes = await pickedFile.readAsBytes();
+        final result = await _optimizationService.optimizeImage(
+          originalBytes: bytes,
+          originalFileName: pickedFile.name,
+        );
+
+        setState(() {
+          _selectedBlockImageFiles[blockId] = File(pickedFile.path);
+          _blockImageOptimizationResults[blockId] = result;
+        });
+      } catch (e) {
+        // Если оптимизация не удалась — используем исходный файл
+        setState(() {
+          _selectedBlockImageFiles[blockId] = File(pickedFile.path);
+          _blockImageOptimizationResults.remove(blockId);
+        });
+      } finally {
+        setState(() {
+          _isProcessing = false;
+        });
+      }
     }
   }
 
@@ -165,10 +225,20 @@ class _PublicationEditorScreenState
 
     try {
       final storageRepository = ref.read(mediaStorageRepositoryProvider);
-      final extension = _selectedCoverImageFile!.path.split('.').last;
-      final path = StoragePaths.cover(_uuid.v4(), extension);
 
-      final bytes = await _selectedCoverImageFile!.readAsBytes();
+      // Use optimized bytes if available, otherwise read from file
+      final Uint8List bytes;
+      final String extension;
+
+      if (_coverImageOptimizationResult != null) {
+        bytes = _coverImageOptimizationResult!.bytes;
+        extension = _coverImageOptimizationResult!.fileName.split('.').last;
+      } else {
+        bytes = await _selectedCoverImageFile!.readAsBytes();
+        extension = _selectedCoverImageFile!.path.split('.').last;
+      }
+
+      final path = StoragePaths.cover(_uuid.v4(), extension);
       await storageRepository.upload(path, bytes);
 
       // Delete old cover image if it exists and is different
@@ -197,12 +267,24 @@ class _PublicationEditorScreenState
 
     try {
       final storageRepository = ref.read(mediaStorageRepositoryProvider);
-      final extension = selectedImageFile.path.split('.').last;
+
+      // Use optimized bytes if available, otherwise read from file
+      final Uint8List bytes;
+      final String extension;
+
+      final optimizationResult = _blockImageOptimizationResults[blockId];
+      if (optimizationResult != null) {
+        bytes = optimizationResult.bytes;
+        extension = optimizationResult.fileName.split('.').last;
+      } else {
+        bytes = await selectedImageFile.readAsBytes();
+        extension = selectedImageFile.path.split('.').last;
+      }
+
       final path = StoragePaths.blockImage(
           widget.publicationId ?? _uuid.v4(), extension,
           blockId: blockId);
 
-      final bytes = await selectedImageFile.readAsBytes();
       await storageRepository.upload(path, bytes);
 
       // Delete old image if it exists and is different
@@ -1107,6 +1189,7 @@ class _PublicationEditorScreenState
   Widget _buildImageBlockWidget(ImageContentBlock block, int index) {
     // Get the selected image file for this block if it exists
     final selectedImageFile = _selectedBlockImageFiles[block.id];
+    final optimizationResult = _blockImageOptimizationResults[block.id];
 
     return Card(
       key: Key(block.id),
@@ -1155,18 +1238,68 @@ class _PublicationEditorScreenState
                     ),
                     controller: TextEditingController(
                       text: selectedImageFile != null
-                          ? selectedImageFile.path.split('/').last
+                          ? (optimizationResult?.fileName ??
+                              selectedImageFile.path.split('/').last)
                           : block.imagePath.split('/').last,
                     ),
                   ),
                 ),
                 const SizedBox(width: 16),
                 ElevatedButton(
-                  onPressed: () => _pickBlockImage(block.id),
+                  onPressed: _isProcessing ? null : () => _pickBlockImage(block.id),
                   child: const Text('Выбрать'),
                 ),
               ],
             ),
+            if (_isProcessing && selectedImageFile != null) ...[
+              const SizedBox(height: 16),
+              const Center(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                    SizedBox(width: 12),
+                    Text('Оптимизация...'),
+                  ],
+                ),
+              ),
+            ],
+            if (optimizationResult != null) ...[
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade100,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Изображение',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.grey.shade700,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'до обработки: ${_formatBytes(optimizationResult.originalSize)}',
+                      style: const TextStyle(fontSize: 13),
+                    ),
+                    Text(
+                      'после обработки: ${_formatBytes(optimizationResult.finalSize)}',
+                      style: const TextStyle(fontSize: 13),
+                    ),
+                  ],
+                ),
+              ),
+            ],
             if (selectedImageFile != null) ...[
               const SizedBox(height: 16),
               Container(
@@ -1451,5 +1584,11 @@ class _PublicationEditorScreenState
         ),
       ),
     );
+  }
+
+  String _formatBytes(int bytes) {
+    const mb = 1024 * 1024;
+    final value = bytes / mb;
+    return '${value.toStringAsFixed(1)} MB';
   }
 }

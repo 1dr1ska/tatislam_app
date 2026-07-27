@@ -54,6 +54,10 @@ dependencies:
   # UUID for file naming
   uuid: ^4.3.3
 
+  # HTTP client for Yandex Object Storage
+  http: ^1.2.0
+  http_parser: ^4.1.0
+
   
   # Localization
   intl: ^0.20.2

@@ -46,3 +46,4 @@ app.*.map.json
 
 # Ignore build directories everywhere
 **/build/
+supabase/functions/.env

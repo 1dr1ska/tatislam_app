@@ -1,0 +1,12 @@
+
+[functions.upload-media]
+enabled = true
+verify_jwt = true
+import_map = "./functions/upload-media/deno.json"
+entrypoint = "./functions/upload-media/index.ts"
+
+[functions.delete-media]
+enabled = true
+verify_jwt = true
+import_map = "./functions/upload-media/deno.json"
+entrypoint = "./functions/delete-media/index.ts"

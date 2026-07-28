@@ -13,11 +13,19 @@ import 'package:tatislam_app/features/catalog/presentation/providers/selected_se
 import 'package:tatislam_app/features/favorites/providers/favorites_provider.dart';
 import 'package:tatislam_app/core/constants/app_icons.dart';
 
+/// Unified glassmorphism constants for the entire design system.
+const double _glassBlur = 12;
+const double _glassOpacity = 0.22;
+const double _glassBorderOpacity = 0.35;
+const double _glassBorderWidth = 0.8;
+const double _glassRadius = 8;
+const Color _glassBorderColor = Colors.white;
+const Color _glassShadowColor = Colors.black;
+const double _glassShadowBlur = 12;
+const Offset _glassShadowOffset = Offset(0, 3);
+const double _glassShadowOpacity = 0.08;
+
 /// Main screen — the single entry point for all user-facing content.
-/// Contains:
-/// - AppBar: logo (→ about), search field, favorites toggle (star)
-/// - Section filter chips
-/// - Publications grid
 class MainScreen extends ConsumerStatefulWidget {
   const MainScreen({super.key});
 
@@ -27,18 +35,29 @@ class MainScreen extends ConsumerStatefulWidget {
 
 class _MainScreenState extends ConsumerState<MainScreen> {
   final TextEditingController _searchController = TextEditingController();
+  final FocusNode _searchFocusNode = FocusNode();
+  bool _isSearchFocused = false;
 
   @override
   void initState() {
     super.initState();
     _searchController.addListener(_onSearchChanged);
+    _searchFocusNode.addListener(_onFocusChanged);
   }
 
   @override
   void dispose() {
     _searchController.removeListener(_onSearchChanged);
+    _searchFocusNode.removeListener(_onFocusChanged);
     _searchController.dispose();
+    _searchFocusNode.dispose();
     super.dispose();
+  }
+
+  void _onFocusChanged() {
+    setState(() {
+      _isSearchFocused = _searchFocusNode.hasFocus;
+    });
   }
 
   void _onSearchChanged() {
@@ -51,6 +70,24 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     ref.read(searchQueryProvider.notifier).state = '';
   }
 
+  BoxDecoration _glassBox({double? radius}) {
+    return BoxDecoration(
+      color: Colors.white.withValues(alpha: _glassOpacity),
+      borderRadius: BorderRadius.circular(radius ?? _glassRadius),
+      border: Border.all(
+        color: _glassBorderColor.withValues(alpha: _glassBorderOpacity),
+        width: _glassBorderWidth,
+      ),
+      boxShadow: [
+        BoxShadow(
+          color: _glassShadowColor.withValues(alpha: _glassShadowOpacity),
+          blurRadius: _glassShadowBlur,
+          offset: _glassShadowOffset,
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final sectionsAsync = ref.watch(sectionsProvider);
@@ -58,82 +95,123 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     final showFavoritesOnly = ref.watch(favoritesFilterProvider);
     final selectedSection = ref.watch(selectedSectionProvider);
 
-    // Watch favorites to react to changes
     ref.watch(favoritesProvider);
 
-    // Determine background: use section's backgroundImage if set, otherwise default
     final backgroundPath = selectedSection?.backgroundImage;
-
     final isLoading = sectionsAsync.isLoading || publicationsAsync.isLoading;
 
     return Stack(
       children: [
-        // Background layer — section background or default
         AppBackground(imagePath: backgroundPath),
-        // Foreground layer — all UI content
         Scaffold(
           backgroundColor: Colors.transparent,
-          appBar: AppBar(
-            backgroundColor: Colors.white.withValues(alpha: 0.85),
-            titleSpacing: 0,
-            title: Row(
-              children: [
-                // Logo — tap to open About screen
-                GestureDetector(
-                  onTap: () {
-                    GoRouter.of(context).go('/about');
-                  },
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    child: SizedBox(
-                      width: 36,
-                      height: 36,
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: Image.asset(
-                          'assets/images/app_icon.png',
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) =>
-                              const Icon(Icons.mosque, size: 28),
+          appBar: PreferredSize(
+            preferredSize: const Size.fromHeight(kToolbarHeight),
+            child: ClipRRect(
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: _glassBlur, sigmaY: _glassBlur),
+                child: AppBar(
+                  backgroundColor: Colors.white.withValues(alpha: _glassOpacity),
+                  titleSpacing: 0,
+                  title: Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      // Logo — identical glass style
+                      GestureDetector(
+                        onTap: () {
+                          GoRouter.of(context).go('/about');
+                        },
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          child: Container(
+                            width: 36,
+                            height: 36,
+                            decoration: _glassBox(),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(_glassRadius - 1),
+                              child: Image.asset(
+                                'assets/images/app_icon.png',
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) =>
+                                    const Icon(Icons.mosque, size: 28),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      // Search field
+                      Expanded(
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: _glassOpacity),
+                              borderRadius: BorderRadius.circular(_glassRadius),
+                              border: Border.all(
+                                color: _isSearchFocused
+                                    ? const Color(0xFFD4A843).withValues(alpha: 0.6)
+                                    : _glassBorderColor.withValues(alpha: _glassBorderOpacity),
+                                width: _isSearchFocused ? 1.2 : _glassBorderWidth,
+                              ),
+                            ),
+                            child: TextField(
+                              controller: _searchController,
+                              focusNode: _searchFocusNode,
+                              decoration: InputDecoration(
+                                hintText: 'Эзләү...',
+                                hintStyle: TextStyle(
+                                  color: Colors.white.withValues(alpha: 0.85),
+                                  fontSize: 14,
+                                ),
+                                border: InputBorder.none,
+                                enabledBorder: InputBorder.none,
+                                focusedBorder: InputBorder.none,
+                                filled: false,
+                                fillColor: Colors.transparent,
+                                contentPadding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                                suffixIcon: _searchController.text.isNotEmpty
+                                    ? IconButton(
+                                        icon: const Icon(Icons.clear, size: 18, color: Colors.white70),
+                                        onPressed: _clearSearch,
+                                      )
+                                    : null,
+                              ),
+                              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                                color: const Color(0xFFF8F7F2),
+                                fontSize: 14,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  actions: [
+                    // Favorites toggle — identical glass style
+                    Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: Container(
+                        width: 36,
+                        height: 36,
+                        decoration: _glassBox(),
+                        child: IconButton(
+                          icon: Icon(
+                            showFavoritesOnly ? Icons.star : Icons.star_border,
+                            color: showFavoritesOnly ? Colors.amber : Colors.white.withValues(alpha: 0.85),
+                            size: 20,
+                          ),
+                          tooltip: showFavoritesOnly ? 'Барлык язмалар' : 'Сайланганнар',
+                          onPressed: () {
+                            ref.read(toggleFavoritesFilterProvider)();
+                          },
+                          padding: EdgeInsets.zero,
                         ),
                       ),
                     ),
-                  ),
+                  ],
                 ),
-                // Search field
-                Expanded(
-                  child: TextField(
-                    controller: _searchController,
-                    decoration: InputDecoration(
-                      hintText: 'Эзләү...',
-                      border: InputBorder.none,
-                      filled: false,
-                      contentPadding: const EdgeInsets.symmetric(vertical: 8),
-                      suffixIcon: _searchController.text.isNotEmpty
-                          ? IconButton(
-                              icon: const Icon(Icons.clear, size: 20),
-                              onPressed: _clearSearch,
-                            )
-                          : null,
-                    ),
-                    style: Theme.of(context).textTheme.bodyLarge,
-                  ),
-                ),
-              ],
-            ),
-            actions: [
-              // Favorites toggle button
-              IconButton(
-                icon: Icon(
-                  showFavoritesOnly ? Icons.star : Icons.star_border,
-                  color: showFavoritesOnly ? Colors.amber : null,
-                ),
-                tooltip: showFavoritesOnly ? 'Барлык язмалар' : 'Сайланганнар',
-                onPressed: () {
-                  ref.read(toggleFavoritesFilterProvider)();
-                },
               ),
-            ],
+            ),
           ),
           body: RefreshIndicator(
             onRefresh: () async {
@@ -154,10 +232,8 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Section filters
                         _buildSectionFilters(ref, sectionsAsync),
                         const SizedBox(height: 16),
-                        // Publications grid
                         _buildPublicationsGrid(context, ref, publicationsAsync),
                       ],
                     ),
@@ -174,11 +250,11 @@ class _MainScreenState extends ConsumerState<MainScreen> {
 
     return sectionsAsync.when(
       data: (sections) {
-        return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Wrap(
-            spacing: 8,
-            runSpacing: 8,
+        return SizedBox(
+          height: 40,
+          child: ListView(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            scrollDirection: Axis.horizontal,
             children: [
               _buildFilterChip(
                 label: 'Барлык бүлекләр',
@@ -187,14 +263,18 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                   ref.read(selectedSectionProvider.notifier).state = null;
                 },
               ),
-              ...sections.map((section) => _buildFilterChip(
-                    label: section.name,
-                    selected: selectedSection?.id == section.id,
-                    onSelected: (selected) {
-                      ref.read(selectedSectionProvider.notifier).state =
-                          selected ? section : null;
-                    },
-                  )),
+              const SizedBox(width: 8),
+              ...sections.map((section) => Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: _buildFilterChip(
+                  label: section.name,
+                  selected: selectedSection?.id == section.id,
+                  onSelected: (selected) {
+                    ref.read(selectedSectionProvider.notifier).state =
+                        selected ? section : null;
+                  },
+                ),
+              )),
             ],
           ),
         );
@@ -215,14 +295,40 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     required bool selected,
     required ValueChanged<bool> onSelected,
   }) {
-    return FilterChip(
-      label: Text(label),
-      selected: selected,
-      onSelected: onSelected,
-      backgroundColor: Colors.white.withValues(alpha: 0.75),
-      selectedColor: AppColors.primary.withValues(alpha: 0.75),
-      labelStyle: TextStyle(
-        color: selected ? Colors.white : null,
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
+      curve: Curves.easeInOut,
+      child: GestureDetector(
+        onTap: () => onSelected(!selected),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(8),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+              decoration: BoxDecoration(
+                color: selected
+                    ? const Color(0xFFD4A843)
+                    : Colors.white.withValues(alpha: 0.22),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: selected
+                      ? const Color(0xFFD4A843).withValues(alpha: 0.70)
+                      : Colors.white.withValues(alpha: 0.35),
+                  width: 0.8,
+                ),
+              ),
+              child: Text(
+                label,
+                style: TextStyle(
+                  color: selected ? Colors.black87 : Colors.white,
+                  fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+                  fontSize: 13,
+                ),
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -267,7 +373,10 @@ class _MainScreenState extends ConsumerState<MainScreen> {
           padding: const EdgeInsets.all(16),
           itemBuilder: (context, index) {
             final publication = publications[index];
-            return _PublicationCard(publication: publication);
+            return _PublicationCard(
+              publication: publication,
+              index: index,
+            );
           },
         );
       },
@@ -300,8 +409,12 @@ class _MainScreenState extends ConsumerState<MainScreen> {
 
 class _PublicationCard extends ConsumerWidget {
   final Publication publication;
+  final int index;
 
-  const _PublicationCard({required this.publication});
+  const _PublicationCard({
+    required this.publication,
+    required this.index,
+  });
 
   String _formatDate(DateTime date) {
     final now = DateTime.now();
@@ -320,102 +433,179 @@ class _PublicationCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final isFavorite = ref.watch(favoritesIsFavoriteProvider(publication.id));
 
-    return GestureDetector(
-      onTap: () {
-        GoRouter.of(context).go(
-          '/publication/${publication.id}?source=catalog',
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0.0, end: 1.0),
+      duration: Duration(milliseconds: 300 + (index * 50).clamp(0, 200)),
+      curve: Curves.easeOut,
+      builder: (context, value, child) {
+        return Opacity(
+          opacity: value,
+          child: Transform.translate(
+            offset: Offset(0, 20 * (1 - value)),
+            child: child,
+          ),
         );
       },
-      child: Card(
-        elevation: 2,
-        color: Colors.white.withValues(alpha: 0.85),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
+      child: _TapScale(
+        onTap: () {
+          GoRouter.of(context).go(
+            '/publication/${publication.id}?source=catalog',
+          );
+        },
         child: ClipRRect(
           borderRadius: BorderRadius.circular(12),
           child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 3, sigmaY: 3),
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                return SingleChildScrollView(
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(minHeight: constraints.maxHeight),
+            filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.25),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.35),
+                  width: 0.8,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.08),
+                    blurRadius: 12,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Icon — raised up by negative margin
+                  Transform.translate(
+                    offset: const Offset(0, -8),
+                    child: AspectRatio(
+                      aspectRatio: 16 / 9,
+                      child: Center(
+                        child: Image.asset(
+                          AppIcons.pathOrDefault(publication.icon),
+                          width: 120,
+                          height: 120,
+                          fit: BoxFit.contain,
+                        ),
+                      ),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(12, 0, 12, 14),
                     child: Column(
-                      mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Icon
-                        ClipRRect(
-                          borderRadius:
-                              const BorderRadius.vertical(top: Radius.circular(12)),
-                          child: AspectRatio(
-                            aspectRatio: 16 / 9,
-                            child: Container(
-                              color: AppColors.primary.withValues(alpha: 0.1),
-                              child: Center(
-                                child: Image.asset(
-                                  AppIcons.pathOrDefault(publication.icon),
-                                  width: 80,
-                                  height: 80,
-                                  fit: BoxFit.contain,
-                                ),
+                        Text(
+                          publication.title,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context)
+                              .textTheme
+                              .titleMedium
+                              ?.copyWith(
+                                color: const Color(0xFFFEFEF7),
+                                fontWeight: FontWeight.w500,
                               ),
-                            ),
-                          ),
                         ),
-                        Padding(
-                          padding: const EdgeInsets.all(12),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                publication.title,
-                                style: Theme.of(context).textTheme.titleMedium,
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              const SizedBox(height: 8),
-                              Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text(
-                                    _formatDate(publication.publishedAt),
-                                    style: Theme.of(context).textTheme.bodySmall,
+                        const SizedBox(height: 6),
+                        Row(
+                          mainAxisAlignment:
+                              MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              _formatDate(publication.publishedAt),
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .bodySmall
+                                  ?.copyWith(
+                                    color:
+                                        Colors.white.withValues(alpha: 0.85),
                                   ),
-                                  IconButton(
-                                    icon: Icon(
-                                      isFavorite
-                                          ? Icons.star
-                                          : Icons.star_border,
-                                      color: isFavorite ? Colors.amber : null,
-                                    ),
-                                    onPressed: () async {
-                                      final toggleFavorite =
-                                          ref.read(toggleFavoriteProvider);
-                                      await toggleFavorite(publication.id);
-                                      Future.microtask(() {
-                                        ref.invalidate(favoritesProvider);
-                                        ref.invalidate(mainPublicationsProvider);
-                                      });
-                                    },
-                                    padding: EdgeInsets.zero,
-                                    constraints: const BoxConstraints(),
-                                  ),
-                                ],
+                            ),
+                            IconButton(
+                              icon: Icon(
+                                isFavorite
+                                    ? Icons.star
+                                    : Icons.star_border,
+                                color: isFavorite
+                                    ? Colors.amber
+                                    : Colors.white.withValues(alpha: 0.70),
                               ),
-                            ],
-                          ),
+                              onPressed: () async {
+                                final toggleFavorite =
+                                    ref.read(toggleFavoriteProvider);
+                                await toggleFavorite(publication.id);
+                                Future.microtask(() {
+                                  ref.invalidate(favoritesProvider);
+                                  ref.invalidate(mainPublicationsProvider);
+                                });
+                              },
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(),
+                            ),
+                          ],
                         ),
                       ],
                     ),
                   ),
-                );
-              },
+                ],
+              ),
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Wraps a child with a subtle scale-down animation on tap.
+class _TapScale extends StatefulWidget {
+  final Widget child;
+  final VoidCallback onTap;
+
+  const _TapScale({required this.child, required this.onTap});
+
+  @override
+  State<_TapScale> createState() => _TapScaleState();
+}
+
+class _TapScaleState extends State<_TapScale> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _scale;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: const Duration(milliseconds: 100),
+      vsync: this,
+    );
+    _scale = Tween(begin: 1.0, end: 0.98).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: widget.onTap,
+      onTapDown: (_) => _controller.forward(),
+      onTapUp: (_) => _controller.reverse(),
+      onTapCancel: () => _controller.reverse(),
+      child: AnimatedBuilder(
+        animation: _scale,
+        builder: (context, child) => Transform.scale(
+          scale: _scale.value,
+          child: child,
+        ),
+        child: widget.child,
       ),
     );
   }

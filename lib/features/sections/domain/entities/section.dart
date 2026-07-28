@@ -12,6 +12,7 @@ class Section extends Equatable {
   final int sortOrder;
   final DateTime createdAt;
   final DateTime updatedAt;
+  final String? backgroundImage;
 
   const Section({
     required this.id,
@@ -21,6 +22,7 @@ class Section extends Equatable {
     required this.sortOrder,
     required this.createdAt,
     required this.updatedAt,
+    this.backgroundImage,
   });
 
   Section copyWith({
@@ -28,6 +30,7 @@ class Section extends Equatable {
     String? slug,
     bool? isVisible,
     int? sortOrder,
+    String? backgroundImage,
   }) {
     return Section(
       id: id,
@@ -37,9 +40,10 @@ class Section extends Equatable {
       sortOrder: sortOrder ?? this.sortOrder,
       createdAt: createdAt,
       updatedAt: updatedAt,
+      backgroundImage: backgroundImage ?? this.backgroundImage,
     );
   }
 
   @override
-  List<Object?> get props => [id, name, slug, isVisible, sortOrder, createdAt, updatedAt];
+  List<Object?> get props => [id, name, slug, isVisible, sortOrder, createdAt, updatedAt, backgroundImage];
 }

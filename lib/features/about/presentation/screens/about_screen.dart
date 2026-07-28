@@ -31,185 +31,187 @@ class _AboutScreenState extends ConsumerState<AboutScreen> {
   @override
   Widget build(BuildContext context) {
     final isAdmin = ref.watch(isAdminProvider);
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // App Icon at the top — tap to open admin if authorized
-          Center(
-            child: GestureDetector(
-              onTap: () {
-                if (isAdmin) {
-                  GoRouter.of(context).go('/admin');
-                }
-              },
-              child: Container(
-                width: 120,
-                height: 120,
-                decoration: const BoxDecoration(
-                  shape: BoxShape.circle,
-                ),
-                child: const CircleAvatar(
-                  radius: 56,
-                  backgroundColor: Colors.black,
-                  backgroundImage: AssetImage('assets/images/app_icon.png'),
+    return Scaffold(
+      appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => GoRouter.of(context).go('/'),
+        ),
+        title: const Text('ТАТИСЛАМ'),
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // App Icon at the top — tap to open admin if authorized
+            Center(
+              child: GestureDetector(
+                onTap: () {
+                  if (isAdmin) {
+                    GoRouter.of(context).go('/admin');
+                  }
+                },
+                child: Container(
+                  width: 120,
+                  height: 120,
+                  decoration: const BoxDecoration(
+                    shape: BoxShape.circle,
+                  ),
+                  child: const CircleAvatar(
+                    radius: 56,
+                    backgroundColor: Colors.black,
+                    backgroundImage: AssetImage('assets/images/app_icon.png'),
+                  ),
                 ),
               ),
             ),
-          ),
-          const SizedBox(height: 24),
-          Center(child: RichText(text: AppStrings.getColoredAppName())),
-          const SizedBox(height: 8),
-          Center(
-            child: Text(
-              'v${AppStrings.appVersion}',
+            const SizedBox(height: 24),
+            Center(child: RichText(text: AppStrings.getColoredAppName())),
+            const SizedBox(height: 8),
+            Center(
+              child: Text(
+                'v${AppStrings.appVersion}',
+                style: Theme.of(
+                  context,
+                ).textTheme.bodyMedium?.copyWith(color: Colors.grey[600]),
+              ),
+            ),
+            const SizedBox(height: 32),
+
+            // Description
+            Text(
+              AppStrings.appDescription,
+              style: Theme.of(context).textTheme.bodyLarge,
+              textAlign: TextAlign.justify,
+            ),
+            const SizedBox(height: 32),
+
+            // Features
+            Text(
+              'Приложение мөмкинлекләре:',
               style: Theme.of(
                 context,
-              ).textTheme.bodyMedium?.copyWith(color: Colors.grey[600]),
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
             ),
-          ),
-          const SizedBox(height: 32),
-
-          // Description
-          Text(
-            AppStrings.appDescription,
-            style: Theme.of(context).textTheme.bodyLarge,
-            textAlign: TextAlign.justify,
-          ),
-          const SizedBox(height: 32),
-
-          // Features
-          Text(
-            'Приложение мөмкинлекләре:',
-            style: Theme.of(
+            const SizedBox(height: 16),
+            _buildFeatureItem(
               context,
-            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 16),
-          _buildFeatureItem(
-            context,
-            Icons.home,
-            'Баш бит',
-            'Соңгы язмаларны уңайлы карау',
-            AppColors.navHome,
-          ),
-          _buildFeatureItem(
-            context,
-            Icons.book,
-            'Каталог',
-            'Төрләре буенча бүленгән барлык язмалар',
-            AppColors.navCatalog,
-          ),
-          _buildFeatureItem(
-            context,
-            Icons.search,
-            'Эзләргә',
-            'Исеме, тасвирламасы һәм эчтәлеге буенча эзләү',
-            AppColors.navSearch,
-          ),
-          _buildFeatureItem(
-            context,
-            Icons.star,
-            'Сайланганнар',
-            'Язмаларны соңрак уку өчен саклагыз',
-            Colors.amber,
-          ),
-          const SizedBox(height: 32),
-
-          // Links
-          Text(
-            'Ссылки:',
-            style: Theme.of(
+              Icons.search,
+              'Эзләү',
+              'Язмаларны исеме һәм тасвирламасы буенча эзләү',
+              AppColors.navSearch,
+            ),
+            _buildFeatureItem(
               context,
-            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 16),
-          _buildLinkItem(
-            context,
-            Icons.language,
-            'Безнең сайт',
-            'tatislam.com',
-            'https://tatislam.com',
-            AppColors.website,
-          ),
-          _buildLinkItem(
-            context,
-            Icons.play_circle_filled,
-            'YouTube каналы',
-            'youtube.com/channel/UCyoQBRnx-UU2gBPPFjU1hIw',
-            'https://www.youtube.com/channel/UCyoQBRnx-UU2gBPPFjU1hIw',
-            AppColors.youtube,
-          ),
-          _buildLinkItem(
-            context,
-            Icons.ondemand_video,
-            'RuTube каналы',
-            'rutube.ru/channel/38324482',
-            'https://rutube.ru/channel/38324482',
-            AppColors.rutube,
-          ),
-          _buildLinkItem(
-            context,
-            Icons.people_alt,
-            'ВКонтакте',
-            'vk.com/tat_islam_com',
-            'https://vk.com/tat_islam_com',
-            AppColors.vkontakte,
-          ),
-          _buildLinkItem(
-            context,
-            Icons.chat,
-            'Бип',
-            'bip.ai/join/tatislam',
-            'https://bip.ai/join/tatislam',
-            AppColors.bip,
-          ),
-          _buildLinkItem(
-            context,
-            Icons.forum,
-            'Макс',
-            'max.ru/join/W0hU3jNSKOSno',
-            'https://max.ru/join/W0hU3jNSKOSno',
-            AppColors.max,
-          ),
-          _buildLinkItem(
-            context,
-            Icons.telegram,
-            'Telegram каналы',
-            't.me/tatislam',
-            'https://t.me/tatislam',
-            AppColors.telegram,
-          ),
-          const SizedBox(height: 32),
-
-          // Contact
-          Text(
-            'Контактлар:',
-            style: Theme.of(
+              Icons.star,
+              'Сайланганнар',
+              'Кызыклы язмаларны сайлап алу',
+              Colors.amber,
+            ),
+            _buildFeatureItem(
               context,
-            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 16),
-          _buildContactItem(
-            context,
-            Icons.email,
-            'Email',
-            'faizr@inbox.ru',
-            AppColors.email,
-          ),
-          const SizedBox(height: 32),
+              Icons.filter_alt,
+              'Фильтрлар',
+              'Төрләре (аудио, видео, мәкалә) һәм бүлекләре буенча фильтрлау',
+              AppColors.navCatalog,
+            ),
+            const SizedBox(height: 32),
 
-          // Footer
-          // Барлык хокуклар сакланган.
-          Text(
-            '© 2026 ${AppStrings.appName}.',
-            style: Theme.of(
+            // Links
+            Text(
+              'Ссылки:',
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 16),
+            _buildLinkItem(
               context,
-            ).textTheme.bodySmall?.copyWith(color: Colors.grey[600]),
-            textAlign: TextAlign.center,
-          ),
-        ],
+              Icons.language,
+              'Безнең сайт',
+              'tatislam.com',
+              'https://tatislam.com',
+              AppColors.website,
+            ),
+            _buildLinkItem(
+              context,
+              Icons.play_circle_filled,
+              'YouTube каналы',
+              'youtube.com/channel/UCyoQBRnx-UU2gBPPFjU1hIw',
+              'https://www.youtube.com/channel/UCyoQBRnx-UU2gBPPFjU1hIw',
+              AppColors.youtube,
+            ),
+            _buildLinkItem(
+              context,
+              Icons.ondemand_video,
+              'RuTube каналы',
+              'rutube.ru/channel/38324482',
+              'https://rutube.ru/channel/38324482',
+              AppColors.rutube,
+            ),
+            _buildLinkItem(
+              context,
+              Icons.people_alt,
+              'ВКонтакте',
+              'vk.com/tat_islam_com',
+              'https://vk.com/tat_islam_com',
+              AppColors.vkontakte,
+            ),
+            _buildLinkItem(
+              context,
+              Icons.chat,
+              'Бип',
+              'bip.ai/join/tatislam',
+              'https://bip.ai/join/tatislam',
+              AppColors.bip,
+            ),
+            _buildLinkItem(
+              context,
+              Icons.forum,
+              'Макс',
+              'max.ru/join/W0hU3jNSKOSno',
+              'https://max.ru/join/W0hU3jNSKOSno',
+              AppColors.max,
+            ),
+            _buildLinkItem(
+              context,
+              Icons.telegram,
+              'Telegram каналы',
+              't.me/tatislam',
+              'https://t.me/tatislam',
+              AppColors.telegram,
+            ),
+            const SizedBox(height: 32),
+
+            // Contact
+            Text(
+              'Контактлар:',
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 16),
+            _buildContactItem(
+              context,
+              Icons.email,
+              'Email',
+              'faizr@inbox.ru',
+              AppColors.email,
+            ),
+            const SizedBox(height: 32),
+
+            // Footer
+            // Барлык хокуклар сакланган.
+            Text(
+              '© 2026 ${AppStrings.appName}.',
+              style: Theme.of(
+                context,
+              ).textTheme.bodySmall?.copyWith(color: Colors.grey[600]),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -9,6 +9,7 @@ class SectionModel {
   final int sortOrder;
   final DateTime createdAt;
   final DateTime updatedAt;
+  final String? backgroundImage;
 
   const SectionModel({
     required this.id,
@@ -18,6 +19,7 @@ class SectionModel {
     required this.sortOrder,
     required this.createdAt,
     required this.updatedAt,
+    this.backgroundImage,
   });
 
   factory SectionModel.fromJson(Map<String, dynamic> json) {
@@ -29,6 +31,7 @@ class SectionModel {
       sortOrder: json['sort_order'] as int,
       createdAt: DateTime.parse(json['created_at'] as String),
       updatedAt: DateTime.parse(json['updated_at'] as String),
+      backgroundImage: json['background_image'] as String?,
     );
   }
 
@@ -37,6 +40,7 @@ class SectionModel {
         'slug': slug,
         'is_visible': isVisible,
         'sort_order': sortOrder,
+        if (backgroundImage != null) 'background_image': backgroundImage,
       };
 
   Section toEntity() => Section(
@@ -47,5 +51,6 @@ class SectionModel {
         sortOrder: sortOrder,
         createdAt: createdAt,
         updatedAt: updatedAt,
+        backgroundImage: backgroundImage,
       );
 }

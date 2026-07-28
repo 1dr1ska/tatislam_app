@@ -9,8 +9,7 @@ import 'package:tatislam_app/features/home/domain/entities/home_layout_mode.dart
 import 'package:tatislam_app/features/publications/domain/entities/publication.dart';
 import 'package:tatislam_app/features/favorites/providers/favorites_provider.dart';
 import 'package:tatislam_app/features/catalog/presentation/providers/catalog_favorites_provider.dart';
-import 'package:tatislam_app/core/storage/storage_providers.dart';
-import 'package:cached_network_image/cached_network_image.dart';
+import 'package:tatislam_app/core/constants/app_icons.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -175,7 +174,6 @@ class _FeedCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final mediaStorage = ref.watch(mediaStorageRepositoryProvider);
     final isFavorite = ref.watch(favoritesIsFavoriteProvider(publication.id));
     
     return GestureDetector(
@@ -192,22 +190,21 @@ class _FeedCard extends ConsumerWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Cover image
+            // Icon
             ClipRRect(
               borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
               child: AspectRatio(
                 aspectRatio: 16 / 9,
                 child: Container(
                   color: AppColors.primary.withValues(alpha: 0.1),
-                  child: publication.coverImagePath.isNotEmpty
-                      ? CachedNetworkImage(
-                          imageUrl: mediaStorage.publicUrlFor(publication.coverImagePath),
-                          fit: BoxFit.contain,
-                          placeholder: (context, url) => const Center(child: CircularProgressIndicator()),
-                          errorWidget: (context, url, error) => 
-                            const Center(child: Icon(Icons.image_not_supported, size: 48)),
-                        )
-                      : const Center(child: Icon(Icons.image, size: 48, color: AppColors.primary)),
+                  child: Center(
+                    child: Image.asset(
+                      AppIcons.pathOrDefault(publication.icon),
+                      width: 80,
+                      height: 80,
+                      fit: BoxFit.contain,
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -279,7 +276,6 @@ class _CardGridItem extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final mediaStorage = ref.watch(mediaStorageRepositoryProvider);
     final isFavorite = ref.watch(favoritesIsFavoriteProvider(publication.id));
     
     return GestureDetector(
@@ -300,22 +296,21 @@ class _CardGridItem extends ConsumerWidget {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Cover image
+                    // Icon
                     ClipRRect(
                       borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
                       child: AspectRatio(
                         aspectRatio: 16 / 9,
                         child: Container(
                           color: AppColors.primary.withValues(alpha: 0.1),
-                          child: publication.coverImagePath.isNotEmpty
-                              ? CachedNetworkImage(
-                                  imageUrl: mediaStorage.publicUrlFor(publication.coverImagePath),
-                                  fit: BoxFit.contain,
-                                  placeholder: (context, url) => const Center(child: CircularProgressIndicator()),
-                                  errorWidget: (context, url, error) => 
-                                    const Center(child: Icon(Icons.image_not_supported, size: 32)),
-                                )
-                              : const Center(child: Icon(Icons.image, size: 32, color: AppColors.primary)),
+                          child: Center(
+                            child: Image.asset(
+                              AppIcons.pathOrDefault(publication.icon),
+                              width: 80,
+                              height: 80,
+                              fit: BoxFit.contain,
+                            ),
+                          ),
                         ),
                       ),
                     ),

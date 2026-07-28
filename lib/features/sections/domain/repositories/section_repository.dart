@@ -29,4 +29,8 @@ abstract class SectionRepository {
   /// Moves a section down one position in the sort order.
   /// Returns the updated section, or null if the section cannot be moved down.
   Future<Section?> moveSectionDown(Section section);
+
+  /// Updates the background image for a section.
+  /// Pass null to clear the background (use default).
+  Future<Section> setBackgroundImage(String id, String? backgroundImage);
 }

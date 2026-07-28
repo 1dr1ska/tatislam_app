@@ -7,6 +7,7 @@ import 'package:tatislam_app/features/publications/domain/entities/publication.d
 import 'package:tatislam_app/features/favorites/providers/favorites_provider.dart';
 import 'package:tatislam_app/features/favorites/data/favorites_providers.dart';
 import 'package:tatislam_app/features/catalog/presentation/providers/catalog_favorites_provider.dart';
+import 'package:tatislam_app/core/constants/app_icons.dart';
 
 class FavoritesScreen extends ConsumerWidget {
   const FavoritesScreen({super.key});
@@ -141,21 +142,21 @@ class _PublicationCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Cover image
+                // Icon
                 ClipRRect(
                   borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
                   child: AspectRatio(
                     aspectRatio: 16 / 9,
                     child: Container(
                       color: AppColors.primary.withValues(alpha: 0.1),
-                      child: publication.coverImagePath.isNotEmpty
-                          ? Image.network(
-                              publication.coverImagePath,
-                              fit: BoxFit.contain,
-                              errorBuilder: (context, error, stackTrace) => 
-                                const Center(child: Icon(Icons.image_not_supported, size: 32)),
-                            )
-                          : const Center(child: Icon(Icons.image, size: 32, color: AppColors.primary)),
+                      child: Center(
+                        child: Image.asset(
+                          AppIcons.pathOrDefault(publication.icon),
+                          width: 80,
+                          height: 80,
+                          fit: BoxFit.contain,
+                        ),
+                      ),
                     ),
                   ),
                 ),

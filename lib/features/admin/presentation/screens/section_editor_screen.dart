@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:tatislam_app/features/admin/presentation/widgets/background_selector.dart';
 import 'package:tatislam_app/features/sections/data/section_providers.dart';
 
 /// Full-page screen for creating or editing a section.
@@ -18,6 +19,7 @@ class _SectionEditorScreenState extends ConsumerState<SectionEditorScreen> {
   bool _isLoading = false;
   bool _isSaving = false;
   bool? _isVisible;
+  String? _backgroundImage;
 
   bool get _isEditing => widget.sectionId != null;
 
@@ -44,6 +46,7 @@ class _SectionEditorScreenState extends ConsumerState<SectionEditorScreen> {
       if (section != null) {
         _nameController.text = section.name;
         _isVisible = section.isVisible;
+        _backgroundImage = section.backgroundImage;
       }
     } catch (e) {
       if (mounted) {
@@ -74,6 +77,7 @@ class _SectionEditorScreenState extends ConsumerState<SectionEditorScreen> {
         if (_isVisible != null) {
           await repository.setVisibility(widget.sectionId!, _isVisible!);
         }
+        await repository.setBackgroundImage(widget.sectionId!, _backgroundImage);
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Раздел сохранён')),
@@ -148,6 +152,13 @@ class _SectionEditorScreenState extends ConsumerState<SectionEditorScreen> {
                         },
                       ),
                     ],
+                    const SizedBox(height: 24),
+                    BackgroundSelector(
+                      value: _backgroundImage,
+                      onChanged: (value) {
+                        setState(() => _backgroundImage = value);
+                      },
+                    ),
                   ],
                 ),
       ),

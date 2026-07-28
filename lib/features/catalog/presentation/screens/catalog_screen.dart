@@ -12,8 +12,7 @@ import 'package:tatislam_app/features/catalog/presentation/providers/catalog_mod
 import 'package:tatislam_app/features/catalog/presentation/providers/selected_section_provider.dart';
 import 'package:tatislam_app/features/catalog/presentation/providers/catalog_favorites_provider.dart';
 import 'package:tatislam_app/features/favorites/providers/favorites_provider.dart';
-import 'package:tatislam_app/core/storage/storage_providers.dart';
-import 'package:cached_network_image/cached_network_image.dart';
+import 'package:tatislam_app/core/constants/app_icons.dart';
 
 class CatalogScreen extends ConsumerStatefulWidget {
   const CatalogScreen({super.key});
@@ -270,7 +269,6 @@ class _PublicationCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final isFavorite = ref.watch(favoritesIsFavoriteProvider(publication.id));
-    final mediaStorage = ref.watch(mediaStorageRepositoryProvider);
     
     return GestureDetector(
       onTap: () {
@@ -296,22 +294,21 @@ class _PublicationCard extends ConsumerWidget {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Cover image
+                    // Icon
                     ClipRRect(
                       borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
                       child: AspectRatio(
                         aspectRatio: 16 / 9,
                         child: Container(
                           color: AppColors.primary.withValues(alpha: 0.1),
-                          child: publication.coverImagePath.isNotEmpty
-                              ? CachedNetworkImage(
-                                  imageUrl: mediaStorage.publicUrlFor(publication.coverImagePath),
-                                  fit: BoxFit.contain,
-                                  placeholder: (context, url) => const Center(child: CircularProgressIndicator()),
-                                  errorWidget: (context, url, error) => 
-                                    const Center(child: Icon(Icons.image_not_supported, size: 32)),
-                                )
-                              : const Center(child: Icon(Icons.image, size: 32, color: AppColors.primary)),
+                          child: Center(
+                            child: Image.asset(
+                              AppIcons.pathOrDefault(publication.icon),
+                              width: 80,
+                              height: 80,
+                              fit: BoxFit.contain,
+                            ),
+                          ),
                         ),
                       ),
                     ),

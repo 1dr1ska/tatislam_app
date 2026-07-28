@@ -18,6 +18,7 @@ class PublicationRepositoryImpl implements PublicationRepository {
   Future<List<Publication>> getPublications({
     String? sectionId,
     String? searchQuery,
+    String? type,
     int limit = 20,
     int offset = 0,
     bool includeAllStatuses = false,
@@ -25,6 +26,7 @@ class PublicationRepositoryImpl implements PublicationRepository {
     final models = await _remote.getPublications(
       sectionId: sectionId,
       searchQuery: searchQuery,
+      type: type,
       limit: limit,
       offset: offset,
       includeAllStatuses: includeAllStatuses,
@@ -54,7 +56,7 @@ class PublicationRepositoryImpl implements PublicationRepository {
   Future<Publication> createPublication({
     required String title,
     required String description,
-    required String coverImagePath,
+    String? icon,
     required DateTime publishedAt,
     required String type,
     String? status,
@@ -64,7 +66,7 @@ class PublicationRepositoryImpl implements PublicationRepository {
       id: '',
       title: title,
       description: description,
-      coverImagePath: coverImagePath,
+      icon: icon,
       publishedAt: publishedAt,
       createdAt: now,
       updatedAt: now,
@@ -80,7 +82,7 @@ class PublicationRepositoryImpl implements PublicationRepository {
     required String id,
     required String title,
     required String description,
-    required String coverImagePath,
+    String? icon,
     required DateTime publishedAt,
     required String type,
     String? status,
@@ -91,7 +93,7 @@ class PublicationRepositoryImpl implements PublicationRepository {
       id: id,
       title: title,
       description: description,
-      coverImagePath: coverImagePath,
+      icon: icon,
       publishedAt: publishedAt,
       createdAt: previous.publication.createdAt,
       updatedAt: now,
@@ -99,11 +101,6 @@ class PublicationRepositoryImpl implements PublicationRepository {
       status: status ?? previous.publication.status,
     );
     final updated = await _remote.updatePublication(id, model);
-
-    if (previous.publication.coverImagePath != coverImagePath) {
-      await _storage.delete([previous.publication.coverImagePath]);
-    }
-
     return updated.toEntity();
   }
 
@@ -112,7 +109,6 @@ class PublicationRepositoryImpl implements PublicationRepository {
     final detail = await _remote.getPublicationDetail(id);
     await _remote.deletePublication(id);
     await _storage.delete([
-      detail.publication.coverImagePath,
       ..._storagePathsIn(detail.blocks),
     ]);
   }

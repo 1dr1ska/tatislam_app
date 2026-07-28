@@ -49,4 +49,10 @@ class SectionRepositoryImpl implements SectionRepository {
     final model = await _remote.moveSectionDown(section.id, section.sortOrder);
     return model?.toEntity();
   }
+
+  @override
+  Future<Section> setBackgroundImage(String id, String? backgroundImage) async {
+    final model = await _remote.updateBackground(id, backgroundImage);
+    return model.toEntity();
+  }
 }

@@ -9,8 +9,8 @@ class Publication extends Equatable {
   final String title;
   final String description;
 
-  /// Storage path (e.g. `covers/<id>.jpg`) — never a public URL.
-  final String coverImagePath;
+  /// Icon identifier (e.g. 'book', 'audio', 'video') — maps to a local asset.
+  final String? icon;
   final DateTime publishedAt;
   final DateTime createdAt;
   final DateTime updatedAt;
@@ -21,7 +21,7 @@ class Publication extends Equatable {
     required this.id,
     required this.title,
     required this.description,
-    required this.coverImagePath,
+    this.icon,
     required this.publishedAt,
     required this.createdAt,
     required this.updatedAt,
@@ -32,7 +32,7 @@ class Publication extends Equatable {
   Publication copyWith({
     String? title,
     String? description,
-    String? coverImagePath,
+    String? icon,
     DateTime? publishedAt,
     DateTime? createdAt,
     DateTime? updatedAt,
@@ -43,7 +43,7 @@ class Publication extends Equatable {
       id: id,
       title: title ?? this.title,
       description: description ?? this.description,
-      coverImagePath: coverImagePath ?? this.coverImagePath,
+      icon: icon ?? this.icon,
       publishedAt: publishedAt ?? this.publishedAt,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
@@ -57,7 +57,7 @@ class Publication extends Equatable {
         id,
         title,
         description,
-        coverImagePath,
+        icon,
         publishedAt,
         createdAt,
         updatedAt,

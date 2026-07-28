@@ -26,13 +26,14 @@ final getPublicationsProvider = Provider<Future<List<Publication>> Function({boo
 );
 
 /// Provider for getting publications with filters
-final getPublicationsWithFiltersProvider = Provider<Future<List<Publication>> Function({String? sectionId, String? searchQuery, int limit, int offset, bool includeAllStatuses})>(
+final getPublicationsWithFiltersProvider = Provider<Future<List<Publication>> Function({String? sectionId, String? searchQuery, String? type, int limit, int offset, bool includeAllStatuses})>(
   (ref) {
     final repository = ref.watch(publicationRepositoryProvider);
-    return ({String? sectionId, String? searchQuery, int limit = 20, int offset = 0, bool includeAllStatuses = false}) => 
+    return ({String? sectionId, String? searchQuery, String? type, int limit = 20, int offset = 0, bool includeAllStatuses = false}) => 
       repository.getPublications(
         sectionId: sectionId,
         searchQuery: searchQuery,
+        type: type,
         limit: limit,
         offset: offset,
         includeAllStatuses: includeAllStatuses,

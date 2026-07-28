@@ -1,16 +1,14 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:uuid/uuid.dart';
 
-import 'package:tatislam_app/core/services/media_optimization_service.dart';
-import 'package:tatislam_app/core/services/models/image_optimization_result.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:tatislam_app/core/constants/app_icons.dart';
 import 'package:tatislam_app/core/storage/storage_paths.dart';
 import 'package:tatislam_app/core/storage/storage_providers.dart';
 import 'package:tatislam_app/features/publications/data/publication_providers.dart';
@@ -24,7 +22,6 @@ import 'package:tatislam_app/features/sections/domain/entities/section.dart';
 /// Tracks the current step of the save process for UI feedback.
 enum _SaveStep {
   idle,
-  uploadingCover,
   savingMetadata,
   uploadingFiles,
   savingSections,
@@ -47,15 +44,13 @@ class _PublicationEditorScreenState
     extends ConsumerState<PublicationEditorScreen> {
   final _formKey = GlobalKey<FormState>();
   final _titleController = TextEditingController();
-  final _coverImageController = TextEditingController();
   final _dateController = TextEditingController();
   final _uuid = const Uuid();
 
   late Future<PublicationDetail?> _publicationFuture;
   late Future<List<Section>> _sectionsFuture;
 
-  String _selectedCoverImagePath = '';
-  File? _selectedCoverImageFile;
+  String? _selectedIcon;
   List<ContentBlock> _contentBlocks = [];
   Set<String> _selectedSectionIds = {};
   String _status = 'draft';
@@ -64,22 +59,10 @@ class _PublicationEditorScreenState
   // Map to store selected image files for each content block
   final Map<String, File> _selectedBlockImageFiles = {};
 
-  // Map to store optimization results for each content block image
-  final Map<String, ImageOptimizationResult> _blockImageOptimizationResults =
-      {};
-
-  // Optimization result for the cover image
-  ImageOptimizationResult? _coverImageOptimizationResult;
-
   // Map to store selected audio files for each content block
   final Map<String, File> _selectedBlockAudioFiles = {};
 
-  bool _isProcessing = false;
   bool _isSaving = false;
-
-  final MediaOptimizationService _optimizationService =
-      const MediaOptimizationService();
-
   _SaveStep _currentSaveStep = _SaveStep.idle;
   int _uploadedFileCount = 0;
   int _totalFileCount = 0;
@@ -100,7 +83,6 @@ class _PublicationEditorScreenState
   void dispose() {
     _autoSaveTimer?.cancel();
     _titleController.dispose();
-    _coverImageController.dispose();
     _dateController.dispose();
     super.dispose();
   }
@@ -111,16 +93,12 @@ class _PublicationEditorScreenState
   }
 
   Future<PublicationDetail?> _loadPublication(String id) async {
-    debugPrint('PublicationEditorScreen._loadPublication: called with id="$id"');
     try {
       final repository = ref.read(publicationRepositoryProvider);
-      debugPrint('PublicationEditorScreen._loadPublication: calling repository.getPublicationDetail("$id")');
       final detail = await repository.getPublicationDetail(id);
-      debugPrint('PublicationEditorScreen._loadPublication: got detail, publication.id="${detail.publication.id}"');
 
-      // Fill form fields with publication data
       _titleController.text = detail.publication.title;
-      _selectedCoverImagePath = detail.publication.coverImagePath;
+      _selectedIcon = detail.publication.icon;
       _contentBlocks = List.from(detail.blocks);
       _selectedSectionIds = Set.from(detail.sectionIds);
       _status = detail.publication.status ?? 'draft';
@@ -144,73 +122,14 @@ class _PublicationEditorScreenState
     }
   }
 
-  Future<void> _pickCoverImage() async {
-    final picker = ImagePicker();
-    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
-
-    if (pickedFile != null) {
-      setState(() {
-        _isProcessing = true;
-      });
-
-      try {
-        final bytes = await pickedFile.readAsBytes();
-        final result = await _optimizationService.optimizeImage(
-          originalBytes: bytes,
-          originalFileName: pickedFile.name,
-        );
-
-        setState(() {
-          _selectedCoverImageFile = File(pickedFile.path);
-          _coverImageOptimizationResult = result;
-          _coverImageController.text = result.fileName;
-        });
-      } catch (e) {
-        // Если оптимизация не удалась — используем исходный файл
-        setState(() {
-          _selectedCoverImageFile = File(pickedFile.path);
-          _coverImageOptimizationResult = null;
-          _coverImageController.text = pickedFile.path.split('/').last;
-        });
-      } finally {
-        setState(() {
-          _isProcessing = false;
-        });
-      }
-    }
-  }
-
   Future<void> _pickBlockImage(String blockId) async {
     final picker = ImagePicker();
     final pickedFile = await picker.pickImage(source: ImageSource.gallery);
 
     if (pickedFile != null) {
       setState(() {
-        _isProcessing = true;
+        _selectedBlockImageFiles[blockId] = File(pickedFile.path);
       });
-
-      try {
-        final bytes = await pickedFile.readAsBytes();
-        final result = await _optimizationService.optimizeImage(
-          originalBytes: bytes,
-          originalFileName: pickedFile.name,
-        );
-
-        setState(() {
-          _selectedBlockImageFiles[blockId] = File(pickedFile.path);
-          _blockImageOptimizationResults[blockId] = result;
-        });
-      } catch (e) {
-        // Если оптимизация не удалась — используем исходный файл
-        setState(() {
-          _selectedBlockImageFiles[blockId] = File(pickedFile.path);
-          _blockImageOptimizationResults.remove(blockId);
-        });
-      } finally {
-        setState(() {
-          _isProcessing = false;
-        });
-      }
     }
   }
 
@@ -227,45 +146,6 @@ class _PublicationEditorScreenState
     }
   }
 
-  Future<String> _uploadCoverImage() async {
-    if (_selectedCoverImageFile == null) {
-      return _selectedCoverImagePath;
-    }
-
-    try {
-      final storageRepository = ref.read(mediaStorageRepositoryProvider);
-
-      // Use optimized bytes if available, otherwise read from file
-      final Uint8List bytes;
-      final String extension;
-
-      if (_coverImageOptimizationResult != null) {
-        bytes = _coverImageOptimizationResult!.bytes;
-        extension = _coverImageOptimizationResult!.fileName.split('.').last;
-      } else {
-        bytes = await _selectedCoverImageFile!.readAsBytes();
-        extension = _selectedCoverImageFile!.path.split('.').last;
-      }
-
-      final path = StoragePaths.cover(_uuid.v4(), extension);
-      final s3Key = await storageRepository.upload(path, bytes);
-
-      // Delete old cover image if it exists and is different
-      if (_selectedCoverImagePath.isNotEmpty &&
-          _selectedCoverImagePath != s3Key) {
-        try {
-          await storageRepository.delete([_selectedCoverImagePath]);
-        } catch (e) {
-          // Ignore delete errors
-        }
-      }
-
-      return s3Key;
-    } catch (e) {
-      throw Exception('Ошибка загрузки обложки: $e');
-    }
-  }
-
   Future<String> _uploadBlockImage(
       String blockId, String currentImagePath) async {
     final selectedImageFile = _selectedBlockImageFiles[blockId];
@@ -277,18 +157,8 @@ class _PublicationEditorScreenState
     try {
       final storageRepository = ref.read(mediaStorageRepositoryProvider);
 
-      // Use optimized bytes if available, otherwise read from file
-      final Uint8List bytes;
-      final String extension;
-
-      final optimizationResult = _blockImageOptimizationResults[blockId];
-      if (optimizationResult != null) {
-        bytes = optimizationResult.bytes;
-        extension = optimizationResult.fileName.split('.').last;
-      } else {
-        bytes = await selectedImageFile.readAsBytes();
-        extension = selectedImageFile.path.split('.').last;
-      }
+      final bytes = await selectedImageFile.readAsBytes();
+      final extension = selectedImageFile.path.split('.').last;
 
       final path = StoragePaths.blockImage(
           widget.publicationId ?? _uuid.v4(), extension,
@@ -296,7 +166,6 @@ class _PublicationEditorScreenState
 
       final s3Key = await storageRepository.upload(path, bytes);
 
-      // Delete old image if it exists and is different
       if (currentImagePath.isNotEmpty && currentImagePath != s3Key) {
         try {
           await storageRepository.delete([currentImagePath]);
@@ -329,7 +198,6 @@ class _PublicationEditorScreenState
       final bytes = await selectedAudioFile.readAsBytes();
       final s3Key = await storageRepository.upload(path, bytes);
 
-      // Delete old audio file if it exists and is different
       if (currentAudioPath.isNotEmpty && currentAudioPath != s3Key) {
         try {
           await storageRepository.delete([currentAudioPath]);
@@ -348,7 +216,6 @@ class _PublicationEditorScreenState
       String publicationId) async {
     final updatedBlocks = <ContentBlock>[];
 
-    // Count total files that need uploading
     _totalFileCount = 0;
     for (final block in _contentBlocks) {
       if (block is ImageContentBlock &&
@@ -363,27 +230,20 @@ class _PublicationEditorScreenState
 
     for (final block in _contentBlocks) {
       if (block is ImageContentBlock) {
-        // Upload image for this block
         final imagePath =
             await _uploadBlockImage(block.id, block.imagePath);
-
-        // Create updated block with new image path
         final updatedBlock = block.copyWith(imagePaths: [imagePath]);
         updatedBlocks.add(updatedBlock);
         _uploadedFileCount++;
         _updateSaveStep();
       } else if (block is AudioContentBlock) {
-        // Upload audio file for this block
         final audioPath =
             await _uploadBlockAudio(block.id, block.audioPath ?? '');
-
-        // Create updated block with new audio path
         final updatedBlock = block.copyWith(audioPath: audioPath);
         updatedBlocks.add(updatedBlock);
         _uploadedFileCount++;
         _updateSaveStep();
       } else {
-        // For other blocks, just add them as is
         updatedBlocks.add(block);
       }
     }
@@ -401,8 +261,6 @@ class _PublicationEditorScreenState
     switch (_currentSaveStep) {
       case _SaveStep.idle:
         return '';
-      case _SaveStep.uploadingCover:
-        return 'Загрузка обложки...';
       case _SaveStep.savingMetadata:
         return 'Сохранение данных...';
       case _SaveStep.uploadingFiles:
@@ -421,9 +279,7 @@ class _PublicationEditorScreenState
     }
   }
 
-  /// Schedules a debounced auto-save. Cancels any pending auto-save first.
   void _scheduleAutoSave() {
-    // Only auto-save if we have a publication ID (editing existing)
     if (widget.publicationId == null) return;
 
     _autoSaveTimer?.cancel();
@@ -437,19 +293,11 @@ class _PublicationEditorScreenState
 
     setState(() {
       _isSaving = true;
-      _currentSaveStep = _SaveStep.uploadingCover;
+      _currentSaveStep = _SaveStep.savingMetadata;
     });
 
     try {
       final title = _titleController.text.trim();
-
-      // Upload cover image
-      final coverImagePath = await _uploadCoverImage();
-
-      setState(() {
-        _currentSaveStep = _SaveStep.savingMetadata;
-      });
-
       final repository = ref.read(publicationRepositoryProvider);
 
       if (widget.publicationId == null) {
@@ -457,7 +305,7 @@ class _PublicationEditorScreenState
         final publication = await repository.createPublication(
           title: title,
           description: '',
-          coverImagePath: coverImagePath,
+          icon: _selectedIcon,
           type: 'article',
           publishedAt: DateTime.now(),
           status: _status,
@@ -467,7 +315,6 @@ class _PublicationEditorScreenState
           _currentSaveStep = _SaveStep.uploadingFiles;
         });
 
-        // Update content blocks with uploaded image paths
         final updatedBlocks =
             await _updateBlocksWithImagePaths(publication.id);
 
@@ -475,7 +322,6 @@ class _PublicationEditorScreenState
           _currentSaveStep = _SaveStep.savingSections;
         });
 
-        // Save section associations
         await repository.setSections(
             publication.id, _selectedSectionIds.toList());
 
@@ -483,7 +329,6 @@ class _PublicationEditorScreenState
           _currentSaveStep = _SaveStep.savingBlocks;
         });
 
-        // Save content blocks
         await repository.replaceBlocks(publication.id, updatedBlocks);
 
         setState(() {
@@ -493,7 +338,6 @@ class _PublicationEditorScreenState
         if (mounted) {
           final messenger = ScaffoldMessenger.of(context);
           final navigator = Navigator.of(context);
-          // Show success briefly before closing
           await Future.delayed(const Duration(milliseconds: 500));
           messenger.showSnackBar(
             const SnackBar(content: Text('Публикация создана')),
@@ -507,7 +351,7 @@ class _PublicationEditorScreenState
           id: widget.publicationId!,
           title: title,
           description: '',
-          coverImagePath: coverImagePath,
+          icon: _selectedIcon,
           publishedAt: _publishedAt ?? DateTime.now(),
           type: 'article',
           status: _status,
@@ -517,7 +361,6 @@ class _PublicationEditorScreenState
           _currentSaveStep = _SaveStep.uploadingFiles;
         });
 
-        // Update content blocks with uploaded image paths
         final updatedBlocks =
             await _updateBlocksWithImagePaths(publication.id);
 
@@ -525,7 +368,6 @@ class _PublicationEditorScreenState
           _currentSaveStep = _SaveStep.savingSections;
         });
 
-        // Save section associations
         await repository.setSections(
             widget.publicationId!, _selectedSectionIds.toList());
 
@@ -533,7 +375,6 @@ class _PublicationEditorScreenState
           _currentSaveStep = _SaveStep.savingBlocks;
         });
 
-        // Save content blocks
         await repository.replaceBlocks(
             widget.publicationId!, updatedBlocks);
 
@@ -564,7 +405,6 @@ class _PublicationEditorScreenState
     } finally {
       setState(() {
         _isSaving = false;
-        // Reset step after a delay so the user can see the final state
         Future.delayed(const Duration(seconds: 2), () {
           if (mounted) {
             setState(() {
@@ -577,32 +417,22 @@ class _PublicationEditorScreenState
   }
 
   Future<void> _autoSave() async {
-    // Don't auto-save if we're already saving manually
     if (_isSaving) return;
 
     setState(() {
       _isSaving = true;
-      _currentSaveStep = _SaveStep.uploadingCover;
+      _currentSaveStep = _SaveStep.savingMetadata;
     });
 
     try {
       final title = _titleController.text.trim();
-
-      // Upload cover image
-      final coverImagePath = await _uploadCoverImage();
-
-      setState(() {
-        _currentSaveStep = _SaveStep.savingMetadata;
-      });
-
       final repository = ref.read(publicationRepositoryProvider);
 
-      // Update existing publication
-      final publication = await repository.updatePublication(
+      await repository.updatePublication(
         id: widget.publicationId!,
         title: title,
         description: '',
-        coverImagePath: coverImagePath,
+        icon: _selectedIcon,
         publishedAt: _publishedAt ?? DateTime.now(),
         type: 'article',
         status: _status,
@@ -612,15 +442,13 @@ class _PublicationEditorScreenState
         _currentSaveStep = _SaveStep.uploadingFiles;
       });
 
-      // Update content blocks with uploaded image paths
       final updatedBlocks =
-          await _updateBlocksWithImagePaths(publication.id);
+          await _updateBlocksWithImagePaths(widget.publicationId!);
 
       setState(() {
         _currentSaveStep = _SaveStep.savingSections;
       });
 
-      // Save section associations
       await repository.setSections(
           widget.publicationId!, _selectedSectionIds.toList());
 
@@ -628,7 +456,6 @@ class _PublicationEditorScreenState
         _currentSaveStep = _SaveStep.savingBlocks;
       });
 
-      // Save content blocks
       await repository.replaceBlocks(
           widget.publicationId!, updatedBlocks);
 
@@ -637,10 +464,8 @@ class _PublicationEditorScreenState
       });
 
       if (mounted) {
-        final messenger = ScaffoldMessenger.of(context);
-        // Show auto-save indicator briefly
         await Future.delayed(const Duration(seconds: 1));
-        messenger.showSnackBar(
+        ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Автосохранение выполнено'),
             duration: Duration(seconds: 1),
@@ -649,7 +474,6 @@ class _PublicationEditorScreenState
         ref.invalidate(publicationRepositoryProvider);
       }
     } catch (e) {
-      // Don't show error for auto-save, just log it
       debugPrint('Auto-save error: $e');
       setState(() {
         _currentSaveStep = _SaveStep.error;
@@ -772,7 +596,6 @@ class _PublicationEditorScreenState
         ),
         body: Column(
           children: [
-            // Save progress indicator
             if (_currentSaveStep != _SaveStep.idle)
               _buildSaveProgressIndicator(),
             Expanded(
@@ -821,51 +644,8 @@ class _PublicationEditorScreenState
                                     },
                                   ),
                                   const SizedBox(height: 16),
-                                  Row(
-                                    children: [
-                                      Expanded(
-                                        child: TextFormField(
-                                          controller: _coverImageController,
-                                          decoration: const InputDecoration(
-                                            labelText: 'Обложка',
-                                            border: OutlineInputBorder(),
-                                          ),
-                                          readOnly: true,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 16),
-                                      ElevatedButton(
-                                        onPressed: _pickCoverImage,
-                                        child: const Text('Выбрать'),
-                                      ),
-                                    ],
-                                  ),
-                                  if (_selectedCoverImagePath.isNotEmpty ||
-                                      _selectedCoverImageFile != null) ...[
-                                    const SizedBox(height: 16),
-                                    Container(
-                                      height: 200,
-                                      decoration: BoxDecoration(
-                                        border: Border.all(color: Colors.grey),
-                                      ),
-                                      child: _selectedCoverImageFile != null
-                                          ? Image.file(
-                                              _selectedCoverImageFile!,
-                                              fit: BoxFit.contain)
-                                          : Image.network(
-                                              ref
-                                                  .read(
-                                                      mediaStorageRepositoryProvider)
-                                                  .publicUrlFor(
-                                                      _selectedCoverImagePath),
-                                              fit: BoxFit.contain,
-                                              errorBuilder: (context, error,
-                                                      stackTrace) =>
-                                                  const Icon(
-                                                      Icons.broken_image),
-                                            ),
-                                    ),
-                                  ],
+                                  // Icon selector
+                                  _buildIconSelector(),
                                   const SizedBox(height: 16),
                                   FutureBuilder<List<Section>>(
                                     future: _sectionsFuture,
@@ -969,7 +749,6 @@ class _PublicationEditorScreenState
                                         fontWeight: FontWeight.bold),
                                   ),
                                   const SizedBox(height: 16),
-                                  // Add block buttons
                                   Wrap(
                                     spacing: 8.0,
                                     runSpacing: 8.0,
@@ -1055,7 +834,6 @@ class _PublicationEditorScreenState
                                     ],
                                   ),
                                   const SizedBox(height: 16),
-                                  // Content blocks list
                                   ListView.builder(
                                     shrinkWrap: true,
                                     physics:
@@ -1081,6 +859,70 @@ class _PublicationEditorScreenState
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildIconSelector() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Иконка',
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 12,
+          runSpacing: 12,
+          children: AppIcons.paths.entries.map((entry) {
+            final iconId = entry.key;
+            final iconPath = entry.value;
+            final isSelected = _selectedIcon == iconId;
+
+            return GestureDetector(
+              onTap: () {
+                setState(() {
+                  _selectedIcon = iconId;
+                });
+                _scheduleAutoSave();
+              },
+              child: Container(
+                width: 72,
+                height: 72,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: isSelected ? Colors.blue : Colors.grey.shade300,
+                    width: isSelected ? 3 : 1,
+                  ),
+                  color: isSelected
+                      ? Colors.blue.withValues(alpha: 0.1)
+                      : Colors.transparent,
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Image.asset(
+                      iconPath,
+                      width: 36,
+                      height: 36,
+                      fit: BoxFit.contain,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      iconId,
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: isSelected ? Colors.blue : Colors.grey,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }).toList(),
+        ),
+      ],
     );
   }
 
@@ -1196,10 +1038,6 @@ class _PublicationEditorScreenState
   }
 
   Widget _buildImageBlockWidget(ImageContentBlock block, int index) {
-    // Get the selected image file for this block if it exists
-    final selectedImageFile = _selectedBlockImageFiles[block.id];
-    final optimizationResult = _blockImageOptimizationResults[block.id];
-
     return Card(
       key: Key(block.id),
       margin: const EdgeInsets.only(bottom: 16),
@@ -1246,86 +1084,18 @@ class _PublicationEditorScreenState
                       border: OutlineInputBorder(),
                     ),
                     controller: TextEditingController(
-                      text: selectedImageFile != null
-                          ? (optimizationResult?.fileName ??
-                              selectedImageFile.path.split('/').last)
-                          : block.imagePath.split('/').last,
+                      text: block.imagePath.split('/').last,
                     ),
                   ),
                 ),
                 const SizedBox(width: 16),
                 ElevatedButton(
-                  onPressed: _isProcessing ? null : () => _pickBlockImage(block.id),
+                  onPressed: () => _pickBlockImage(block.id),
                   child: const Text('Выбрать'),
                 ),
               ],
             ),
-            if (_isProcessing && selectedImageFile != null) ...[
-              const SizedBox(height: 16),
-              const Center(
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    ),
-                    SizedBox(width: 12),
-                    Text('Оптимизация...'),
-                  ],
-                ),
-              ),
-            ],
-            if (optimizationResult != null) ...[
-              const SizedBox(height: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade100,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Изображение',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.grey.shade700,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'до обработки: ${_formatBytes(optimizationResult.originalSize)}',
-                      style: const TextStyle(fontSize: 13),
-                    ),
-                    Text(
-                      'после обработки: ${_formatBytes(optimizationResult.finalSize)}',
-                      style: const TextStyle(fontSize: 13),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-            if (selectedImageFile != null) ...[
-              const SizedBox(height: 16),
-              Container(
-                decoration: BoxDecoration(
-                  border: Border.all(color: Colors.grey),
-                ),
-                child: AspectRatio(
-                  aspectRatio: 3 / 2,
-                  child: Image.file(
-                    selectedImageFile,
-                    fit: BoxFit.contain,
-                    errorBuilder: (context, error, stackTrace) =>
-                        const Icon(Icons.broken_image),
-                  ),
-                ),
-              ),
-            ] else if (block.imagePath.isNotEmpty) ...[
+            if (block.imagePath.isNotEmpty) ...[
               const SizedBox(height: 16),
               Container(
                 decoration: BoxDecoration(
@@ -1462,7 +1232,6 @@ class _PublicationEditorScreenState
   }
 
   Widget _buildAudioBlockWidget(AudioContentBlock block, int index) {
-    // Get the selected audio file for this block if it exists
     final selectedAudioFile = _selectedBlockAudioFiles[block.id];
 
     return Card(
@@ -1501,7 +1270,6 @@ class _PublicationEditorScreenState
               ],
             ),
             const SizedBox(height: 16),
-            // Only show the upload option (remove external URL option)
             const Text('Загрузить файл',
                 style: TextStyle(fontWeight: FontWeight.bold)),
             const SizedBox(height: 16),
@@ -1593,11 +1361,5 @@ class _PublicationEditorScreenState
         ),
       ),
     );
-  }
-
-  String _formatBytes(int bytes) {
-    const mb = 1024 * 1024;
-    final value = bytes / mb;
-    return '${value.toStringAsFixed(1)} MB';
   }
 }

@@ -8,8 +8,7 @@ import 'package:tatislam_app/features/publications/domain/entities/publication.d
 import 'package:tatislam_app/features/search/providers/search_provider.dart';
 import 'package:tatislam_app/features/favorites/providers/favorites_provider.dart';
 import 'package:tatislam_app/features/catalog/presentation/providers/catalog_favorites_provider.dart';
-import 'package:tatislam_app/core/storage/storage_providers.dart';
-import 'package:cached_network_image/cached_network_image.dart';
+import 'package:tatislam_app/core/constants/app_icons.dart';
 
 class SearchScreen extends ConsumerStatefulWidget {
   const SearchScreen({super.key});
@@ -175,7 +174,6 @@ class _PublicationCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     // Watch the auth state to determine if user is admin
     final authState = ref.watch(authStateProvider);
-    final mediaStorage = ref.watch(mediaStorageRepositoryProvider);
     final isSpecialAdminCard = publication.id == 'admin_access';
     final isFavorite = !isSpecialAdminCard
         ? ref.watch(favoritesIsFavoriteProvider(publication.id))
@@ -229,7 +227,7 @@ class _PublicationCard extends ConsumerWidget {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Cover image
+                    // Icon (or admin icon for special admin card)
                     ClipRRect(
                       borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
                       child: AspectRatio(
@@ -238,23 +236,20 @@ class _PublicationCard extends ConsumerWidget {
                           color: isSpecialAdminCard 
                             ? (isAdmin ? Colors.green.withValues(alpha: 0.1) : Colors.orange.withValues(alpha: 0.1))
                             : AppColors.primary.withValues(alpha: 0.1),
-                          child: publication.coverImagePath.isNotEmpty
-                              ? CachedNetworkImage(
-                                  imageUrl: mediaStorage.publicUrlFor(publication.coverImagePath),
+                          child: isSpecialAdminCard
+                            ? Center(child: Icon(
+                                Icons.admin_panel_settings, 
+                                size: 48, 
+                                color: isAdmin ? Colors.green : Colors.orange,
+                              ))
+                            : Center(
+                                child: Image.asset(
+                                  AppIcons.pathOrDefault(publication.icon),
+                                  width: 80,
+                                  height: 80,
                                   fit: BoxFit.contain,
-                                  placeholder: (context, url) => const Center(child: CircularProgressIndicator()),
-                                  errorWidget: (context, url, error) => 
-                                    const Center(child: Icon(Icons.image_not_supported, size: 32)),
-                                )
-                              : Center(child: Icon(
-                                  isSpecialAdminCard 
-                                    ? Icons.admin_panel_settings 
-                                    : Icons.image, 
-                                  size: 32, 
-                                  color: isSpecialAdminCard 
-                                    ? (isAdmin ? Colors.green : Colors.orange)
-                                    : AppColors.primary
-                                )),
+                                ),
+                              ),
                         ),
                       ),
                     ),

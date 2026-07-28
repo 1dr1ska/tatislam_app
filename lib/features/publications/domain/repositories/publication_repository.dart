@@ -13,10 +13,12 @@ abstract class PublicationRepository {
   /// [sectionId] filters to publications belonging to that section.
   /// [searchQuery] matches against title/description (see SUPABASE_SETUP.md
   /// §4 for the search strategy).
+  /// [type] filters by publication type ('audio', 'video', 'article', etc.).
   /// [includeAllStatuses] when true, includes all publications regardless of status (for admin access).
   Future<List<Publication>> getPublications({
     String? sectionId,
     String? searchQuery,
+    String? type,
     int limit = 20,
     int offset = 0,
     bool includeAllStatuses = false,
@@ -35,7 +37,7 @@ abstract class PublicationRepository {
   Future<Publication> createPublication({
     required String title,
     required String description,
-    required String coverImagePath,
+    String? icon,
     required DateTime publishedAt,
     required String type,
     String? status,
@@ -45,7 +47,7 @@ abstract class PublicationRepository {
     required String id,
     required String title,
     required String description,
-    required String coverImagePath,
+    String? icon,
     required DateTime publishedAt,
     required String type,
     String? status,

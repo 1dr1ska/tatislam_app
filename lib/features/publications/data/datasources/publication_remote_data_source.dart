@@ -30,13 +30,14 @@ class PublicationRemoteDataSource {
   Future<List<PublicationModel>> getPublications({
     String? sectionId,
     String? searchQuery,
+    String? type,
     int limit = 20,
     int offset = 0,
     bool includeAllStatuses = false, // New parameter to include all statuses for admin
   }) async {
     try {
       debugPrint('PublicationRemoteDataSource: Starting to fetch publications from Supabase');
-      debugPrint('PublicationRemoteDataSource: sectionId=$sectionId, searchQuery=$searchQuery, limit=$limit, offset=$offset, includeAllStatuses=$includeAllStatuses');
+      debugPrint('PublicationRemoteDataSource: sectionId=$sectionId, searchQuery=$searchQuery, type=$type, limit=$limit, offset=$offset, includeAllStatuses=$includeAllStatuses');
       
       // Check for special admin access keyword
       if (searchQuery != null && searchQuery.trim().toLowerCase() == 'admin') {
@@ -45,7 +46,6 @@ class PublicationRemoteDataSource {
           id: 'admin_access',
           title: 'Доступ к админке',
           description: 'Нажмите для авторизации или перехода в панель администратора',
-          coverImagePath: '',
           publishedAt: DateTime.now(),
           createdAt: DateTime.now(),
           updatedAt: DateTime.now(),
@@ -85,6 +85,10 @@ class PublicationRemoteDataSource {
           query = query.or('title.ilike.%$escaped%,description.ilike.%$escaped%');
         }
         
+        if (type != null && type.isNotEmpty) {
+          query = query.eq('type', type);
+        }
+        
         final response = await query
             .order('published_at', ascending: false)
             .range(offset, offset + limit - 1);
@@ -104,6 +108,10 @@ class PublicationRemoteDataSource {
         if (searchQuery != null && searchQuery.trim().isNotEmpty) {
           final escaped = searchQuery.trim().replaceAll(',', ' ');
           query = query.or('title.ilike.%$escaped%,description.ilike.%$escaped%');
+        }
+        
+        if (type != null && type.isNotEmpty) {
+          query = query.eq('type', type);
         }
         
         final response = await query

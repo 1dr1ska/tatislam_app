@@ -111,35 +111,7 @@ class _PublicationDetailScreenState
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: () {
-            if (widget.sourceScreen != null) {
-              switch (widget.sourceScreen) {
-                case 'catalog':
-                  String route = '/catalog';
-                  if (widget.selectedSectionId != null &&
-                      widget.selectedSectionId!.isNotEmpty) {
-                    route += '?section=${widget.selectedSectionId}';
-                  }
-                  if (widget.catalogMode != null &&
-                      widget.catalogMode!.isNotEmpty) {
-                    route +=
-                        '${route.contains('?') ? '&' : '?'}mode=${widget.catalogMode}';
-                  }
-                  GoRouter.of(context).go(route);
-                  break;
-                case 'search':
-                  GoRouter.of(context).go('/search');
-                  break;
-                case 'favorites':
-                  GoRouter.of(context).go('/favorites');
-                  break;
-                default:
-                  _navigateBackSafely(context);
-              }
-            } else {
-              _navigateBackSafely(context);
-            }
-          },
+          onPressed: () => _navigateBackSafely(context),
         ),
         title: Text(AppStrings.catalogTab),
         actions: [

@@ -105,6 +105,20 @@ class SectionRemoteDataSource {
     }
   }
 
+  Future<SectionModel> updateBackground(String id, String? backgroundImage) async {
+    try {
+      final row = await _client
+          .from(SupabaseTables.sections)
+          .update({'background_image': backgroundImage})
+          .eq('id', id)
+          .select()
+          .single();
+      return SectionModel.fromJson(row);
+    } catch (e) {
+      throw ServerException('Failed to update section background: $e');
+    }
+  }
+
   Future<void> deleteSection(String id) async {
     try {
       await _client.from(SupabaseTables.sections).delete().eq('id', id);

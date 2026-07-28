@@ -5,7 +5,7 @@ class PublicationModel {
   final String id;
   final String title;
   final String description;
-  final String coverImagePath;
+  final String? icon;
   final DateTime publishedAt;
   final DateTime createdAt;
   final DateTime updatedAt;
@@ -16,7 +16,7 @@ class PublicationModel {
     required this.id,
     required this.title,
     required this.description,
-    required this.coverImagePath,
+    this.icon,
     required this.publishedAt,
     required this.createdAt,
     required this.updatedAt,
@@ -29,7 +29,7 @@ class PublicationModel {
       id: json['id'] as String? ?? '',
       title: json['title'] as String? ?? '',
       description: json['description'] as String? ?? '',
-      coverImagePath: json['cover_image_path'] as String? ?? '',
+      icon: json['icon'] as String?,
       publishedAt: json['published_at'] != null 
           ? (DateTime.parse(json['published_at'] as String).toLocal())
           : DateTime.now(),
@@ -47,9 +47,9 @@ class PublicationModel {
   Map<String, dynamic> toInsertJson() => {
         'title': title,
         'description': description,
-        'cover_image_path': coverImagePath,
         'published_at': publishedAt.toUtc().toIso8601String(),
         'type': type,
+        if (icon != null) 'icon': icon,
         if (status != null) 'status': status,
       };
 
@@ -57,7 +57,7 @@ class PublicationModel {
         id: id,
         title: title,
         description: description,
-        coverImagePath: coverImagePath,
+        icon: icon,
         publishedAt: publishedAt,
         createdAt: createdAt,
         updatedAt: updatedAt,

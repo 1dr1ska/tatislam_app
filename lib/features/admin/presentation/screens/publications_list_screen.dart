@@ -111,6 +111,10 @@ class _PublicationsListScreenState extends ConsumerState<PublicationsListScreen>
                 }
 
                 final publications = snapshot.data!;
+                debugPrint('PublicationsListScreen: loaded ${publications.length} publications');
+                for (final p in publications) {
+                  debugPrint('PublicationsListScreen: publication id="${p.id}" title="${p.title}"');
+                }
 
                 // Sort publications
                 publications.sort((a, b) {
@@ -139,6 +143,7 @@ class _PublicationsListScreenState extends ConsumerState<PublicationsListScreen>
                         trailing: PopupMenuButton<String>(
                           onSelected: (value) {
                             if (value == 'edit') {
+                              debugPrint('PublicationsListScreen: navigating to edit with id="${publication.id}"');
                               context.push('/admin/publications/${publication.id}/edit');
                             } else if (value == 'delete') {
                               _confirmDelete(context, publication);
@@ -208,6 +213,7 @@ class _PublicationsListScreenState extends ConsumerState<PublicationsListScreen>
   }
 
   Future<void> _deletePublication(BuildContext context, Publication publication) async {
+    debugPrint('PublicationsListScreen: deleting publication id="${publication.id}"');
     try {
       final repository = ref.read(publicationRepositoryProvider);
       await repository.deletePublication(publication.id);

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:tatislam_app/core/storage/media_storage_repository.dart';
 import 'package:tatislam_app/features/publications/data/datasources/publication_remote_data_source.dart';
 import 'package:tatislam_app/features/publications/data/models/publication_model.dart';
@@ -39,7 +40,9 @@ class PublicationRepositoryImpl implements PublicationRepository {
 
   @override
   Future<PublicationDetail> getPublicationDetail(String id) async {
+    debugPrint('PublicationRepositoryImpl.getPublicationDetail: called with id="$id"');
     final row = await _remote.getPublicationDetail(id);
+    debugPrint('PublicationRepositoryImpl.getPublicationDetail: got row, publication.id="${row.publication.id}"');
     return PublicationDetail(
       publication: row.publication.toEntity(),
       blocks: row.blocks,

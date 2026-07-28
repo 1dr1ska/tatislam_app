@@ -1,8 +1,9 @@
 import 'dart:convert';
-import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
+import 'package:mime/mime.dart' as mime;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:tatislam_app/core/error/exceptions.dart' as app;
 import 'package:tatislam_app/core/storage/media_storage_repository.dart';
@@ -11,47 +12,59 @@ import 'package:tatislam_app/core/storage/media_storage_repository.dart';
 /// via the `upload-media` Supabase Edge Function.
 ///
 /// The Edge Function returns an S3 object key (e.g. `images/uuid.jpg`).
-/// This repository maps between the app-level path convention and the
-/// folder-based S3 structure.
+/// This key is the single source of truth — it is stored in PostgreSQL and
+/// used by [publicUrlFor] to build the public URL.
 class YandexMediaStorageRepository implements MediaStorageRepository {
   final SupabaseClient _client;
 
-  /// Base URL for public Yandex Object Storage access.
   static const String _yandexEndpoint = 'https://storage.yandexcloud.net';
   static const String _yandexBucket = 'tatislam-media';
 
   YandexMediaStorageRepository(this._client);
 
   /// Maps an app-level Storage path to an S3 folder name.
+  ///
+  /// The folder determines where the file is stored in Yandex Object Storage.
+  /// Must match the folders allowed by the Edge Function.
   String _pathToFolder(String path) {
-    if (path.startsWith('covers/')) return 'images';
+    if (path.startsWith('covers/')) return 'covers';
     if (path.contains('/images/')) return 'images';
     if (path.contains('/audio/')) return 'audio';
     if (path.contains('/video/')) return 'videos';
     return 'images';
   }
 
+  /// Infers MIME type from the file extension using `package:mime`.
+  ///
+  /// Falls back to `application/octet-stream` if unknown (shouldn't happen
+  /// for real files, but prevents crashes).
+  String _mimeFromExtension(String path) {
+    final ext = path.split('.').last;
+    final mimeType = mime.lookupMimeType('file.$ext');
+    return mimeType ?? 'application/octet-stream';
+  }
+
   @override
   Future<String> upload(String path, Uint8List bytes, {String? contentType}) async {
     try {
       final folder = _pathToFolder(path);
-      final mimeType = contentType ?? 'application/octet-stream';
+      final mimeType = contentType ?? _mimeFromExtension(path);
+      final filename = path.split('/').last;
 
-      // Get the user's current session token
+      debugPrint('YandexMediaStorageRepository.upload: path=$path, folder=$folder, mimeType=$mimeType, filename=$filename');
+
       final session = _client.auth.currentSession;
       if (session == null) {
         throw app.StorageException('Authentication required');
       }
       final accessToken = session.accessToken;
 
-      // Build the Edge Function URL directly using the Supabase project URL
       const projectUrl = String.fromEnvironment(
         'SUPABASE_URL',
         defaultValue: 'https://vboffcgpkdruvqgdfpbp.supabase.co',
       );
       final functionUrl = '$projectUrl/functions/v1/upload-media?folder=$folder';
 
-      // Create multipart request
       final request = http.MultipartRequest('POST', Uri.parse(functionUrl));
       request.headers['apikey'] = accessToken;
       request.headers['Authorization'] = 'Bearer $accessToken';
@@ -63,12 +76,17 @@ class YandexMediaStorageRepository implements MediaStorageRepository {
       request.files.add(http.MultipartFile.fromBytes(
         'file',
         bytes,
-        filename: path.split('/').last,
+        filename: filename,
         contentType: mediaType,
       ));
 
+      debugPrint('YandexMediaStorageRepository.upload: sending request to $functionUrl');
+
       final streamedResponse = await request.send();
       final response = await http.Response.fromStream(streamedResponse);
+
+      debugPrint('YandexMediaStorageRepository.upload: response status=${response.statusCode}');
+      debugPrint('YandexMediaStorageRepository.upload: response body=${response.body}');
 
       if (response.statusCode != 201) {
         final body = jsonDecode(response.body) as Map<String, dynamic>;
@@ -79,6 +97,7 @@ class YandexMediaStorageRepository implements MediaStorageRepository {
 
       final data = jsonDecode(response.body) as Map<String, dynamic>;
       final key = data['key'] as String;
+      debugPrint('YandexMediaStorageRepository.upload: success, key=$key');
       return key;
     } catch (e) {
       if (e is app.StorageException) rethrow;
@@ -89,6 +108,19 @@ class YandexMediaStorageRepository implements MediaStorageRepository {
   @override
   Future<void> delete(List<String> paths) async {
     if (paths.isEmpty) return;
+
+    // Filter out empty paths — they would be rejected by the Edge Function
+    // and cause a confusing error. An empty path means no file was uploaded
+    // for that field (e.g. no cover image was set).
+    final nonEmptyPaths = paths.where((p) => p.isNotEmpty).toList();
+
+    debugPrint('YandexMediaStorageRepository.delete: input paths=$paths');
+    debugPrint('YandexMediaStorageRepository.delete: non-empty paths=$nonEmptyPaths');
+
+    if (nonEmptyPaths.isEmpty) {
+      debugPrint('YandexMediaStorageRepository.delete: all paths were empty, skipping');
+      return;
+    }
 
     final session = _client.auth.currentSession;
     if (session == null) {
@@ -102,16 +134,22 @@ class YandexMediaStorageRepository implements MediaStorageRepository {
     );
     final deleteUrl = '$projectUrl/functions/v1/delete-media';
 
-    for (final key in paths) {
+    for (final key in nonEmptyPaths) {
       try {
+        final body = {'key': key};
+        debugPrint('YandexMediaStorageRepository.delete: sending request body=$body');
+
         final request = http.Request('POST', Uri.parse(deleteUrl));
         request.headers['apikey'] = accessToken;
         request.headers['Authorization'] = 'Bearer $accessToken';
         request.headers['Content-Type'] = 'application/json';
-        request.body = jsonEncode({'key': key});
+        request.body = jsonEncode(body);
 
         final streamedResponse = await request.send();
         final response = await http.Response.fromStream(streamedResponse);
+
+        debugPrint('YandexMediaStorageRepository.delete: response status=${response.statusCode}');
+        debugPrint('YandexMediaStorageRepository.delete: response body=${response.body}');
 
         if (response.statusCode != 200) {
           final body = jsonDecode(response.body) as Map<String, dynamic>;
@@ -128,6 +166,7 @@ class YandexMediaStorageRepository implements MediaStorageRepository {
 
   @override
   String publicUrlFor(String path) {
+    // path is the S3 key returned by upload() and stored in PostgreSQL
     return '$_yandexEndpoint/$_yandexBucket/$path';
   }
 }

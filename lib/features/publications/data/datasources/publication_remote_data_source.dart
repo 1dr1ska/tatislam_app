@@ -135,10 +135,14 @@ class PublicationRemoteDataSource {
   }
 
   Future<PublicationDetailRow> getPublicationDetail(String id) async {
+    debugPrint('PublicationRemoteDataSource.getPublicationDetail: called with id="$id"');
     try {
+      debugPrint('PublicationRemoteDataSource.getPublicationDetail: querying publications table with eq("id", "$id")');
       final publicationRow =
           await _client.from(SupabaseTables.publications).select().eq('id', id).maybeSingle();
+      debugPrint('PublicationRemoteDataSource.getPublicationDetail: publicationRow=$publicationRow');
       if (publicationRow == null) {
+        debugPrint('PublicationRemoteDataSource.getPublicationDetail: NOT FOUND for id="$id"');
         throw NotFoundException('Publication "$id" not found');
       }
 

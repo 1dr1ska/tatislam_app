@@ -8,18 +8,20 @@ console.log("upload-media function started");
 // Constants
 // ---------------------------------------------------------------------------
 
-const ALLOWED_FOLDERS = ["images", "audio", "videos"] as const;
+const ALLOWED_FOLDERS = ["images", "audio", "videos", "covers"] as const;
 
 const FOLDER_SIZE_LIMITS: Record<string, number> = {
   images: 20 * 1024 * 1024,   // 20 MB
   audio: 200 * 1024 * 1024,   // 200 MB
   videos: 100 * 1024 * 1024,  // 100 MB
+  covers: 20 * 1024 * 1024,   // 20 MB
 };
 
 const FOLDER_MIME_PREFIXES: Record<string, string> = {
   images: "image/",
   audio: "audio/",
   videos: "video/",
+  covers: "image/",
 };
 
 // ---------------------------------------------------------------------------

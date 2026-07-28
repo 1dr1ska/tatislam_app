@@ -5,6 +5,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:uuid/uuid.dart';
 
@@ -110,9 +111,12 @@ class _PublicationEditorScreenState
   }
 
   Future<PublicationDetail?> _loadPublication(String id) async {
+    debugPrint('PublicationEditorScreen._loadPublication: called with id="$id"');
     try {
       final repository = ref.read(publicationRepositoryProvider);
+      debugPrint('PublicationEditorScreen._loadPublication: calling repository.getPublicationDetail("$id")');
       final detail = await repository.getPublicationDetail(id);
+      debugPrint('PublicationEditorScreen._loadPublication: got detail, publication.id="${detail.publication.id}"');
 
       // Fill form fields with publication data
       _titleController.text = detail.publication.title;
@@ -123,7 +127,11 @@ class _PublicationEditorScreenState
       _publishedAt = detail.publication.publishedAt;
       _dateController.text = _formatDate(_publishedAt!);
 
-      setState(() {});
+      if (mounted) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          setState(() {});
+        });
+      }
 
       return detail;
     } catch (e) {
@@ -207,12 +215,13 @@ class _PublicationEditorScreenState
   }
 
   Future<void> _pickBlockAudio(String blockId) async {
-    final picker = ImagePicker();
-    final pickedFile = await picker.pickMedia();
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.audio,
+    );
 
-    if (pickedFile != null) {
+    if (result != null && result.files.single.path != null) {
       setState(() {
-        _selectedBlockAudioFiles[blockId] = File(pickedFile.path);
+        _selectedBlockAudioFiles[blockId] = File(result.files.single.path!);
       });
       _scheduleAutoSave();
     }
@@ -239,11 +248,11 @@ class _PublicationEditorScreenState
       }
 
       final path = StoragePaths.cover(_uuid.v4(), extension);
-      await storageRepository.upload(path, bytes);
+      final s3Key = await storageRepository.upload(path, bytes);
 
       // Delete old cover image if it exists and is different
       if (_selectedCoverImagePath.isNotEmpty &&
-          _selectedCoverImagePath != path) {
+          _selectedCoverImagePath != s3Key) {
         try {
           await storageRepository.delete([_selectedCoverImagePath]);
         } catch (e) {
@@ -251,7 +260,7 @@ class _PublicationEditorScreenState
         }
       }
 
-      return path;
+      return s3Key;
     } catch (e) {
       throw Exception('Ошибка загрузки обложки: $e');
     }
@@ -285,10 +294,10 @@ class _PublicationEditorScreenState
           widget.publicationId ?? _uuid.v4(), extension,
           blockId: blockId);
 
-      await storageRepository.upload(path, bytes);
+      final s3Key = await storageRepository.upload(path, bytes);
 
       // Delete old image if it exists and is different
-      if (currentImagePath.isNotEmpty && currentImagePath != path) {
+      if (currentImagePath.isNotEmpty && currentImagePath != s3Key) {
         try {
           await storageRepository.delete([currentImagePath]);
         } catch (e) {
@@ -296,7 +305,7 @@ class _PublicationEditorScreenState
         }
       }
 
-      return path;
+      return s3Key;
     } catch (e) {
       throw Exception('Ошибка загрузки изображения: $e');
     }
@@ -318,10 +327,10 @@ class _PublicationEditorScreenState
           blockId: blockId);
 
       final bytes = await selectedAudioFile.readAsBytes();
-      await storageRepository.upload(path, bytes);
+      final s3Key = await storageRepository.upload(path, bytes);
 
       // Delete old audio file if it exists and is different
-      if (currentAudioPath.isNotEmpty && currentAudioPath != path) {
+      if (currentAudioPath.isNotEmpty && currentAudioPath != s3Key) {
         try {
           await storageRepository.delete([currentAudioPath]);
         } catch (e) {
@@ -329,7 +338,7 @@ class _PublicationEditorScreenState
         }
       }
 
-      return path;
+      return s3Key;
     } catch (e) {
       throw Exception('Ошибка загрузки аудио: $e');
     }

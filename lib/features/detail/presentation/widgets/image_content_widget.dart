@@ -1,3 +1,4 @@
+import 'dart:ui' show ImageFilter;
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:tatislam_app/core/storage/media_storage_repository.dart';
@@ -23,41 +24,63 @@ class ImageContentWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     final imageUrl = mediaStorage.publicUrlFor(block.imagePath);
 
-    return Card(
-      margin: const EdgeInsets.only(bottom: 16),
-      elevation: 2,
-      child: Column(
-        children: [
-          GestureDetector(
-            onTap: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (context) => ImageViewerScreen(
-                    imageUrl: imageUrl,
-                    caption: block.caption,
-                  ),
-                ),
-              );
-            },
-            child: AspectRatio(
-              aspectRatio: 3 / 2,
-              child: CachedNetworkImage(
-                imageUrl: imageUrl,
-                width: double.infinity,
-                fit: BoxFit.contain,
-                placeholder: (context, url) =>
-                    const Center(child: CircularProgressIndicator()),
-                errorWidget: (context, url, error) =>
-                    const Icon(Icons.image, size: 64),
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+          child: Container(
+            width: double.infinity,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.25),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.35),
+                width: 0.8,
               ),
             ),
-          ),
-          if (block.caption != null && block.caption!.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Text(block.caption!),
+            child: Column(
+              children: [
+                GestureDetector(
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => ImageViewerScreen(
+                          imageUrl: imageUrl,
+                          caption: block.caption,
+                        ),
+                      ),
+                    );
+                  },
+                  child: AspectRatio(
+                    aspectRatio: 3 / 2,
+                    child: CachedNetworkImage(
+                      imageUrl: imageUrl,
+                      width: double.infinity,
+                      fit: BoxFit.contain,
+                      placeholder: (context, url) =>
+                          const Center(child: CircularProgressIndicator()),
+                      errorWidget: (context, url, error) =>
+                          const Icon(Icons.image, size: 64),
+                    ),
+                  ),
+                ),
+                if (block.caption != null && block.caption!.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Text(
+                      block.caption!,
+                      style: const TextStyle(
+                        color: Color(0xFF2D2D44),
+                        height: 1.5,
+                      ),
+                    ),
+                  ),
+              ],
             ),
-        ],
+          ),
+        ),
       ),
     );
   }

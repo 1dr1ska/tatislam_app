@@ -60,6 +60,7 @@ class PublicationRepositoryImpl implements PublicationRepository {
     required DateTime publishedAt,
     required String type,
     String? status,
+    required String primarySectionId,
   }) async {
     final now = DateTime.now();
     final model = PublicationModel(
@@ -72,6 +73,7 @@ class PublicationRepositoryImpl implements PublicationRepository {
       updatedAt: now,
       type: type,
       status: status,
+      primarySectionId: primarySectionId,
     );
     final created = await _remote.createPublication(model);
     return created.toEntity();
@@ -86,6 +88,7 @@ class PublicationRepositoryImpl implements PublicationRepository {
     required DateTime publishedAt,
     required String type,
     String? status,
+    required String primarySectionId,
   }) async {
     final previous = await _remote.getPublicationDetail(id);
     final now = DateTime.now();
@@ -99,6 +102,7 @@ class PublicationRepositoryImpl implements PublicationRepository {
       updatedAt: now,
       type: type,
       status: status ?? previous.publication.status,
+      primarySectionId: primarySectionId,
     );
     final updated = await _remote.updatePublication(id, model);
     return updated.toEntity();

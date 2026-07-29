@@ -41,6 +41,7 @@ abstract class PublicationRepository {
     required DateTime publishedAt,
     required String type,
     String? status,
+    required String primarySectionId,
   });
 
   Future<Publication> updatePublication({
@@ -51,6 +52,7 @@ abstract class PublicationRepository {
     required DateTime publishedAt,
     required String type,
     String? status,
+    required String primarySectionId,
   });
 
   /// Deletes the publication and, via DB cascade, its blocks and section

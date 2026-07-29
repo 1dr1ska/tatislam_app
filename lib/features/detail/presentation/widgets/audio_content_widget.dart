@@ -1,9 +1,9 @@
 import 'dart:async';
+import 'dart:ui' show ImageFilter;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:just_audio/just_audio.dart' show AudioPlayer, ProcessingState;
-import 'package:tatislam_app/core/constants/app_colors.dart';
 import 'package:tatislam_app/core/services/local_storage_service.dart';
 import 'package:tatislam_app/core/storage/media_storage_repository.dart';
 import 'package:tatislam_app/features/detail/presentation/providers/audio_player_provider.dart';
@@ -137,121 +137,188 @@ class _AudioContentWidgetState extends ConsumerState<AudioContentWidget> {
       return _buildUnavailable(context);
     }
 
-    return Card(
-      margin: const EdgeInsets.only(bottom: 16),
-      elevation: 2,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            const Icon(Icons.audiotrack,
-                size: 48, color: AppColors.audioColor),
-            const SizedBox(height: 16),
-            // Play / Pause button
-            ElevatedButton.icon(
-              onPressed: () async {
-                try {
-                  // Apply current speed before playing
-                  await audioPlayer.setSpeed(_speed);
-                  if (audioPlayer.playerState.playing) {
-                    _savePosition();
-                    await audioPlayer.pause();
-                  } else {
-                    await audioPlayer.play();
-                  }
-                } catch (e) {
-                  debugPrint('Error controlling audio playback: $e');
-                }
-              },
-              icon: StreamBuilder(
-                stream: audioPlayer.playerStateStream,
-                builder: (context, snapshot) {
-                  final state = snapshot.data;
-                  if (state?.processingState == ProcessingState.completed) {
-                    return const Icon(Icons.play_arrow);
-                  }
-                  return Icon(
-                    state?.playing == true ? Icons.pause : Icons.play_arrow,
-                  );
-                },
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+          child: Container(
+            width: double.infinity,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.25),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.35),
+                width: 0.8,
               ),
-              label: const Text('Уйнату'),
             ),
-            const SizedBox(height: 16),
-            // Playback speed selector
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: _speedOptions.map((speed) {
-                final isSelected = speed == _speed;
-                return ChoiceChip(
-                  label: Text('${speed}x'),
-                  selected: isSelected,
-                  selectedColor: AppColors.audioColor.withValues(alpha: 0.3),
-                  onSelected: (selected) {
-                    if (selected) {
-                      setState(() {
-                        _speed = speed;
-                      });
-                      audioPlayer.setSpeed(speed);
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              children: [
+                const Icon(Icons.audiotrack,
+                    size: 48, color: Color(0xFFD4A843)),
+                const SizedBox(height: 16),
+                // Play / Pause button
+                ElevatedButton.icon(
+                  onPressed: () async {
+                    try {
+                      // Apply current speed before playing
+                      await audioPlayer.setSpeed(_speed);
+                      if (audioPlayer.playerState.playing) {
+                        _savePosition();
+                        await audioPlayer.pause();
+                      } else {
+                        await audioPlayer.play();
+                      }
+                    } catch (e) {
+                      debugPrint('Error controlling audio playback: $e');
                     }
                   },
-                );
-              }).toList(),
-            ),
-            const SizedBox(height: 16),
-            // Seek slider
-            StreamBuilder(
-              stream: audioPlayer.positionStream,
-              builder: (context, snapshot) {
-                final position = snapshot.data ?? Duration.zero;
-                final duration =
-                    audioPlayer.duration ?? const Duration(seconds: 120);
-                final positionSeconds = position.inSeconds.toDouble();
-                final durationSeconds = duration.inSeconds.toDouble();
-                return Slider(
-                  value: positionSeconds > durationSeconds
-                      ? durationSeconds
-                      : positionSeconds,
-                  max: durationSeconds,
-                  onChanged: (value) {
-                    audioPlayer.seek(Duration(seconds: value.toInt()));
+                  icon: StreamBuilder(
+                    stream: audioPlayer.playerStateStream,
+                    builder: (context, snapshot) {
+                      final state = snapshot.data;
+                      if (state?.processingState == ProcessingState.completed) {
+                        return const Icon(Icons.play_arrow);
+                      }
+                      return Icon(
+                        state?.playing == true ? Icons.pause : Icons.play_arrow,
+                      );
+                    },
+                  ),
+                  label: const Text('Уйнату'),
+                ),
+                const SizedBox(height: 16),
+                // Playback speed selector
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: _speedOptions.map((speed) {
+                    final isSelected = speed == _speed;
+                    if (isSelected) {
+                      return ChoiceChip(
+                        label: Text('${speed}x',
+                            style: const TextStyle(color: Colors.black87)),
+                        selected: true,
+                        selectedColor: const Color(0xFFD4A843),
+                        backgroundColor: Colors.white.withValues(alpha: 0.22),
+                        onSelected: (selected) {
+                          if (selected) {
+                            setState(() {
+                              _speed = speed;
+                            });
+                            audioPlayer.setSpeed(speed);
+                          }
+                        },
+                        side: const BorderSide(
+                          color: Color(0xFFD4A843),
+                          width: 0.8,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      );
+                    }
+                    return ChoiceChip(
+                      label: Text('${speed}x',
+                          style: const TextStyle(color: Colors.white)),
+                      selected: false,
+                      selectedColor: const Color(0xFFD4A843),
+                      backgroundColor: Colors.white.withValues(alpha: 0.22),
+                      onSelected: (selected) {
+                        if (selected) {
+                          setState(() {
+                            _speed = speed;
+                          });
+                          audioPlayer.setSpeed(speed);
+                        }
+                      },
+                      side: BorderSide(
+                        color: Colors.white.withValues(alpha: 0.35),
+                        width: 0.8,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: 16),
+                // Seek slider
+                StreamBuilder(
+                  stream: audioPlayer.positionStream,
+                  builder: (context, snapshot) {
+                    final position = snapshot.data ?? Duration.zero;
+                    final duration =
+                        audioPlayer.duration ?? const Duration(seconds: 120);
+                    final positionSeconds = position.inSeconds.toDouble();
+                    final durationSeconds = duration.inSeconds.toDouble();
+                    return Slider(
+                      value: positionSeconds > durationSeconds
+                          ? durationSeconds
+                          : positionSeconds,
+                      max: durationSeconds,
+                      onChanged: (value) {
+                        audioPlayer.seek(Duration(seconds: value.toInt()));
+                      },
+                    );
                   },
-                );
-              },
+                ),
+                if (widget.block.caption != null &&
+                    widget.block.caption!.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 16),
+                    child: Text(
+                      widget.block.caption!,
+                      style: const TextStyle(
+                        color: Color(0xFF2D2D44),
+                        height: 1.5,
+                      ),
+                    ),
+                  ),
+              ],
             ),
-            if (widget.block.caption != null &&
-                widget.block.caption!.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.only(top: 16),
-                child: Text(widget.block.caption!),
-              ),
-          ],
+          ),
         ),
       ),
     );
   }
 
   Widget _buildUnavailable(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 16),
-      elevation: 2,
-      child: SizedBox(
-        height: 150,
-        child: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(Icons.music_off, size: 64, color: Colors.grey),
-              const SizedBox(height: 16),
-              Text(
-                'Аудио недоступно',
-                style: Theme.of(context)
-                    .textTheme
-                    .titleMedium
-                    ?.copyWith(color: Colors.grey),
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+          child: Container(
+            width: double.infinity,
+            height: 150,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.25),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.35),
+                width: 0.8,
               ),
-            ],
+            ),
+            child: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.music_off, size: 64, color: Colors.grey),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Аудио недоступно',
+                    style: Theme.of(context)
+                        .textTheme
+                        .titleMedium
+                        ?.copyWith(color: Colors.grey),
+                  ),
+                ],
+              ),
+            ),
           ),
         ),
       ),

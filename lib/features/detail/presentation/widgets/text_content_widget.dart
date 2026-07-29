@@ -19,7 +19,12 @@ class TextContentWidget extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 16),
       child: Text(
         htmlParser.parseToPlainText(block.text),
-        style: Theme.of(context).textTheme.bodyLarge,
+        style: const TextStyle(
+          color: Color(0xFF2D2D44),
+          fontSize: 16,
+          height: 1.7,
+          letterSpacing: 0.2,
+        ),
         textAlign: TextAlign.justify,
       ),
     );

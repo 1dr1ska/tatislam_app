@@ -51,6 +51,7 @@ class _PublicationEditorScreenState
   late Future<List<Section>> _sectionsFuture;
 
   String? _selectedIcon;
+  String? _primarySectionId;
   List<ContentBlock> _contentBlocks = [];
   Set<String> _selectedSectionIds = {};
   String _status = 'draft';
@@ -99,6 +100,7 @@ class _PublicationEditorScreenState
 
       _titleController.text = detail.publication.title;
       _selectedIcon = detail.publication.icon;
+      _primarySectionId = detail.publication.primarySectionId;
       _contentBlocks = List.from(detail.blocks);
       _selectedSectionIds = Set.from(detail.sectionIds);
       _status = detail.publication.status ?? 'draft';
@@ -309,6 +311,7 @@ class _PublicationEditorScreenState
           type: 'article',
           publishedAt: DateTime.now(),
           status: _status,
+          primarySectionId: _primarySectionId ?? '',
         );
 
         setState(() {
@@ -355,6 +358,7 @@ class _PublicationEditorScreenState
           publishedAt: _publishedAt ?? DateTime.now(),
           type: 'article',
           status: _status,
+          primarySectionId: _primarySectionId ?? '',
         );
 
         setState(() {
@@ -436,6 +440,7 @@ class _PublicationEditorScreenState
         publishedAt: _publishedAt ?? DateTime.now(),
         type: 'article',
         status: _status,
+        primarySectionId: _primarySectionId ?? '',
       );
 
       setState(() {
@@ -647,6 +652,7 @@ class _PublicationEditorScreenState
                                   // Icon selector
                                   _buildIconSelector(),
                                   const SizedBox(height: 16),
+                                  // Primary section (radio)
                                   FutureBuilder<List<Section>>(
                                     future: _sectionsFuture,
                                     builder: (context, snapshot) {
@@ -667,28 +673,108 @@ class _PublicationEditorScreenState
                                       }
 
                                       final sections = snapshot.data!;
-                                      return Wrap(
-                                        spacing: 8.0,
-                                        runSpacing: 8.0,
-                                        children: sections.map((section) {
-                                          return FilterChip(
-                                            label: Text(section.name),
-                                            selected: _selectedSectionIds
-                                                .contains(section.id),
-                                            onSelected: (selected) {
-                                              setState(() {
-                                                if (selected) {
-                                                  _selectedSectionIds
-                                                      .add(section.id);
-                                                } else {
-                                                  _selectedSectionIds
-                                                      .remove(section.id);
-                                                }
-                                              });
-                                              _scheduleAutoSave();
-                                            },
-                                          );
-                                        }).toList(),
+                                      return Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          const Text(
+                                            'Основной раздел (обязательно)',
+                                            style: TextStyle(
+                                                fontSize: 16,
+                                                fontWeight: FontWeight.bold),
+                                          ),
+                                          const SizedBox(height: 8),
+                                          ...sections.map((section) {
+                                            final isSelected = _primarySectionId == section.id;
+                                            return ListTile(
+                                              title: Text(section.name),
+                                              leading: Radio<String>(
+                                                value: section.id,
+                                                groupValue: _primarySectionId,
+                                                onChanged: (value) {
+                                                  setState(() {
+                                                    _primarySectionId = value;
+                                                    if (value != null) {
+                                                      _selectedSectionIds.add(value);
+                                                    }
+                                                  });
+                                                  _scheduleAutoSave();
+                                                },
+                                              ),
+                                              selected: isSelected,
+                                              onTap: () {
+                                                setState(() {
+                                                  _primarySectionId = section.id;
+                                                  _selectedSectionIds.add(section.id);
+                                                });
+                                                _scheduleAutoSave();
+                                              },
+                                              contentPadding: EdgeInsets.zero,
+                                              dense: true,
+                                            );
+                                          }),
+                                        ],
+                                      );
+                                    },
+                                  ),
+                                  const SizedBox(height: 16),
+                                  // Additional sections (multi-select)
+                                  FutureBuilder<List<Section>>(
+                                    future: _sectionsFuture,
+                                    builder: (context, snapshot) {
+                                      if (snapshot.connectionState ==
+                                          ConnectionState.waiting) {
+                                        return const CircularProgressIndicator();
+                                      }
+
+                                      if (snapshot.hasError) {
+                                        return Text(
+                                            'Ошибка загрузки разделов: ${snapshot.error}');
+                                      }
+
+                                      if (!snapshot.hasData ||
+                                          snapshot.data!.isEmpty) {
+                                        return const Text(
+                                            'Нет доступных разделов');
+                                      }
+
+                                      final sections = snapshot.data!;
+                                      return Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          const Text(
+                                            'Дополнительные разделы',
+                                            style: TextStyle(
+                                                fontSize: 16,
+                                                fontWeight: FontWeight.bold),
+                                          ),
+                                          const SizedBox(height: 8),
+                                          Wrap(
+                                            spacing: 8.0,
+                                            runSpacing: 8.0,
+                                            children: sections.map((section) {
+                                              final isPrimary = section.id == _primarySectionId;
+                                              return FilterChip(
+                                                label: Text(section.name),
+                                                selected: _selectedSectionIds
+                                                    .contains(section.id),
+                                                onSelected: isPrimary
+                                                    ? null
+                                                    : (selected) {
+                                                        setState(() {
+                                                          if (selected) {
+                                                            _selectedSectionIds
+                                                                .add(section.id);
+                                                          } else {
+                                                            _selectedSectionIds
+                                                                .remove(section.id);
+                                                          }
+                                                        });
+                                                        _scheduleAutoSave();
+                                                      },
+                                              );
+                                            }).toList(),
+                                          ),
+                                        ],
                                       );
                                     },
                                   ),

@@ -11,6 +11,7 @@ class PublicationModel {
   final DateTime updatedAt;
   final String type;
   final String? status;
+  final String primarySectionId;
 
   const PublicationModel({
     required this.id,
@@ -22,6 +23,7 @@ class PublicationModel {
     required this.updatedAt,
     required this.type,
     this.status,
+    required this.primarySectionId,
   });
 
   factory PublicationModel.fromJson(Map<String, dynamic> json) {
@@ -41,6 +43,7 @@ class PublicationModel {
           : DateTime.now(),
       type: json['type'] as String? ?? 'article',
       status: json['status'] as String?,
+      primarySectionId: json['primary_section_id'] as String? ?? '',
     );
   }
 
@@ -49,6 +52,7 @@ class PublicationModel {
         'description': description,
         'published_at': publishedAt.toUtc().toIso8601String(),
         'type': type,
+        'primary_section_id': primarySectionId,
         if (icon != null) 'icon': icon,
         if (status != null) 'status': status,
       };
@@ -63,5 +67,6 @@ class PublicationModel {
         updatedAt: updatedAt,
         type: type,
         status: status,
+        primarySectionId: primarySectionId,
       );
 }

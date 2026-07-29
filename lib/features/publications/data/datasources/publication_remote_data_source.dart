@@ -51,6 +51,7 @@ class PublicationRemoteDataSource {
           updatedAt: DateTime.now(),
           type: 'admin',
           status: 'published',
+          primarySectionId: '',
         );
         return [adminPublication];
       }

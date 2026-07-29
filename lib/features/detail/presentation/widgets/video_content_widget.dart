@@ -1,8 +1,8 @@
+import 'dart:ui' show ImageFilter;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:webview_flutter/webview_flutter.dart';
-import 'package:tatislam_app/core/constants/app_colors.dart';
 import 'package:tatislam_app/features/detail/domain/services/video_url_parser_service.dart';
 import 'package:tatislam_app/features/publications/domain/entities/content_block.dart';
 import 'package:tatislam_app/features/publications/domain/entities/video_provider_type.dart';
@@ -58,51 +58,69 @@ class VideoContentWidget extends ConsumerWidget {
     return _buildUnavailable(context);
   }
 
-  /// Renders a video embed (YouTube or Rutube) directly in the card
-  /// via WebView with proper 16:9 aspect ratio.
+  /// Glass container wrapping the embedded video.
   Widget _buildEmbeddedVideo({
     required BuildContext context,
     required String embedUrl,
     String? caption,
   }) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 16),
-      elevation: 2,
-      child: Column(
-        children: [
-          ClipRRect(
-            borderRadius: const BorderRadius.vertical(
-              top: Radius.circular(12),
-            ),
-            child: AspectRatio(
-              aspectRatio: 16 / 9,
-              child: WebViewWidget(
-                controller: WebViewController()
-                  ..setJavaScriptMode(JavaScriptMode.unrestricted)
-                  ..setNavigationDelegate(
-                    NavigationDelegate(
-                      onNavigationRequest: (request) {
-                        // Allow the initial embed load
-                        if (request.url == embedUrl) {
-                          return NavigationDecision.navigate;
-                        }
-                        // Open any other links (e.g. "Смотреть на RUTUBE")
-                        // in the external browser
-                        _launchUrl(context, request.url);
-                        return NavigationDecision.prevent;
-                      },
-                    ),
-                  )
-                  ..loadRequest(Uri.parse(embedUrl)),
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+          child: Container(
+            width: double.infinity,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.25),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.35),
+                width: 0.8,
               ),
             ),
-          ),
-          if (caption != null && caption.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Text(caption),
+            child: Column(
+              children: [
+                ClipRRect(
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(12),
+                  ),
+                  child: AspectRatio(
+                    aspectRatio: 16 / 9,
+                    child: WebViewWidget(
+                      controller: WebViewController()
+                        ..setJavaScriptMode(JavaScriptMode.unrestricted)
+                        ..setNavigationDelegate(
+                          NavigationDelegate(
+                            onNavigationRequest: (request) {
+                              if (request.url == embedUrl) {
+                                return NavigationDecision.navigate;
+                              }
+                              _launchUrl(context, request.url);
+                              return NavigationDecision.prevent;
+                            },
+                          ),
+                        )
+                        ..loadRequest(Uri.parse(embedUrl)),
+                    ),
+                  ),
+                ),
+                if (caption != null && caption.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Text(
+                      caption,
+                      style: const TextStyle(
+                        color: Color(0xFF2D2D44),
+                        height: 1.5,
+                      ),
+                    ),
+                  ),
+              ],
             ),
-        ],
+          ),
+        ),
       ),
     );
   }
@@ -113,83 +131,106 @@ class VideoContentWidget extends ConsumerWidget {
     String url,
     String? caption,
   ) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 16),
-      elevation: 2,
-      child: Column(
-        children: [
-          AspectRatio(
-            aspectRatio: 16 / 9,
-            child: Container(
-              width: double.infinity,
-              decoration: BoxDecoration(
-                color: AppColors.videoColor.withValues(alpha: 0.1),
-                borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(12),
-                ),
-              ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(
-                    Icons.play_circle_fill,
-                    size: 64,
-                    color: AppColors.videoColor,
-                  ),
-                  const SizedBox(height: 16),
-                  const Text(
-                    'Видео на Rutube',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.videoColor,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: Text(
-                      url,
-                      style:
-                          const TextStyle(fontSize: 12, color: Colors.grey),
-                      textAlign: TextAlign.center,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  ElevatedButton(
-                    onPressed: () => _launchUrl(context, url),
-                    child: const Text('Открыть в браузере'),
-                  ),
-                ],
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+          child: Container(
+            width: double.infinity,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.25),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.35),
+                width: 0.8,
               ),
             ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(
+            child: Column(
               children: [
-                const Icon(
-                  Icons.play_circle_filled,
-                  color: AppColors.videoColor,
-                  size: 32,
+                AspectRatio(
+                  aspectRatio: 16 / 9,
+                  child: Container(
+                    width: double.infinity,
+                    decoration: const BoxDecoration(
+                      borderRadius: BorderRadius.vertical(
+                        top: Radius.circular(12),
+                      ),
+                    ),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(
+                          Icons.play_circle_fill,
+                          size: 64,
+                          color: Color(0xFFD4A843),
+                        ),
+                        const SizedBox(height: 16),
+                        const Text(
+                          'Видео на Rutube',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFFD4A843),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          child: Text(
+                            url,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: Color(0xFF2D2D44),
+                            ),
+                            textAlign: TextAlign.center,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        ElevatedButton(
+                          onPressed: () => _launchUrl(context, url),
+                          child: const Text('Открыть в браузере'),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
-                const SizedBox(width: 12),
-                Text(
-                  'Видео (Rutube)',
-                  style: Theme.of(context).textTheme.titleMedium,
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.play_circle_filled,
+                        color: Color(0xFFD4A843),
+                        size: 32,
+                      ),
+                      const SizedBox(width: 12),
+                      Text(
+                        'Видео (Rutube)',
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                    ],
+                  ),
                 ),
+                if (caption != null && caption.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 8),
+                    child: Text(
+                      caption,
+                      style: const TextStyle(
+                        color: Color(0xFF2D2D44),
+                        height: 1.5,
+                      ),
+                    ),
+                  ),
               ],
             ),
           ),
-          if (caption != null && caption.isNotEmpty)
-            Padding(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: Text(caption),
-            ),
-        ],
+        ),
       ),
     );
   }
@@ -200,77 +241,107 @@ class VideoContentWidget extends ConsumerWidget {
     required String url,
     String? caption,
   }) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 16),
-      elevation: 2,
-      child: Column(
-        children: [
-          AspectRatio(
-            aspectRatio: 16 / 9,
-            child: Container(
-              width: double.infinity,
-              decoration: BoxDecoration(
-                color: AppColors.videoColor.withValues(alpha: 0.1),
-                borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(12),
-                ),
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+          child: Container(
+            width: double.infinity,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.25),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.35),
+                width: 0.8,
               ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(
-                    Icons.play_circle_fill,
-                    size: 64,
-                    color: AppColors.videoColor,
-                  ),
-                  const SizedBox(height: 16),
-                  const Text(
-                    'Видео',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.videoColor,
+            ),
+            child: Column(
+              children: [
+                AspectRatio(
+                  aspectRatio: 16 / 9,
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(
+                          Icons.play_circle_fill,
+                          size: 64,
+                          color: Color(0xFFD4A843),
+                        ),
+                        const SizedBox(height: 16),
+                        const Text(
+                          'Видео',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFFD4A843),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        ElevatedButton(
+                          onPressed: () => _launchUrl(context, url),
+                          child: const Text('Открыть в браузере'),
+                        ),
+                      ],
                     ),
                   ),
-                  const SizedBox(height: 16),
-                  ElevatedButton(
-                    onPressed: () => _launchUrl(context, url),
-                    child: const Text('Открыть в браузере'),
+                ),
+                if (caption != null && caption.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Text(
+                      caption,
+                      style: const TextStyle(
+                        color: Color(0xFF2D2D44),
+                        height: 1.5,
+                      ),
+                    ),
                   ),
-                ],
-              ),
+              ],
             ),
           ),
-          if (caption != null && caption.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Text(caption),
-            ),
-        ],
+        ),
       ),
     );
   }
 
   Widget _buildUnavailable(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 16),
-      elevation: 2,
-      child: SizedBox(
-        height: 200,
-        child: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(Icons.videocam_off, size: 64, color: Colors.grey),
-              const SizedBox(height: 16),
-              Text(
-                'Видео недоступно',
-                style: Theme.of(context)
-                    .textTheme
-                    .titleMedium
-                    ?.copyWith(color: Colors.grey),
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+          child: Container(
+            width: double.infinity,
+            height: 200,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.25),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.35),
+                width: 0.8,
               ),
-            ],
+            ),
+            child: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.videocam_off, size: 64, color: Colors.grey),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Видео недоступно',
+                    style: Theme.of(context)
+                        .textTheme
+                        .titleMedium
+                        ?.copyWith(color: Colors.grey),
+                  ),
+                ],
+              ),
+            ),
           ),
         ),
       ),

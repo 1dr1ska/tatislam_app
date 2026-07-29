@@ -17,6 +17,10 @@ class Publication extends Equatable {
   final String type;
   final String? status;
 
+  /// The primary section that defines this publication's visual identity
+  /// (background, icon, etc.).
+  final String primarySectionId;
+
   const Publication({
     required this.id,
     required this.title,
@@ -27,6 +31,7 @@ class Publication extends Equatable {
     required this.updatedAt,
     required this.type,
     this.status,
+    required this.primarySectionId,
   });
 
   Publication copyWith({
@@ -38,6 +43,7 @@ class Publication extends Equatable {
     DateTime? updatedAt,
     String? type,
     String? status,
+    String? primarySectionId,
   }) {
     return Publication(
       id: id,
@@ -49,6 +55,7 @@ class Publication extends Equatable {
       updatedAt: updatedAt ?? this.updatedAt,
       type: type ?? this.type,
       status: status ?? this.status,
+      primarySectionId: primarySectionId ?? this.primarySectionId,
     );
   }
 
@@ -63,5 +70,6 @@ class Publication extends Equatable {
         updatedAt,
         type,
         status,
+        primarySectionId,
       ];
 }

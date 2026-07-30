@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:tatislam_app/core/constants/app_strings.dart';
 import 'package:tatislam_app/core/constants/app_colors.dart';
+import 'package:tatislam_app/core/utils/responsive.dart';
 import 'package:tatislam_app/features/publications/domain/entities/publication.dart';
 import 'package:tatislam_app/features/publications/presentation/providers/publications_providers.dart';
 import 'package:tatislam_app/features/publications/presentation/widgets/app_background.dart';
@@ -94,8 +95,6 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     final publicationsAsync = ref.watch(mainPublicationsProvider);
     final showFavoritesOnly = ref.watch(favoritesFilterProvider);
     final selectedSection = ref.watch(selectedSectionProvider);
-
-    ref.watch(favoritesProvider);
 
     final backgroundPath = selectedSection?.backgroundImage;
     final isLoading = sectionsAsync.isLoading || publicationsAsync.isLoading;
@@ -217,7 +216,6 @@ class _MainScreenState extends ConsumerState<MainScreen> {
             onRefresh: () async {
               ref.invalidate(sectionsProvider);
               ref.invalidate(mainPublicationsProvider);
-              ref.invalidate(selectedSectionProvider);
               ref.invalidate(favoritesProvider);
               await Future.wait([
                 ref.read(sectionsProvider.future),
@@ -229,13 +227,18 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                 ? const Center(child: CircularProgressIndicator())
                 : SingleChildScrollView(
                     physics: const AlwaysScrollableScrollPhysics(),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _buildSectionFilters(ref, sectionsAsync),
-                        const SizedBox(height: 16),
-                        _buildPublicationsGrid(context, ref, publicationsAsync),
-                      ],
+                    child: Center(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 1000),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _buildSectionFilters(ref, sectionsAsync),
+                            const SizedBox(height: 16),
+                            _buildPublicationsGrid(context, ref, publicationsAsync),
+                          ],
+                        ),
+                      ),
                     ),
                   ),
           ),
@@ -247,11 +250,15 @@ class _MainScreenState extends ConsumerState<MainScreen> {
   Widget _buildSectionFilters(
       WidgetRef ref, AsyncValue<List<Section>> sectionsAsync) {
     final selectedSection = ref.watch(selectedSectionProvider);
+    final scale = ResponsiveBreakpoints.glassScale(context);
+    final chipH = (40 * scale).clamp(36.0, 52.0);
+    final chipHoriPad = (14 * scale).clamp(12.0, 20.0);
+    final chipFontSize = (13 * scale).clamp(12.0, 16.0);
 
     return sectionsAsync.when(
       data: (sections) {
         return SizedBox(
-          height: 40,
+          height: chipH + 8,
           child: ListView(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             scrollDirection: Axis.horizontal,
@@ -262,6 +269,9 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                 onSelected: (selected) {
                   ref.read(selectedSectionProvider.notifier).state = null;
                 },
+                height: chipH,
+                horizontalPadding: chipHoriPad,
+                fontSize: chipFontSize,
               ),
               const SizedBox(width: 8),
               ...sections.map((section) => Padding(
@@ -273,6 +283,9 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                     ref.read(selectedSectionProvider.notifier).state =
                         selected ? section : null;
                   },
+                  height: chipH,
+                  horizontalPadding: chipHoriPad,
+                  fontSize: chipFontSize,
                 ),
               )),
             ],
@@ -294,6 +307,9 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     required String label,
     required bool selected,
     required ValueChanged<bool> onSelected,
+    double height = 40,
+    double horizontalPadding = 14,
+    double fontSize = 13,
   }) {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 200),
@@ -305,7 +321,9 @@ class _MainScreenState extends ConsumerState<MainScreen> {
           child: BackdropFilter(
             filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+              padding: EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: 0),
+              height: height,
+              alignment: Alignment.center,
               decoration: BoxDecoration(
                 color: selected
                     ? const Color(0xFFD4A843)
@@ -323,7 +341,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                 style: TextStyle(
                   color: selected ? Colors.black87 : Colors.white,
                   fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
-                  fontSize: 13,
+                  fontSize: fontSize,
                 ),
               ),
             ),
@@ -360,14 +378,23 @@ class _MainScreenState extends ConsumerState<MainScreen> {
           );
         }
 
+        // Determine grid columns and aspect ratio based on breakpoint
+        final isTablet = ResponsiveBreakpoints.isTablet(context);
+        final isLandscape = ResponsiveBreakpoints.isCompactLandscape(context);
+        final availableWidth = ResponsiveBreakpoints.layoutWidth(context) - 32;
+        final cardMinWidth = isTablet ? 280.0 : (isLandscape ? 200.0 : 160.0);
+        final cols = (availableWidth / cardMinWidth).floor().clamp(2, 4);
+        // Aspect ratio: taller cards on mobile, more compact on landscape/tablet
+        final aspectRatio = isTablet ? 0.80 : (isLandscape ? 0.90 : 0.85);
+
         return GridView.builder(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 2,
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: cols,
             crossAxisSpacing: 16,
             mainAxisSpacing: 16,
-            childAspectRatio: 0.85,
+            childAspectRatio: aspectRatio,
           ),
           itemCount: publications.length,
           padding: const EdgeInsets.all(16),
@@ -448,9 +475,13 @@ class _PublicationCard extends ConsumerWidget {
       },
       child: _TapScale(
         onTap: () {
-          GoRouter.of(context).go(
-            '/publication/${publication.id}?source=catalog',
-          );
+          if (publication.type == 'admin') {
+            GoRouter.of(context).go('/admin');
+          } else {
+            GoRouter.of(context).go(
+              '/publication/${publication.id}?source=catalog',
+            );
+          }
         },
         child: ClipRRect(
           borderRadius: BorderRadius.circular(12),

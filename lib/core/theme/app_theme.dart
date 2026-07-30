@@ -1,19 +1,27 @@
 import 'package:flutter/material.dart';
 import 'package:tatislam_app/core/constants/app_colors.dart';
 
-/// App theme configuration - Light theme (primary)
+/// App theme configuration - Light theme with TatIslam gold accent system.
 class AppTheme {
   AppTheme._();
 
   static ThemeData lightTheme = ThemeData(
     useMaterial3: true,
     colorScheme: ColorScheme.fromSeed(
-      seedColor: AppColors.secondary,
+      seedColor: AppColors.gold,
       brightness: Brightness.light,
+      primary: AppColors.gold,
+      secondary: AppColors.gold,
+    ).copyWith(
+      primary: AppColors.gold,
+      secondary: AppColors.gold,
     ),
+    primaryColor: AppColors.gold,
     scaffoldBackgroundColor: AppColors.background,
+
+    // ── AppBar ──
     appBarTheme: const AppBarTheme(
-      backgroundColor: AppColors.secondary,
+      backgroundColor: AppColors.gold,
       foregroundColor: Colors.white,
       elevation: 0,
       centerTitle: true,
@@ -23,6 +31,8 @@ class AppTheme {
         fontWeight: FontWeight.w600,
       ),
     ),
+
+    // ── Card ──
     cardTheme: CardThemeData(
       color: AppColors.cardBackground,
       elevation: 2,
@@ -30,9 +40,11 @@ class AppTheme {
         borderRadius: BorderRadius.circular(12),
       ),
     ),
+
+    // ── Elevated Button ──
     elevatedButtonTheme: ElevatedButtonThemeData(
       style: ElevatedButton.styleFrom(
-        backgroundColor: AppColors.secondary,
+        backgroundColor: AppColors.gold,
         foregroundColor: Colors.white,
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
         shape: RoundedRectangleBorder(
@@ -40,6 +52,8 @@ class AppTheme {
         ),
       ),
     ),
+
+    // ── Input Decoration (cursor, selection, border) ──
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
       fillColor: Colors.white,
@@ -53,21 +67,41 @@ class AppTheme {
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: AppColors.secondary, width: 2),
+        borderSide: const BorderSide(color: AppColors.gold, width: 2),
       ),
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
     ),
+
+    // ── Text Selection (cursor & highlight) ──
+    textSelectionTheme: const TextSelectionThemeData(
+      cursorColor: AppColors.gold,
+      selectionColor: Color(0x55D4A843),
+      selectionHandleColor: AppColors.gold,
+    ),
+
+    // ── Progress Indicators ──
+    progressIndicatorTheme: const ProgressIndicatorThemeData(
+      color: AppColors.gold,
+      linearTrackColor: Color(0x33D4A843),
+      circularTrackColor: Color(0x33D4A843),
+    ),
+
+    // ── Bottom Navigation ──
     bottomNavigationBarTheme: const BottomNavigationBarThemeData(
       backgroundColor: Colors.white,
-      selectedItemColor: AppColors.secondary,
+      selectedItemColor: AppColors.gold,
       unselectedItemColor: AppColors.textLight,
       type: BottomNavigationBarType.fixed,
       elevation: 8,
     ),
+
+    // ── Floating Action Button ──
     floatingActionButtonTheme: const FloatingActionButtonThemeData(
-      backgroundColor: AppColors.secondary,
+      backgroundColor: AppColors.gold,
       foregroundColor: Colors.white,
     ),
+
+    // ── Typography ──
     textTheme: const TextTheme(
       headlineLarge: TextStyle(
         fontSize: 28,

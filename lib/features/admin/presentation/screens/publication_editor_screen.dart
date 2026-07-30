@@ -8,6 +8,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:uuid/uuid.dart';
 
 import 'package:image_picker/image_picker.dart';
+import 'package:tatislam_app/core/constants/app_colors.dart';
 import 'package:tatislam_app/core/constants/app_icons.dart';
 import 'package:tatislam_app/core/storage/storage_paths.dart';
 import 'package:tatislam_app/core/storage/storage_providers.dart';
@@ -587,6 +588,7 @@ class _PublicationEditorScreenState
       canPop: false,
       child: Scaffold(
         appBar: AppBar(
+          backgroundColor: AppColors.secondary,
           leading: IconButton(
             icon: const Icon(Icons.arrow_back),
             onPressed: () => context.go('/admin'),

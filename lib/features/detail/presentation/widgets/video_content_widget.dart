@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:webview_flutter/webview_flutter.dart';
+import 'package:tatislam_app/core/utils/responsive.dart';
 import 'package:tatislam_app/features/detail/domain/services/video_url_parser_service.dart';
 import 'package:tatislam_app/features/publications/domain/entities/content_block.dart';
 import 'package:tatislam_app/features/publications/domain/entities/video_provider_type.dart';
@@ -72,6 +73,9 @@ class VideoContentWidget extends ConsumerWidget {
     required String embedUrl,
     String? caption,
   }) {
+    final isWide = ResponsiveBreakpoints.isTablet(context) ||
+        ResponsiveBreakpoints.isCompactLandscape(context);
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
       child: ClipRRect(
@@ -95,23 +99,28 @@ class VideoContentWidget extends ConsumerWidget {
                   borderRadius: const BorderRadius.vertical(
                     top: Radius.circular(_glassRadius),
                   ),
-                  child: AspectRatio(
-                    aspectRatio: 16 / 9,
-                    child: WebViewWidget(
-                      controller: WebViewController()
-                        ..setJavaScriptMode(JavaScriptMode.unrestricted)
-                        ..setNavigationDelegate(
-                          NavigationDelegate(
-                            onNavigationRequest: (request) {
-                              if (request.url == embedUrl) {
-                                return NavigationDecision.navigate;
-                              }
-                              _launchUrl(context, request.url);
-                              return NavigationDecision.prevent;
-                            },
-                          ),
-                        )
-                        ..loadRequest(Uri.parse(embedUrl)),
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      maxHeight: isWide ? 400 : double.infinity,
+                    ),
+                    child: AspectRatio(
+                      aspectRatio: 16 / 9,
+                      child: WebViewWidget(
+                        controller: WebViewController()
+                          ..setJavaScriptMode(JavaScriptMode.unrestricted)
+                          ..setNavigationDelegate(
+                            NavigationDelegate(
+                              onNavigationRequest: (request) {
+                                if (request.url == embedUrl) {
+                                  return NavigationDecision.navigate;
+                                }
+                                _launchUrl(context, request.url);
+                                return NavigationDecision.prevent;
+                              },
+                            ),
+                          )
+                          ..loadRequest(Uri.parse(embedUrl)),
+                      ),
                     ),
                   ),
                 ),

@@ -6,6 +6,7 @@ import 'package:tatislam_app/core/constants/app_colors.dart';
 import 'package:tatislam_app/core/constants/app_strings.dart';
 import 'package:tatislam_app/core/storage/storage_providers.dart';
 import 'package:tatislam_app/core/storage/media_storage_repository.dart';
+import 'package:tatislam_app/core/utils/responsive.dart';
 import 'package:tatislam_app/features/favorites/providers/favorites_provider.dart';
 import 'package:tatislam_app/features/publications/domain/entities/content_block.dart';
 import 'package:tatislam_app/features/publications/presentation/widgets/app_background.dart';
@@ -46,28 +47,31 @@ class PublicationDetailScreen extends ConsumerStatefulWidget {
 class _PublicationDetailScreenState
     extends ConsumerState<PublicationDetailScreen> {
   bool _isFavorite = false;
+  bool _favoriteLoaded = false;
 
   @override
   void initState() {
     super.initState();
-    _loadPublication();
+    // Defer favorite check to after first frame — no need to block build
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadFavoriteState());
   }
 
-  Future<void> _loadPublication() async {
-    final asyncPublication = await ref.read(
-      publicationDetailProvider(widget.publicationId).future,
+  Future<void> _loadFavoriteState() async {
+    if (_favoriteLoaded) return;
+    final asyncPublication = ref.read(
+      publicationDetailProvider(widget.publicationId),
     );
-
-    if (asyncPublication != null && mounted) {
-      final favoritesAsync = ref.read(favoritesProvider);
-      final favorites = favoritesAsync.asData?.value ?? [];
-      final isFav =
-          favorites.any((p) => p.id == asyncPublication.publication.id);
-      if (mounted) {
-        setState(() {
-          _isFavorite = isFav;
-        });
-      }
+    final publication = asyncPublication.asData?.value;
+    if (publication == null) return;
+    final favoritesAsync = ref.read(favoritesProvider);
+    final favorites = favoritesAsync.asData?.value ?? [];
+    final isFav =
+        favorites.any((p) => p.id == publication.publication.id);
+    if (mounted) {
+      setState(() {
+        _isFavorite = isFav;
+        _favoriteLoaded = true;
+      });
     }
   }
 
@@ -203,69 +207,98 @@ class _PublicationDetailScreenState
                 );
               }
 
-              return SingleChildScrollView(
-                padding: const EdgeInsets.all(16),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(_detailGlassRadius),
-                  child: BackdropFilter(
-                    filter: ImageFilter.blur(
-                      sigmaX: _detailGlassBlur,
-                      sigmaY: _detailGlassBlur,
-                    ),
-                    child: Container(
-                      width: double.infinity,
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: _detailGlassOpacity),
-                        borderRadius: BorderRadius.circular(_detailGlassRadius),
-                        border: Border.all(
-                          color: Colors.white.withValues(alpha: _detailGlassBorderOpacity),
-                          width: _detailGlassBorderWidth,
+              final isWide = ResponsiveBreakpoints.isTablet(context) || ResponsiveBreakpoints.isCompactLandscape(context);
+              final horizontalPadding = isWide ? 32.0 : 16.0;
+
+              return Align(
+                alignment: Alignment.topCenter,
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 860),
+                  child: SingleChildScrollView(
+                    padding: EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: 24),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(_detailGlassRadius),
+                      child: BackdropFilter(
+                        filter: ImageFilter.blur(
+                          sigmaX: _detailGlassBlur,
+                          sigmaY: _detailGlassBlur,
                         ),
-                      ),
-                      padding: const EdgeInsets.all(_detailPadding),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // Content blocks (title removed — now in AppBar)
-                          ...publication.blocks.map(
-                            (block) => _buildContentBlock(block, mediaStorage),
-                          ),
-
-                          const SizedBox(height: 24),
-
-                          // Description
-                          if (publication.publication.description.isNotEmpty)
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Тасвирлама',
-                                  style: Theme.of(context)
-                                      .textTheme
-                                      .titleMedium
-                                      ?.copyWith(
-                                        fontWeight: FontWeight.bold,
-                                        color: const Color(0xFF1A1A2E),
-                                      ),
-                                ),
-                                const SizedBox(height: 8),
-                                Text(
-                                  publication.publication.description,
-                                  style: const TextStyle(
-                                    color: Color(0xFF2D2D44),
-                                    height: 1.6,
-                                  ),
-                                ),
-                              ],
+                        child: Container(
+                          width: double.infinity,
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: _detailGlassOpacity),
+                            borderRadius: BorderRadius.circular(_detailGlassRadius),
+                            border: Border.all(
+                              color: Colors.white.withValues(alpha: _detailGlassBorderOpacity),
+                              width: _detailGlassBorderWidth,
                             ),
-                        ],
+                          ),
+                          padding: const EdgeInsets.all(_detailPadding),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // Content blocks (title removed — now in AppBar)
+                              ...publication.blocks.map(
+                                (block) => _buildContentBlock(block, mediaStorage),
+                              ),
+
+                              const SizedBox(height: 24),
+
+                              // Description
+                              if (publication.publication.description.isNotEmpty)
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Тасвирлама',
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .titleMedium
+                                          ?.copyWith(
+                                            fontWeight: FontWeight.bold,
+                                            color: const Color(0xFF1A1A2E),
+                                          ),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      publication.publication.description,
+                                      style: const TextStyle(
+                                        color: Color(0xFF2D2D44),
+                                        height: 1.6,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                            ],
+                          ),
+                        ),
                       ),
                     ),
                   ),
                 ),
               );
             },
-            loading: () => const Center(child: CircularProgressIndicator()),
+            loading: () => Center(
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(_detailGlassRadius),
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: _detailGlassBlur, sigmaY: _detailGlassBlur),
+                  child: Container(
+                    width: 200,
+                    height: 200,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: _detailGlassOpacity),
+                      borderRadius: BorderRadius.circular(_detailGlassRadius),
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: _detailGlassBorderOpacity),
+                        width: _detailGlassBorderWidth,
+                      ),
+                    ),
+                    child: const Center(child: CircularProgressIndicator()),
+                  ),
+                ),
+              ),
+            ),
             error: (error, stackTrace) => Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -276,7 +309,7 @@ class _PublicationDetailScreenState
                   Text(AppStrings.errorLoading),
                   const SizedBox(height: 16),
                   ElevatedButton(
-                    onPressed: _loadPublication,
+                    onPressed: () => ref.invalidate(publicationDetailProvider(widget.publicationId)),
                     child: Text(AppStrings.retry),
                   ),
                 ],

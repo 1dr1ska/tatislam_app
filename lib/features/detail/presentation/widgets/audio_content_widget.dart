@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:just_audio/just_audio.dart' show AudioPlayer, ProcessingState;
 import 'package:tatislam_app/core/services/local_storage_service.dart';
 import 'package:tatislam_app/core/storage/media_storage_repository.dart';
+import 'package:tatislam_app/core/utils/responsive.dart';
 import 'package:tatislam_app/features/detail/presentation/providers/audio_player_provider.dart';
 import 'package:tatislam_app/features/publications/domain/entities/audio_source_type.dart';
 import 'package:tatislam_app/features/publications/domain/entities/content_block.dart';
@@ -146,6 +147,9 @@ class _AudioContentWidgetState extends ConsumerState<AudioContentWidget> {
       return _buildUnavailable(context);
     }
 
+    final isLandscape = ResponsiveBreakpoints.isCompactLandscape(context) ||
+        ResponsiveBreakpoints.isTablet(context);
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
       child: ClipRRect(
@@ -170,192 +174,302 @@ class _AudioContentWidgetState extends ConsumerState<AudioContentWidget> {
               ],
             ),
             padding: const EdgeInsets.all(16),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Play / Pause button — main visual accent, enlarged
-                StreamBuilder(
-                  stream: audioPlayer.playerStateStream,
-                  builder: (context, snapshot) {
-                    final state = snapshot.data;
-                    final isPlaying = state?.playing == true;
-                    final isCompleted =
-                        state?.processingState == ProcessingState.completed;
-
-                    return GestureDetector(
-                      onTap: () async {
-                        try {
-                          await audioPlayer.setSpeed(_speed);
-                          if (isPlaying) {
-                            _savePosition();
-                            await audioPlayer.pause();
-                          } else {
-                            if (isCompleted) {
-                              await audioPlayer.seek(Duration.zero);
-                            }
-                            await audioPlayer.play();
-                          }
-                        } catch (e) {
-                          debugPrint('Error controlling audio playback: $e');
-                        }
-                      },
-                      child: Container(
-                        width: 72,
-                        height: 72,
-                        decoration: BoxDecoration(
-                          color: _goldAccent.withValues(alpha: 0.25),
-                          borderRadius: BorderRadius.circular(36),
-                          border: Border.all(
-                            color: _goldAccent.withValues(alpha: 0.6),
-                            width: 2.0,
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: _goldAccent.withValues(alpha: 0.15),
-                              blurRadius: 16,
-                              spreadRadius: 2,
-                            ),
-                          ],
-                        ),
-                        child: Icon(
-                          isCompleted
-                              ? Icons.replay
-                              : isPlaying
-                                  ? Icons.pause
-                                  : Icons.play_arrow,
-                          color: _goldAccentDark,
-                          size: 40,
-                        ),
-                      ),
-                    );
-                  },
-                ),
-                const SizedBox(height: 16),
-                // Seek slider — more expressive
-                StreamBuilder(
-                  stream: audioPlayer.positionStream,
-                  builder: (context, snapshot) {
-                    final position = snapshot.data ?? Duration.zero;
-                    final duration =
-                        audioPlayer.duration ?? const Duration(seconds: 120);
-                    final positionSeconds = position.inSeconds.toDouble();
-                    final durationSeconds = duration.inSeconds.toDouble();
-
-                    return Column(
-                      children: [
-                        SliderTheme(
-                          data: SliderThemeData(
-                            activeTrackColor: _goldAccent,
-                            inactiveTrackColor:
-                                Colors.white.withValues(alpha: 0.15),
-                            thumbColor: _goldAccent,
-                            overlayColor:
-                                _goldAccent.withValues(alpha: 0.15),
-                            trackHeight: 5,
-                            thumbShape: const RoundSliderThumbShape(
-                                enabledThumbRadius: 10),
-                          ),
-                          child: Slider(
-                            value: positionSeconds > durationSeconds
-                                ? durationSeconds
-                                : positionSeconds,
-                            max: durationSeconds > 0 ? durationSeconds : 1,
-                            onChanged: (value) {
-                              audioPlayer.seek(
-                                  Duration(seconds: value.toInt()));
-                            },
-                          ),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 8),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                _formatDuration(position),
-                                style: TextStyle(
-                                  color: Colors.white.withValues(alpha: 0.85),
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                              Text(
-                                _formatDuration(duration),
-                                style: TextStyle(
-                                  color: Colors.white.withValues(alpha: 0.85),
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    );
-                  },
-                ),
-                const SizedBox(height: 12),
-                // Playback speed selector — glassmorphism chips
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: _speedOptions.map((speed) {
-                    final isSelected = speed == _speed;
-                    return GestureDetector(
-                      onTap: () {
-                        setState(() {
-                          _speed = speed;
-                        });
-                        audioPlayer.setSpeed(speed);
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 16, vertical: 8),
-                        decoration: BoxDecoration(
-                          color: isSelected
-                              ? _goldAccent.withValues(alpha: 0.30)
-                              : Colors.white.withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                            color: isSelected
-                                ? _goldAccent
-                                : Colors.white.withValues(alpha: 0.20),
-                            width: 1.0,
-                          ),
-                        ),
-                        child: Text(
-                          '${speed}x',
-                          style: TextStyle(
-                            color: isSelected
-                                ? _goldAccentDark
-                                : Colors.white.withValues(alpha: 0.90),
-                            fontWeight:
-                                isSelected ? FontWeight.bold : FontWeight.w500,
-                            fontSize: 14,
-                          ),
-                        ),
-                      ),
-                    );
-                  }).toList(),
-                ),
-                if (widget.block.caption != null &&
-                    widget.block.caption!.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 12),
-                    child: Text(
-                      widget.block.caption!,
-                      style: const TextStyle(
-                        color: Color(0xFF2D2D44),
-                        height: 1.5,
-                        fontSize: 14,
-                      ),
-                    ),
-                  ),
-              ],
-            ),
+            child: isLandscape
+                ? _buildLandscapePlayer(audioPlayer, context)
+                : _buildPortraitPlayer(audioPlayer, context),
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildPortraitPlayer(AudioPlayer audioPlayer, BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Play / Pause button — main visual accent, enlarged
+        StreamBuilder(
+          stream: audioPlayer.playerStateStream,
+          builder: (context, snapshot) {
+            final state = snapshot.data;
+            final isPlaying = state?.playing == true;
+            final isCompleted =
+                state?.processingState == ProcessingState.completed;
+
+            return GestureDetector(
+              onTap: () async {
+                try {
+                  await audioPlayer.setSpeed(_speed);
+                  if (isPlaying) {
+                    _savePosition();
+                    await audioPlayer.pause();
+                  } else {
+                    if (isCompleted) {
+                      await audioPlayer.seek(Duration.zero);
+                    }
+                    await audioPlayer.play();
+                  }
+                } catch (e) {
+                  debugPrint('Error controlling audio playback: $e');
+                }
+              },
+              child: Container(
+                width: 72,
+                height: 72,
+                decoration: BoxDecoration(
+                  color: _goldAccent.withValues(alpha: 0.25),
+                  borderRadius: BorderRadius.circular(36),
+                  border: Border.all(
+                    color: _goldAccent.withValues(alpha: 0.6),
+                    width: 2.0,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: _goldAccent.withValues(alpha: 0.15),
+                      blurRadius: 16,
+                      spreadRadius: 2,
+                    ),
+                  ],
+                ),
+                child: Icon(
+                  isCompleted
+                      ? Icons.replay
+                      : isPlaying
+                          ? Icons.pause
+                          : Icons.play_arrow,
+                  color: _goldAccentDark,
+                  size: 40,
+                ),
+              ),
+            );
+          },
+        ),
+        const SizedBox(height: 16),
+        // Seek slider — more expressive
+        _buildSeekBar(audioPlayer),
+        const SizedBox(height: 12),
+        // Playback speed selector — glassmorphism chips
+        _buildSpeedSelector(audioPlayer),
+        if (widget.block.caption != null &&
+            widget.block.caption!.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 12),
+            child: Text(
+              widget.block.caption!,
+              style: const TextStyle(
+                color: Color(0xFF2D2D44),
+                height: 1.5,
+                fontSize: 14,
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildLandscapePlayer(AudioPlayer audioPlayer, BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        // Large play button on the left
+        StreamBuilder(
+          stream: audioPlayer.playerStateStream,
+          builder: (context, snapshot) {
+            final state = snapshot.data;
+            final isPlaying = state?.playing == true;
+            final isCompleted =
+                state?.processingState == ProcessingState.completed;
+
+            return GestureDetector(
+              onTap: () async {
+                try {
+                  await audioPlayer.setSpeed(_speed);
+                  if (isPlaying) {
+                    _savePosition();
+                    await audioPlayer.pause();
+                  } else {
+                    if (isCompleted) {
+                      await audioPlayer.seek(Duration.zero);
+                    }
+                    await audioPlayer.play();
+                  }
+                } catch (e) {
+                  debugPrint('Error controlling audio playback: $e');
+                }
+              },
+              child: Container(
+                width: 80,
+                height: 80,
+                decoration: BoxDecoration(
+                  color: _goldAccent.withValues(alpha: 0.25),
+                  borderRadius: BorderRadius.circular(40),
+                  border: Border.all(
+                    color: _goldAccent.withValues(alpha: 0.6),
+                    width: 2.0,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: _goldAccent.withValues(alpha: 0.15),
+                      blurRadius: 16,
+                      spreadRadius: 2,
+                    ),
+                  ],
+                ),
+                child: Icon(
+                  isCompleted
+                      ? Icons.replay
+                      : isPlaying
+                          ? Icons.pause
+                          : Icons.play_arrow,
+                  color: _goldAccentDark,
+                  size: 44,
+                ),
+              ),
+            );
+          },
+        ),
+        const SizedBox(width: 16),
+        // Right side: slider + controls
+        Expanded(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _buildSeekBar(audioPlayer),
+              const SizedBox(height: 8),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  _buildSpeedSelector(audioPlayer),
+                ],
+              ),
+              if (widget.block.caption != null &&
+                  widget.block.caption!.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Text(
+                    widget.block.caption!,
+                    style: const TextStyle(
+                      color: Color(0xFF2D2D44),
+                      height: 1.5,
+                      fontSize: 14,
+                    ),
+                    textAlign: TextAlign.start,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSeekBar(AudioPlayer audioPlayer) {
+    return StreamBuilder(
+      stream: audioPlayer.positionStream,
+      builder: (context, snapshot) {
+        final position = snapshot.data ?? Duration.zero;
+        final duration =
+            audioPlayer.duration ?? const Duration(seconds: 120);
+        final positionSeconds = position.inSeconds.toDouble();
+        final durationSeconds = duration.inSeconds.toDouble();
+
+        return Column(
+          children: [
+            SliderTheme(
+              data: SliderThemeData(
+                activeTrackColor: _goldAccent,
+                inactiveTrackColor:
+                    Colors.white.withValues(alpha: 0.15),
+                thumbColor: _goldAccent,
+                overlayColor: _goldAccent.withValues(alpha: 0.15),
+                trackHeight: 5,
+                thumbShape:
+                    const RoundSliderThumbShape(enabledThumbRadius: 10),
+              ),
+              child: Slider(
+                value: positionSeconds > durationSeconds
+                    ? durationSeconds
+                    : positionSeconds,
+                max: durationSeconds > 0 ? durationSeconds : 1,
+                onChanged: (value) {
+                  audioPlayer.seek(Duration(seconds: value.toInt()));
+                },
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    _formatDuration(position),
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.85),
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  Text(
+                    _formatDuration(duration),
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.85),
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildSpeedSelector(AudioPlayer audioPlayer) {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: _speedOptions.map((speed) {
+        final isSelected = speed == _speed;
+        return GestureDetector(
+          onTap: () {
+            setState(() {
+              _speed = speed;
+            });
+            audioPlayer.setSpeed(speed);
+          },
+          child: Container(
+            padding: const EdgeInsets.symmetric(
+                horizontal: 16, vertical: 8),
+            decoration: BoxDecoration(
+              color: isSelected
+                  ? _goldAccent.withValues(alpha: 0.30)
+                  : Colors.white.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: isSelected
+                    ? _goldAccent
+                    : Colors.white.withValues(alpha: 0.20),
+                width: 1.0,
+              ),
+            ),
+            child: Text(
+              '${speed}x',
+              style: TextStyle(
+                color: isSelected
+                    ? _goldAccentDark
+                    : Colors.white.withValues(alpha: 0.90),
+                fontWeight:
+                    isSelected ? FontWeight.bold : FontWeight.w500,
+                fontSize: 14,
+              ),
+            ),
+          ),
+        );
+      }).toList(),
     );
   }
 

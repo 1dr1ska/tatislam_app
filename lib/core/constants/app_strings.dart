@@ -26,7 +26,7 @@ class AppStrings {
         TextSpan(
           text: islamPart,
           style: TextStyle(
-            color: AppColors.secondary, // Green for ИСЛАМ
+            color: AppColors.islamGreen, // Green for ИСЛАМ
             fontSize: 24,
             fontWeight: FontWeight.bold,
           ),

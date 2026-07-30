@@ -43,7 +43,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Пользователь успешно создан!'),
-            backgroundColor: Colors.green,
+            backgroundColor: AppColors.gold,
           ),
         );
         context.go('/login');

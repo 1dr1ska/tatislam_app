@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:tatislam_app/core/constants/app_strings.dart';
+import 'package:tatislam_app/core/utils/responsive.dart';
 import 'package:tatislam_app/features/auth/providers/auth_provider.dart';
 import 'package:tatislam_app/features/publications/presentation/widgets/app_background.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -88,240 +89,246 @@ class _AboutScreenState extends ConsumerState<AboutScreen> {
               ),
             ),
           ),
-          body: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // --- Logo + Version ---
-                Center(
-                  child: GestureDetector(
-                    onTap: () {
-                      if (isAdmin) {
-                        GoRouter.of(context).go('/admin');
-                      }
-                    },
-                    child: Container(
-                      width: 150,
-                      height: 150,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: _goldAccent.withValues(alpha: 0.20),
-                            blurRadius: 20,
-                            spreadRadius: 4,
-                          ),
-                        ],
-                      ),
-                      child: ClipOval(
-                        child: Image.asset(
-                          'assets/images/app_icon.png',
-                          fit: BoxFit.cover,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Center(
-                  child: Text(
-                    'v${AppStrings.appVersion}',
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.80),
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 20),
-
-                // --- Description (glass card) ---
-                _buildGlassCard(
-                  child: Text(
-                    'ТАТИСЛАМ — Раил Фәйзрахмановның татар телендәге ислам дәресләре тупланган кушымта. Монда аудио вәгазьләр, видео вәгазьләр һәм мәкаләләр бер урында җыелган.',
-                    style: TextStyle(
-                      color: const Color(0xFF1A1A2E).withValues(alpha: 0.90),
-                      fontSize: 15,
-                      height: 1.6,
-                    ),
-                    textAlign: TextAlign.justify,
-                  ),
-                ),
-                const SizedBox(height: 20),
-
-                // --- Features ---
-                Text(
-                  'Кушымта мөмкинлекләре:',
-                  style: TextStyle(
-                    color: const Color(0xFFF8F7F2),
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _buildFeatureCard(
-                        icon: Icons.headphones,
-                        label: 'Аудио',
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: _buildFeatureCard(
-                        icon: Icons.play_circle_filled,
-                        label: 'Видео',
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: _buildFeatureCard(
-                        icon: Icons.article,
-                        label: 'Мәкаләләр',
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _buildFeatureCard(
-                        icon: Icons.search,
-                        label: 'Эзләү',
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: _buildFeatureCard(
-                        icon: Icons.star,
-                        label: 'Сайланганнар',
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: _buildFeatureCard(
-                        icon: Icons.filter_alt,
-                        label: 'Фильтрлар',
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 20),
-
-                // --- Links ---
-                Text(
-                  'Сылтамалар:',
-                  style: TextStyle(
-                    color: const Color(0xFFF8F7F2),
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                _buildLinkCard(
-                  item: const _LinkItem(
-                    icon: Icons.language,
-                    title: 'Безнең сайт',
-                    subtitle: 'tatislam.com',
-                    url: 'https://tatislam.com',
-                  ),
-                ),
-                const SizedBox(height: 10),
-                _buildLinkCard(
-                  item: const _LinkItem(
-                    icon: Icons.play_circle_filled,
-                    title: 'YouTube каналы',
-                    subtitle: 'youtube.com/channel/UCyoQBRnx-UU2gBPPFjU1hIw',
-                    url: 'https://www.youtube.com/channel/UCyoQBRnx-UU2gBPPFjU1hIw',
-                  ),
-                ),
-                const SizedBox(height: 10),
-                _buildLinkCard(
-                  item: const _LinkItem(
-                    icon: Icons.ondemand_video,
-                    title: 'RuTube каналы',
-                    subtitle: 'rutube.ru/channel/38324482',
-                    url: 'https://rutube.ru/channel/38324482',
-                  ),
-                ),
-                const SizedBox(height: 10),
-                _buildLinkCard(
-                  item: const _LinkItem(
-                    icon: Icons.people_alt,
-                    title: 'ВКонтакте',
-                    subtitle: 'vk.com/tat_islam_com',
-                    url: 'https://vk.com/tat_islam_com',
-                  ),
-                ),
-                const SizedBox(height: 10),
-                _buildLinkCard(
-                  item: const _LinkItem(
-                    icon: Icons.chat,
-                    title: 'Бип',
-                    subtitle: 'bip.ai/join/tatislam',
-                    url: 'https://bip.ai/join/tatislam',
-                  ),
-                ),
-                const SizedBox(height: 10),
-                _buildLinkCard(
-                  item: const _LinkItem(
-                    icon: Icons.forum,
-                    title: 'Макс',
-                    subtitle: 'max.ru/join/W0hU3jNSKOSno',
-                    url: 'https://max.ru/join/W0hU3jNSKOSno',
-                  ),
-                ),
-                const SizedBox(height: 10),
-                _buildLinkCard(
-                  item: const _LinkItem(
-                    icon: Icons.telegram,
-                    title: 'Telegram каналы',
-                    subtitle: 't.me/tatislam',
-                    url: 'https://t.me/tatislam',
-                  ),
-                ),
-                const SizedBox(height: 20),
-
-                // --- Contacts ---
-                Text(
-                  'Контактлар:',
-                  style: TextStyle(
-                    color: const Color(0xFFF8F7F2),
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                _buildLinkCard(
-                  item: const _LinkItem(
-                    icon: Icons.email,
-                    title: 'Email',
-                    subtitle: 'faizr@inbox.ru',
-                    url: 'faizr@inbox.ru',
-                    isEmail: true,
-                  ),
-                ),
-                const SizedBox(height: 20),
-
-                // --- Footer ---
-                Center(
-                  child: Text(
-                    '© 2026 ${AppStrings.appName}.',
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.60),
-                      fontSize: 13,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-              ],
-            ),
+          body: SafeArea(
+            child: _buildBody(context, isAdmin),
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildBody(BuildContext context, bool isAdmin) {
+    final isLandscape = ResponsiveBreakpoints.isCompactLandscape(context) ||
+        ResponsiveBreakpoints.isTablet(context);
+
+    if (isLandscape) {
+      return _buildLandscapeLayout(context, isAdmin);
+    }
+
+    return _buildPortraitLayout(context, isAdmin);
+  }
+
+  Widget _buildPortraitLayout(BuildContext context, bool isAdmin) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildLogoSection(isAdmin),
+          const SizedBox(height: 20),
+          _buildDescriptionCard(),
+          const SizedBox(height: 20),
+          _buildFeaturesSection(),
+          const SizedBox(height: 20),
+          _buildLinksSection(),
+          const SizedBox(height: 20),
+          _buildContactsSection(),
+          const SizedBox(height: 20),
+          _buildFooter(),
+          const SizedBox(height: 16),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLandscapeLayout(BuildContext context, bool isAdmin) {
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 1100),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Left column: logo + version
+              Expanded(
+                flex: 1,
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 32),
+                  child: Column(
+                    children: [
+                      _buildLogoSection(isAdmin),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 24),
+              // Right column: description, features, links, contacts
+              Expanded(
+                flex: 2,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildDescriptionCard(),
+                    const SizedBox(height: 20),
+                    _buildFeaturesSection(),
+                    const SizedBox(height: 20),
+                    _buildLinksSection(),
+                    const SizedBox(height: 20),
+                    _buildContactsSection(),
+                    const SizedBox(height: 20),
+                    _buildFooter(),
+                    const SizedBox(height: 16),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLogoSection(bool isAdmin) {
+    return Column(
+      children: [
+        GestureDetector(
+          onTap: () {
+            if (isAdmin) {
+              GoRouter.of(context).go('/admin');
+            }
+          },
+          child: Container(
+            width: 150,
+            height: 150,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: _goldAccent.withValues(alpha: 0.20),
+                  blurRadius: 20,
+                  spreadRadius: 4,
+                ),
+              ],
+            ),
+            child: ClipOval(
+              child: Image.asset(
+                'assets/images/app_icon.png',
+                fit: BoxFit.cover,
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'v${AppStrings.appVersion}',
+          style: TextStyle(
+            color: Colors.white.withValues(alpha: 0.80),
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDescriptionCard() {
+    return _buildGlassCard(
+      child: Text(
+        'ТАТИСЛАМ — Раил Фәйзрахмановның татар телендәге ислам дәресләре тупланган кушымта. Монда аудио вәгазьләр, видео вәгазьләр һәм мәкаләләр бер урында җыелган.',
+        style: TextStyle(
+          color: const Color(0xFF1A1A2E).withValues(alpha: 0.90),
+          fontSize: 15,
+          height: 1.6,
+        ),
+        textAlign: TextAlign.justify,
+      ),
+    );
+  }
+
+  Widget _buildFeaturesSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Кушымта мөмкинлекләре:',
+          style: TextStyle(
+            color: Color(0xFFF8F7F2),
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(child: _buildFeatureCard(icon: Icons.headphones, label: 'Аудио')),
+            const SizedBox(width: 10),
+            Expanded(child: _buildFeatureCard(icon: Icons.play_circle_filled, label: 'Видео')),
+            const SizedBox(width: 10),
+            Expanded(child: _buildFeatureCard(icon: Icons.article, label: 'Мәкаләләр')),
+          ],
+        ),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            Expanded(child: _buildFeatureCard(icon: Icons.search, label: 'Эзләү')),
+            const SizedBox(width: 10),
+            Expanded(child: _buildFeatureCard(icon: Icons.star, label: 'Сайланганнар')),
+            const SizedBox(width: 10),
+            Expanded(child: _buildFeatureCard(icon: Icons.filter_alt, label: 'Фильтрлар')),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildLinksSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Сылтамалар:',
+          style: TextStyle(
+            color: Color(0xFFF8F7F2),
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: 12),
+        _buildLinkCard(item: const _LinkItem(icon: Icons.language, title: 'Безнең сайт', subtitle: 'tatislam.com', url: 'https://tatislam.com')),
+        const SizedBox(height: 10),
+        _buildLinkCard(item: const _LinkItem(icon: Icons.play_circle_filled, title: 'YouTube каналы', subtitle: 'youtube.com/channel/UCyoQBRnx-UU2gBPPFjU1hIw', url: 'https://www.youtube.com/channel/UCyoQBRnx-UU2gBPPFjU1hIw')),
+        const SizedBox(height: 10),
+        _buildLinkCard(item: const _LinkItem(icon: Icons.ondemand_video, title: 'RuTube каналы', subtitle: 'rutube.ru/channel/38324482', url: 'https://rutube.ru/channel/38324482')),
+        const SizedBox(height: 10),
+        _buildLinkCard(item: const _LinkItem(icon: Icons.people_alt, title: 'ВКонтакте', subtitle: 'vk.com/tat_islam_com', url: 'https://vk.com/tat_islam_com')),
+        const SizedBox(height: 10),
+        _buildLinkCard(item: const _LinkItem(icon: Icons.chat, title: 'Бип', subtitle: 'bip.ai/join/tatislam', url: 'https://bip.ai/join/tatislam')),
+        const SizedBox(height: 10),
+        _buildLinkCard(item: const _LinkItem(icon: Icons.forum, title: 'Макс', subtitle: 'max.ru/join/W0hU3jNSKOSno', url: 'https://max.ru/join/W0hU3jNSKOSno')),
+        const SizedBox(height: 10),
+        _buildLinkCard(item: const _LinkItem(icon: Icons.telegram, title: 'Telegram каналы', subtitle: 't.me/tatislam', url: 'https://t.me/tatislam')),
+      ],
+    );
+  }
+
+  Widget _buildContactsSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Контактлар:',
+          style: TextStyle(
+            color: Color(0xFFF8F7F2),
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: 12),
+        _buildLinkCard(item: const _LinkItem(icon: Icons.email, title: 'Email', subtitle: 'faizr@inbox.ru', url: 'faizr@inbox.ru', isEmail: true)),
+      ],
+    );
+  }
+
+  Widget _buildFooter() {
+    return Center(
+      child: Text(
+        '© 2026 ${AppStrings.appName}.',
+        style: TextStyle(
+          color: Colors.white.withValues(alpha: 0.60),
+          fontSize: 13,
+        ),
+      ),
     );
   }
 
@@ -370,7 +377,7 @@ class _AboutScreenState extends ConsumerState<AboutScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, color: _goldAccent, size: 28),
+              Icon(icon, color: _goldAccent, size: 34),
               const SizedBox(height: 6),
               Text(
                 label,

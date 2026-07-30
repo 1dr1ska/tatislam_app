@@ -8,23 +8,39 @@ import 'package:tatislam_app/core/theme/app_theme.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  await LocalStorageService.initialize();
-
-  // Initialize Supabase with proper configuration
-  await Supabase.initialize(
+  // Start both initializations in parallel
+  final supabaseFuture = Supabase.initialize(
     url: 'https://vboffcgpkdruvqgdfpbp.supabase.co',
     publishableKey: 'sb_publishable_suE8ON3T8O-J6g8dfLFuBQ_Ci0aT_48',
   );
 
+  // Hive init is deferred to after first frame — not needed before UI
+  // LocalStorageService.initialize() will be called in MyApp.initState
+
+  await supabaseFuture;
 
   runApp(const ProviderScope(child: MyApp()));
 }
 
-class MyApp extends ConsumerWidget {
+class MyApp extends ConsumerStatefulWidget {
   const MyApp({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends ConsumerState<MyApp> {
+  @override
+  void initState() {
+    super.initState();
+    // Defer Hive init to after first frame — not needed before UI paints
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      LocalStorageService.initialize();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final router = ref.watch(appRouterProvider);
     return MaterialApp.router(
       title: 'TatIslam',

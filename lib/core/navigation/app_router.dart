@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:tatislam_app/features/about/presentation/screens/about_screen.dart';
@@ -98,28 +99,52 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/',
         name: 'main',
-        builder: (context, state) => const MainScreen(),
+        builder: (context, state) => const Material(
+          color: Color(0xFF1A1A2E),
+          child: MainScreen(),
+        ),
       ),
       // About screen
       GoRoute(
         path: '/about',
         name: 'about',
-        builder: (context, state) => const AboutScreen(),
+        pageBuilder: (context, state) => CustomTransitionPage(
+          key: state.pageKey,
+          opaque: false,
+          transitionDuration: const Duration(milliseconds: 200),
+          reverseTransitionDuration: const Duration(milliseconds: 150),
+          child: const AboutScreen(),
+          transitionsBuilder: (context, animation, secondaryAnimation, child) {
+            return FadeTransition(opacity: animation, child: child);
+          },
+        ),
       ),
       // Publication detail screen
       GoRoute(
         path: '/publication/:id',
         name: 'publicationDetail',
-        builder: (context, state) {
+        pageBuilder: (context, state) {
           final id = state.pathParameters['id']!;
           final sourceScreen = state.uri.queryParameters['source'];
           final selectedSectionId = state.uri.queryParameters['section'];
           final catalogMode = state.uri.queryParameters['mode'];
-          return PublicationDetailScreen(
-            publicationId: id,
-            sourceScreen: sourceScreen,
-            selectedSectionId: selectedSectionId,
-            catalogMode: catalogMode,
+          return CustomTransitionPage(
+            key: state.pageKey,
+            opaque: false, // ← CRITICAL: prevents white background during transition
+            transitionDuration: const Duration(milliseconds: 200),
+            reverseTransitionDuration: const Duration(milliseconds: 150),
+            child: PublicationDetailScreen(
+              publicationId: id,
+              sourceScreen: sourceScreen,
+              selectedSectionId: selectedSectionId,
+              catalogMode: catalogMode,
+            ),
+            transitionsBuilder: (context, animation, secondaryAnimation, child) {
+              return FadeTransition(
+                opacity: animation,
+                child: child,
+              );
+            },
           );
         },
       ),

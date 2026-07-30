@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:tatislam_app/core/constants/app_colors.dart';
 import 'package:tatislam_app/features/admin/presentation/screens/publications_list_screen.dart';
 import 'package:tatislam_app/features/admin/presentation/screens/sections_management_screen.dart';
 
@@ -29,6 +30,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        backgroundColor: AppColors.secondary,
         title: const Text('Панель администратора'),
         actions: [
           IconButton(

@@ -17,6 +17,15 @@ const _speedOptions = [1.0, 1.25, 1.5, 2.0];
 /// Key format: `audio_position_<publicationId>_<blockId>`
 const _positionKeyPrefix = 'audio_position_';
 
+/// Glassmorphism constants matching the design system.
+const double _glassBlur = 12;
+const double _glassOpacity = 0.30;
+const double _glassBorderOpacity = 0.40;
+const double _glassBorderWidth = 0.8;
+const double _glassRadius = 12;
+const Color _goldAccent = Color(0xFFE0B84A);
+const Color _goldAccentDark = Color(0xFFC49A2E);
+
 /// Renders an [AudioContentBlock] with play/pause control, seek slider,
 /// playback speed selector, and persisted playback position.
 class AudioContentWidget extends ConsumerStatefulWidget {
@@ -140,112 +149,89 @@ class _AudioContentWidgetState extends ConsumerState<AudioContentWidget> {
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(_glassRadius),
         child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+          filter: ImageFilter.blur(sigmaX: _glassBlur, sigmaY: _glassBlur),
           child: Container(
             width: double.infinity,
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.25),
-              borderRadius: BorderRadius.circular(12),
+              color: Colors.white.withValues(alpha: _glassOpacity),
+              borderRadius: BorderRadius.circular(_glassRadius),
               border: Border.all(
-                color: Colors.white.withValues(alpha: 0.35),
-                width: 0.8,
+                color: Colors.white.withValues(alpha: _glassBorderOpacity),
+                width: _glassBorderWidth,
               ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.08),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
+                ),
+              ],
             ),
             padding: const EdgeInsets.all(16),
             child: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Icons.audiotrack,
-                    size: 48, color: Color(0xFFD4A843)),
-                const SizedBox(height: 16),
-                // Play / Pause button
-                ElevatedButton.icon(
-                  onPressed: () async {
-                    try {
-                      // Apply current speed before playing
-                      await audioPlayer.setSpeed(_speed);
-                      if (audioPlayer.playerState.playing) {
-                        _savePosition();
-                        await audioPlayer.pause();
-                      } else {
-                        await audioPlayer.play();
-                      }
-                    } catch (e) {
-                      debugPrint('Error controlling audio playback: $e');
-                    }
-                  },
-                  icon: StreamBuilder(
-                    stream: audioPlayer.playerStateStream,
-                    builder: (context, snapshot) {
-                      final state = snapshot.data;
-                      if (state?.processingState == ProcessingState.completed) {
-                        return const Icon(Icons.play_arrow);
-                      }
-                      return Icon(
-                        state?.playing == true ? Icons.pause : Icons.play_arrow,
-                      );
-                    },
-                  ),
-                  label: const Text('Уйнату'),
-                ),
-                const SizedBox(height: 16),
-                // Playback speed selector
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: _speedOptions.map((speed) {
-                    final isSelected = speed == _speed;
-                    if (isSelected) {
-                      return ChoiceChip(
-                        label: Text('${speed}x',
-                            style: const TextStyle(color: Colors.black87)),
-                        selected: true,
-                        selectedColor: const Color(0xFFD4A843),
-                        backgroundColor: Colors.white.withValues(alpha: 0.22),
-                        onSelected: (selected) {
-                          if (selected) {
-                            setState(() {
-                              _speed = speed;
-                            });
-                            audioPlayer.setSpeed(speed);
+                // Play / Pause button — main visual accent, enlarged
+                StreamBuilder(
+                  stream: audioPlayer.playerStateStream,
+                  builder: (context, snapshot) {
+                    final state = snapshot.data;
+                    final isPlaying = state?.playing == true;
+                    final isCompleted =
+                        state?.processingState == ProcessingState.completed;
+
+                    return GestureDetector(
+                      onTap: () async {
+                        try {
+                          await audioPlayer.setSpeed(_speed);
+                          if (isPlaying) {
+                            _savePosition();
+                            await audioPlayer.pause();
+                          } else {
+                            if (isCompleted) {
+                              await audioPlayer.seek(Duration.zero);
+                            }
+                            await audioPlayer.play();
                           }
-                        },
-                        side: const BorderSide(
-                          color: Color(0xFFD4A843),
-                          width: 0.8,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      );
-                    }
-                    return ChoiceChip(
-                      label: Text('${speed}x',
-                          style: const TextStyle(color: Colors.white)),
-                      selected: false,
-                      selectedColor: const Color(0xFFD4A843),
-                      backgroundColor: Colors.white.withValues(alpha: 0.22),
-                      onSelected: (selected) {
-                        if (selected) {
-                          setState(() {
-                            _speed = speed;
-                          });
-                          audioPlayer.setSpeed(speed);
+                        } catch (e) {
+                          debugPrint('Error controlling audio playback: $e');
                         }
                       },
-                      side: BorderSide(
-                        color: Colors.white.withValues(alpha: 0.35),
-                        width: 0.8,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
+                      child: Container(
+                        width: 72,
+                        height: 72,
+                        decoration: BoxDecoration(
+                          color: _goldAccent.withValues(alpha: 0.25),
+                          borderRadius: BorderRadius.circular(36),
+                          border: Border.all(
+                            color: _goldAccent.withValues(alpha: 0.6),
+                            width: 2.0,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: _goldAccent.withValues(alpha: 0.15),
+                              blurRadius: 16,
+                              spreadRadius: 2,
+                            ),
+                          ],
+                        ),
+                        child: Icon(
+                          isCompleted
+                              ? Icons.replay
+                              : isPlaying
+                                  ? Icons.pause
+                                  : Icons.play_arrow,
+                          color: _goldAccentDark,
+                          size: 40,
+                        ),
                       ),
                     );
-                  }).toList(),
+                  },
                 ),
                 const SizedBox(height: 16),
-                // Seek slider
+                // Seek slider — more expressive
                 StreamBuilder(
                   stream: audioPlayer.positionStream,
                   builder: (context, snapshot) {
@@ -254,26 +240,114 @@ class _AudioContentWidgetState extends ConsumerState<AudioContentWidget> {
                         audioPlayer.duration ?? const Duration(seconds: 120);
                     final positionSeconds = position.inSeconds.toDouble();
                     final durationSeconds = duration.inSeconds.toDouble();
-                    return Slider(
-                      value: positionSeconds > durationSeconds
-                          ? durationSeconds
-                          : positionSeconds,
-                      max: durationSeconds,
-                      onChanged: (value) {
-                        audioPlayer.seek(Duration(seconds: value.toInt()));
-                      },
+
+                    return Column(
+                      children: [
+                        SliderTheme(
+                          data: SliderThemeData(
+                            activeTrackColor: _goldAccent,
+                            inactiveTrackColor:
+                                Colors.white.withValues(alpha: 0.15),
+                            thumbColor: _goldAccent,
+                            overlayColor:
+                                _goldAccent.withValues(alpha: 0.15),
+                            trackHeight: 5,
+                            thumbShape: const RoundSliderThumbShape(
+                                enabledThumbRadius: 10),
+                          ),
+                          child: Slider(
+                            value: positionSeconds > durationSeconds
+                                ? durationSeconds
+                                : positionSeconds,
+                            max: durationSeconds > 0 ? durationSeconds : 1,
+                            onChanged: (value) {
+                              audioPlayer.seek(
+                                  Duration(seconds: value.toInt()));
+                            },
+                          ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                _formatDuration(position),
+                                style: TextStyle(
+                                  color: Colors.white.withValues(alpha: 0.85),
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              Text(
+                                _formatDuration(duration),
+                                style: TextStyle(
+                                  color: Colors.white.withValues(alpha: 0.85),
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     );
                   },
+                ),
+                const SizedBox(height: 12),
+                // Playback speed selector — glassmorphism chips
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: _speedOptions.map((speed) {
+                    final isSelected = speed == _speed;
+                    return GestureDetector(
+                      onTap: () {
+                        setState(() {
+                          _speed = speed;
+                        });
+                        audioPlayer.setSpeed(speed);
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: isSelected
+                              ? _goldAccent.withValues(alpha: 0.30)
+                              : Colors.white.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: isSelected
+                                ? _goldAccent
+                                : Colors.white.withValues(alpha: 0.20),
+                            width: 1.0,
+                          ),
+                        ),
+                        child: Text(
+                          '${speed}x',
+                          style: TextStyle(
+                            color: isSelected
+                                ? _goldAccentDark
+                                : Colors.white.withValues(alpha: 0.90),
+                            fontWeight:
+                                isSelected ? FontWeight.bold : FontWeight.w500,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ),
+                    );
+                  }).toList(),
                 ),
                 if (widget.block.caption != null &&
                     widget.block.caption!.isNotEmpty)
                   Padding(
-                    padding: const EdgeInsets.only(top: 16),
+                    padding: const EdgeInsets.only(top: 12),
                     child: Text(
                       widget.block.caption!,
                       style: const TextStyle(
                         color: Color(0xFF2D2D44),
                         height: 1.5,
+                        fontSize: 14,
                       ),
                     ),
                   ),
@@ -285,30 +359,36 @@ class _AudioContentWidgetState extends ConsumerState<AudioContentWidget> {
     );
   }
 
+  String _formatDuration(Duration d) {
+    final minutes = d.inMinutes.remainder(60).toString().padLeft(2, '0');
+    final seconds = d.inSeconds.remainder(60).toString().padLeft(2, '0');
+    return '$minutes:$seconds';
+  }
+
   Widget _buildUnavailable(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(_glassRadius),
         child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+          filter: ImageFilter.blur(sigmaX: _glassBlur, sigmaY: _glassBlur),
           child: Container(
             width: double.infinity,
-            height: 150,
+            height: 120,
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.25),
-              borderRadius: BorderRadius.circular(12),
+              color: Colors.white.withValues(alpha: _glassOpacity),
+              borderRadius: BorderRadius.circular(_glassRadius),
               border: Border.all(
-                color: Colors.white.withValues(alpha: 0.35),
-                width: 0.8,
+                color: Colors.white.withValues(alpha: _glassBorderOpacity),
+                width: _glassBorderWidth,
               ),
             ),
             child: Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(Icons.music_off, size: 64, color: Colors.grey),
-                  const SizedBox(height: 16),
+                  const Icon(Icons.music_off, size: 48, color: Colors.grey),
+                  const SizedBox(height: 12),
                   Text(
                     'Аудио недоступно',
                     style: Theme.of(context)

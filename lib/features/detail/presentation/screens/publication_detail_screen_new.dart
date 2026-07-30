@@ -18,7 +18,7 @@ import 'package:tatislam_app/features/detail/presentation/widgets/audio_content_
 
 /// Unified glassmorphism constants matching the main screen.
 const double _detailGlassBlur = 18;
-const double _detailGlassOpacity = 0.30;
+const double _detailGlassOpacity = 0.45;
 const double _detailGlassBorderOpacity = 0.35;
 const double _detailGlassBorderWidth = 0.8;
 const double _detailGlassRadius = 16;
@@ -117,8 +117,10 @@ class _PublicationDetailScreenState
     final mediaStorage = ref.watch(mediaStorageRepositoryProvider);
 
     String? backgroundImage;
+    String? publicationTitle;
     if (asyncPublication is AsyncData && asyncPublication.value != null) {
       final publication = asyncPublication.value!.publication;
+      publicationTitle = publication.title;
       final sectionAsync = ref.watch(sectionByIdProvider(publication.primarySectionId));
       backgroundImage = sectionAsync.asData?.value?.backgroundImage;
     }
@@ -129,7 +131,7 @@ class _PublicationDetailScreenState
         Scaffold(
           backgroundColor: Colors.transparent,
           appBar: PreferredSize(
-            preferredSize: const Size.fromHeight(kToolbarHeight),
+            preferredSize: const Size.fromHeight(48),
             child: ClipRRect(
               child: BackdropFilter(
                 filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
@@ -141,23 +143,26 @@ class _PublicationDetailScreenState
                     onPressed: () => _navigateBackSafely(context),
                   ),
                   title: Text(
-                    AppStrings.catalogTab,
+                    publicationTitle ?? '',
                     style: const TextStyle(
                       color: Color(0xFFF8F7F2),
-                      fontWeight: FontWeight.w500,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 17,
                     ),
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
                   ),
                   actions: [
                     Padding(
                       padding: const EdgeInsets.only(right: 8),
                       child: Container(
-                        width: 36,
-                        height: 36,
+                        width: 38,
+                        height: 38,
                         decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.22),
-                          borderRadius: BorderRadius.circular(8),
+                          color: Colors.white.withValues(alpha: 0.18),
+                          borderRadius: BorderRadius.circular(10),
                           border: Border.all(
-                            color: Colors.white.withValues(alpha: 0.35),
+                            color: Colors.white.withValues(alpha: 0.30),
                             width: 0.8,
                           ),
                         ),
@@ -221,21 +226,7 @@ class _PublicationDetailScreenState
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // Title
-                          Text(
-                            publication.publication.title,
-                            style: Theme.of(context)
-                                .textTheme
-                                .headlineMedium
-                                ?.copyWith(
-                                  color: const Color(0xFF1A1A2E),
-                                  fontWeight: FontWeight.w700,
-                                ),
-                            textAlign: TextAlign.center,
-                          ),
-                          const SizedBox(height: 24),
-
-                          // Content blocks
+                          // Content blocks (title removed — now in AppBar)
                           ...publication.blocks.map(
                             (block) => _buildContentBlock(block, mediaStorage),
                           ),

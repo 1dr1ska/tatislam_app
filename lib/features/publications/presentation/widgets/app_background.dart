@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 /// Default background image path used when no section-specific background is set.
-const String defaultBackgroundPath = 'assets/images/фон_облака.png';
+const String defaultBackgroundPath = 'assets/images/backgrounds/building.png';
 
 /// Full-screen background widget that displays a section background image.
 /// 

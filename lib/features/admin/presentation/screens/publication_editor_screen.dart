@@ -470,6 +470,7 @@ class _PublicationEditorScreenState
 
       if (mounted) {
         await Future.delayed(const Duration(seconds: 1));
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Автосохранение выполнено'),
@@ -683,35 +684,40 @@ class _PublicationEditorScreenState
                                                 fontWeight: FontWeight.bold),
                                           ),
                                           const SizedBox(height: 8),
-                                          ...sections.map((section) {
-                                            final isSelected = _primarySectionId == section.id;
-                                            return ListTile(
-                                              title: Text(section.name),
-                                              leading: Radio<String>(
-                                                value: section.id,
-                                                groupValue: _primarySectionId,
-                                                onChanged: (value) {
-                                                  setState(() {
-                                                    _primarySectionId = value;
-                                                    if (value != null) {
-                                                      _selectedSectionIds.add(value);
-                                                    }
-                                                  });
-                                                  _scheduleAutoSave();
-                                                },
-                                              ),
-                                              selected: isSelected,
-                                              onTap: () {
-                                                setState(() {
-                                                  _primarySectionId = section.id;
-                                                  _selectedSectionIds.add(section.id);
-                                                });
-                                                _scheduleAutoSave();
-                                              },
-                                              contentPadding: EdgeInsets.zero,
-                                              dense: true,
-                                            );
-                                          }),
+                                          RadioGroup<String>(
+                                            groupValue: _primarySectionId,
+                                            onChanged: (value) {
+                                              setState(() {
+                                                _primarySectionId = value;
+                                                if (value != null) {
+                                                  _selectedSectionIds.add(value);
+                                                }
+                                              });
+                                              _scheduleAutoSave();
+                                            },
+                                            child: Column(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              children: sections.map((section) {
+                                                final isSelected = _primarySectionId == section.id;
+                                                return ListTile(
+                                                  title: Text(section.name),
+                                                  leading: Radio<String>(
+                                                    value: section.id,
+                                                  ),
+                                                  selected: isSelected,
+                                                  onTap: () {
+                                                    setState(() {
+                                                      _primarySectionId = section.id;
+                                                      _selectedSectionIds.add(section.id);
+                                                    });
+                                                    _scheduleAutoSave();
+                                                  },
+                                                  contentPadding: EdgeInsets.zero,
+                                                  dense: true,
+                                                );
+                                              }).toList(),
+                                            ),
+                                          ),
                                         ],
                                       );
                                     },

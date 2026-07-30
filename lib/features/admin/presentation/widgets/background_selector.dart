@@ -12,24 +12,24 @@ class BackgroundOption {
 /// Predefined list of available background images.
 const List<BackgroundOption> backgroundOptions = [
   BackgroundOption(
-    label: 'Облака с лучами света',
-    assetPath: 'assets/images/фон_облака.png',
+    label: 'Здание',
+    assetPath: 'assets/images/backgrounds/building.png',
+  ),
+  BackgroundOption(
+    label: 'Горы',
+    assetPath: 'assets/images/backgrounds/mountains.png',
   ),
   BackgroundOption(
     label: 'Лес',
-    assetPath: 'assets/images/фон_лес.png',
+    assetPath: 'assets/images/backgrounds/forest.png',
   ),
   BackgroundOption(
-    label: 'Море',
-    assetPath: 'assets/images/фон_море.png',
-  ),
-  BackgroundOption(
-    label: 'Архитектурные арки',
-    assetPath: 'assets/images/фон_здание.png',
+    label: 'Библиотека',
+    assetPath: 'assets/images/backgrounds/library.png',
   ),
   BackgroundOption(
     label: 'Ночное небо',
-    assetPath: 'assets/images/фон_ночное_небо.png',
+    assetPath: 'assets/images/backgrounds/night_sky.png',
   ),
 ];
 

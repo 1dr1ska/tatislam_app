@@ -90,6 +90,7 @@ flutter:
   assets:
     - assets/images/
     - assets/images/icons/
+    - assets/images/backgrounds/
 
 # Flutter Launcher Icons configuration
 flutter_launcher_icons:

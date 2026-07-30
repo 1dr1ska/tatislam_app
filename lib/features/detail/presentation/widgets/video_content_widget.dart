@@ -7,6 +7,13 @@ import 'package:tatislam_app/features/detail/domain/services/video_url_parser_se
 import 'package:tatislam_app/features/publications/domain/entities/content_block.dart';
 import 'package:tatislam_app/features/publications/domain/entities/video_provider_type.dart';
 
+/// Glassmorphism constants matching the design system.
+const double _glassBlur = 12;
+const double _glassOpacity = 0.25;
+const double _glassBorderOpacity = 0.35;
+const double _glassBorderWidth = 0.8;
+const double _glassRadius = 12;
+
 /// Renders a [VideoContentBlock] — YouTube or Rutube embedded via WebView,
 /// or a direct URL as an external link card.
 class VideoContentWidget extends ConsumerWidget {
@@ -58,7 +65,8 @@ class VideoContentWidget extends ConsumerWidget {
     return _buildUnavailable(context);
   }
 
-  /// Glass container wrapping the embedded video.
+  /// Compact glass container wrapping the embedded video.
+  /// Minimal padding — video player takes maximum space.
   Widget _buildEmbeddedVideo({
     required BuildContext context,
     required String embedUrl,
@@ -67,24 +75,25 @@ class VideoContentWidget extends ConsumerWidget {
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(_glassRadius),
         child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+          filter: ImageFilter.blur(sigmaX: _glassBlur, sigmaY: _glassBlur),
           child: Container(
             width: double.infinity,
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.25),
-              borderRadius: BorderRadius.circular(12),
+              color: Colors.white.withValues(alpha: _glassOpacity),
+              borderRadius: BorderRadius.circular(_glassRadius),
               border: Border.all(
-                color: Colors.white.withValues(alpha: 0.35),
-                width: 0.8,
+                color: Colors.white.withValues(alpha: _glassBorderOpacity),
+                width: _glassBorderWidth,
               ),
             ),
             child: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
                 ClipRRect(
                   borderRadius: const BorderRadius.vertical(
-                    top: Radius.circular(12),
+                    top: Radius.circular(_glassRadius),
                   ),
                   child: AspectRatio(
                     aspectRatio: 16 / 9,
@@ -108,12 +117,13 @@ class VideoContentWidget extends ConsumerWidget {
                 ),
                 if (caption != null && caption.isNotEmpty)
                   Padding(
-                    padding: const EdgeInsets.all(16),
+                    padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
                     child: Text(
                       caption,
                       style: const TextStyle(
                         color: Color(0xFF2D2D44),
                         height: 1.5,
+                        fontSize: 13,
                       ),
                     ),
                   ),
@@ -134,20 +144,21 @@ class VideoContentWidget extends ConsumerWidget {
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(_glassRadius),
         child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+          filter: ImageFilter.blur(sigmaX: _glassBlur, sigmaY: _glassBlur),
           child: Container(
             width: double.infinity,
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.25),
-              borderRadius: BorderRadius.circular(12),
+              color: Colors.white.withValues(alpha: _glassOpacity),
+              borderRadius: BorderRadius.circular(_glassRadius),
               border: Border.all(
-                color: Colors.white.withValues(alpha: 0.35),
-                width: 0.8,
+                color: Colors.white.withValues(alpha: _glassBorderOpacity),
+                width: _glassBorderWidth,
               ),
             ),
             child: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
                 AspectRatio(
                   aspectRatio: 16 / 9,
@@ -155,7 +166,7 @@ class VideoContentWidget extends ConsumerWidget {
                     width: double.infinity,
                     decoration: const BoxDecoration(
                       borderRadius: BorderRadius.vertical(
-                        top: Radius.circular(12),
+                        top: Radius.circular(_glassRadius),
                       ),
                     ),
                     child: Column(
@@ -163,14 +174,14 @@ class VideoContentWidget extends ConsumerWidget {
                       children: [
                         const Icon(
                           Icons.play_circle_fill,
-                          size: 64,
+                          size: 56,
                           color: Color(0xFFD4A843),
                         ),
-                        const SizedBox(height: 16),
+                        const SizedBox(height: 12),
                         const Text(
                           'Видео на Rutube',
                           style: TextStyle(
-                            fontSize: 16,
+                            fontSize: 14,
                             fontWeight: FontWeight.bold,
                             color: Color(0xFFD4A843),
                           ),
@@ -181,7 +192,7 @@ class VideoContentWidget extends ConsumerWidget {
                           child: Text(
                             url,
                             style: const TextStyle(
-                              fontSize: 12,
+                              fontSize: 11,
                               color: Color(0xFF2D2D44),
                             ),
                             textAlign: TextAlign.center,
@@ -189,7 +200,7 @@ class VideoContentWidget extends ConsumerWidget {
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
-                        const SizedBox(height: 16),
+                        const SizedBox(height: 12),
                         ElevatedButton(
                           onPressed: () => _launchUrl(context, url),
                           child: const Text('Открыть в браузере'),
@@ -198,32 +209,15 @@ class VideoContentWidget extends ConsumerWidget {
                     ),
                   ),
                 ),
-                Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Row(
-                    children: [
-                      const Icon(
-                        Icons.play_circle_filled,
-                        color: Color(0xFFD4A843),
-                        size: 32,
-                      ),
-                      const SizedBox(width: 12),
-                      Text(
-                        'Видео (Rutube)',
-                        style: Theme.of(context).textTheme.titleMedium,
-                      ),
-                    ],
-                  ),
-                ),
                 if (caption != null && caption.isNotEmpty)
                   Padding(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 8),
+                    padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
                     child: Text(
                       caption,
                       style: const TextStyle(
                         color: Color(0xFF2D2D44),
                         height: 1.5,
+                        fontSize: 13,
                       ),
                     ),
                   ),
@@ -244,20 +238,21 @@ class VideoContentWidget extends ConsumerWidget {
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(_glassRadius),
         child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+          filter: ImageFilter.blur(sigmaX: _glassBlur, sigmaY: _glassBlur),
           child: Container(
             width: double.infinity,
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.25),
-              borderRadius: BorderRadius.circular(12),
+              color: Colors.white.withValues(alpha: _glassOpacity),
+              borderRadius: BorderRadius.circular(_glassRadius),
               border: Border.all(
-                color: Colors.white.withValues(alpha: 0.35),
-                width: 0.8,
+                color: Colors.white.withValues(alpha: _glassBorderOpacity),
+                width: _glassBorderWidth,
               ),
             ),
             child: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
                 AspectRatio(
                   aspectRatio: 16 / 9,
@@ -268,19 +263,19 @@ class VideoContentWidget extends ConsumerWidget {
                       children: [
                         const Icon(
                           Icons.play_circle_fill,
-                          size: 64,
+                          size: 56,
                           color: Color(0xFFD4A843),
                         ),
-                        const SizedBox(height: 16),
+                        const SizedBox(height: 12),
                         const Text(
                           'Видео',
                           style: TextStyle(
-                            fontSize: 16,
+                            fontSize: 14,
                             fontWeight: FontWeight.bold,
                             color: Color(0xFFD4A843),
                           ),
                         ),
-                        const SizedBox(height: 16),
+                        const SizedBox(height: 12),
                         ElevatedButton(
                           onPressed: () => _launchUrl(context, url),
                           child: const Text('Открыть в браузере'),
@@ -291,12 +286,13 @@ class VideoContentWidget extends ConsumerWidget {
                 ),
                 if (caption != null && caption.isNotEmpty)
                   Padding(
-                    padding: const EdgeInsets.all(16),
+                    padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
                     child: Text(
                       caption,
                       style: const TextStyle(
                         color: Color(0xFF2D2D44),
                         height: 1.5,
+                        fontSize: 13,
                       ),
                     ),
                   ),
@@ -312,18 +308,18 @@ class VideoContentWidget extends ConsumerWidget {
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(_glassRadius),
         child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+          filter: ImageFilter.blur(sigmaX: _glassBlur, sigmaY: _glassBlur),
           child: Container(
             width: double.infinity,
-            height: 200,
+            height: 180,
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.25),
-              borderRadius: BorderRadius.circular(12),
+              color: Colors.white.withValues(alpha: _glassOpacity),
+              borderRadius: BorderRadius.circular(_glassRadius),
               border: Border.all(
-                color: Colors.white.withValues(alpha: 0.35),
-                width: 0.8,
+                color: Colors.white.withValues(alpha: _glassBorderOpacity),
+                width: _glassBorderWidth,
               ),
             ),
             child: Center(

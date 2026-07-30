@@ -1,10 +1,38 @@
+import 'dart:ui' show ImageFilter;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:tatislam_app/core/constants/app_colors.dart';
 import 'package:tatislam_app/core/constants/app_strings.dart';
 import 'package:tatislam_app/features/auth/providers/auth_provider.dart';
+import 'package:tatislam_app/features/publications/presentation/widgets/app_background.dart';
 import 'package:url_launcher/url_launcher.dart';
+
+/// Glassmorphism constants matching the app design system.
+const double _glassBlur = 18;
+const double _glassOpacity = 0.40;
+const double _glassBorderOpacity = 0.30;
+const double _glassBorderWidth = 0.8;
+const double _glassRadius = 16;
+const double _cardPadding = 16;
+const Color _goldAccent = Color(0xFFE0B84A);
+
+/// Data model for a link/contact card.
+class _LinkItem {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final String url;
+  final bool isEmail;
+
+  const _LinkItem({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.url,
+    this.isEmail = false,
+  });
+}
 
 class AboutScreen extends ConsumerStatefulWidget {
   const AboutScreen({super.key});
@@ -14,16 +42,15 @@ class AboutScreen extends ConsumerStatefulWidget {
 }
 
 class _AboutScreenState extends ConsumerState<AboutScreen> {
-
   Future<void> _launchUrl(BuildContext context, String url) async {
     final uri = Uri.parse(url);
     final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
 
     if (!launched) {
       if (context.mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(AppStrings.errorLoading)));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(AppStrings.errorLoading)),
+        );
       }
     }
   }
@@ -31,263 +58,395 @@ class _AboutScreenState extends ConsumerState<AboutScreen> {
   @override
   Widget build(BuildContext context) {
     final isAdmin = ref.watch(isAdminProvider);
-    return Scaffold(
-      appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => GoRouter.of(context).go('/'),
-        ),
-        title: const Text('ТАТИСЛАМ'),
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // App Icon at the top — tap to open admin if authorized
-            Center(
-              child: GestureDetector(
-                onTap: () {
-                  if (isAdmin) {
-                    GoRouter.of(context).go('/admin');
-                  }
-                },
-                child: Container(
-                  width: 120,
-                  height: 120,
-                  decoration: const BoxDecoration(
-                    shape: BoxShape.circle,
+
+    return Stack(
+      children: [
+        const AppBackground(),
+        Scaffold(
+          backgroundColor: Colors.transparent,
+          appBar: PreferredSize(
+            preferredSize: const Size.fromHeight(48),
+            child: ClipRRect(
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+                child: AppBar(
+                  backgroundColor: Colors.white.withValues(alpha: 0.22),
+                  titleSpacing: 0,
+                  leading: IconButton(
+                    icon: const Icon(Icons.arrow_back),
+                    onPressed: () => GoRouter.of(context).go('/'),
                   ),
-                  child: const CircleAvatar(
-                    radius: 56,
-                    backgroundColor: Colors.black,
-                    backgroundImage: AssetImage('assets/images/app_icon.png'),
+                  title: const Text(
+                    'Кушымта турында',
+                    style: TextStyle(
+                      color: Color(0xFFF8F7F2),
+                      fontWeight: FontWeight.w600,
+                      fontSize: 17,
+                    ),
                   ),
                 ),
               ),
             ),
-            const SizedBox(height: 24),
-            Center(child: RichText(text: AppStrings.getColoredAppName())),
-            const SizedBox(height: 8),
-            Center(
-              child: Text(
-                'v${AppStrings.appVersion}',
-                style: Theme.of(
-                  context,
-                ).textTheme.bodyMedium?.copyWith(color: Colors.grey[600]),
-              ),
-            ),
-            const SizedBox(height: 32),
+          ),
+          body: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // --- Logo + Version ---
+                Center(
+                  child: GestureDetector(
+                    onTap: () {
+                      if (isAdmin) {
+                        GoRouter.of(context).go('/admin');
+                      }
+                    },
+                    child: Container(
+                      width: 150,
+                      height: 150,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: _goldAccent.withValues(alpha: 0.20),
+                            blurRadius: 20,
+                            spreadRadius: 4,
+                          ),
+                        ],
+                      ),
+                      child: ClipOval(
+                        child: Image.asset(
+                          'assets/images/app_icon.png',
+                          fit: BoxFit.cover,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Center(
+                  child: Text(
+                    'v${AppStrings.appVersion}',
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.80),
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
 
-            // Description
-            Text(
-              AppStrings.appDescription,
-              style: Theme.of(context).textTheme.bodyLarge,
-              textAlign: TextAlign.justify,
-            ),
-            const SizedBox(height: 32),
+                // --- Description (glass card) ---
+                _buildGlassCard(
+                  child: Text(
+                    'ТАТИСЛАМ — Раил Фәйзрахмановның татар телендәге ислам дәресләре тупланган кушымта. Монда аудио вәгазьләр, видео вәгазьләр һәм мәкаләләр бер урында җыелган.',
+                    style: TextStyle(
+                      color: const Color(0xFF1A1A2E).withValues(alpha: 0.90),
+                      fontSize: 15,
+                      height: 1.6,
+                    ),
+                    textAlign: TextAlign.justify,
+                  ),
+                ),
+                const SizedBox(height: 20),
 
-            // Features
-            Text(
-              'Приложение мөмкинлекләре:',
-              style: Theme.of(
-                context,
-              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 16),
-            _buildFeatureItem(
-              context,
-              Icons.search,
-              'Эзләү',
-              'Язмаларны исеме һәм тасвирламасы буенча эзләү',
-              AppColors.navSearch,
-            ),
-            _buildFeatureItem(
-              context,
-              Icons.star,
-              'Сайланганнар',
-              'Кызыклы язмаларны сайлап алу',
-              Colors.amber,
-            ),
-            _buildFeatureItem(
-              context,
-              Icons.filter_alt,
-              'Фильтрлар',
-              'Төрләре (аудио, видео, мәкалә) һәм бүлекләре буенча фильтрлау',
-              AppColors.navCatalog,
-            ),
-            const SizedBox(height: 32),
+                // --- Features ---
+                Text(
+                  'Кушымта мөмкинлекләре:',
+                  style: TextStyle(
+                    color: const Color(0xFFF8F7F2),
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _buildFeatureCard(
+                        icon: Icons.headphones,
+                        label: 'Аудио',
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: _buildFeatureCard(
+                        icon: Icons.play_circle_filled,
+                        label: 'Видео',
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: _buildFeatureCard(
+                        icon: Icons.article,
+                        label: 'Мәкаләләр',
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _buildFeatureCard(
+                        icon: Icons.search,
+                        label: 'Эзләү',
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: _buildFeatureCard(
+                        icon: Icons.star,
+                        label: 'Сайланганнар',
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: _buildFeatureCard(
+                        icon: Icons.filter_alt,
+                        label: 'Фильтрлар',
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
 
-            // Links
-            Text(
-              'Ссылки:',
-              style: Theme.of(
-                context,
-              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 16),
-            _buildLinkItem(
-              context,
-              Icons.language,
-              'Безнең сайт',
-              'tatislam.com',
-              'https://tatislam.com',
-              AppColors.website,
-            ),
-            _buildLinkItem(
-              context,
-              Icons.play_circle_filled,
-              'YouTube каналы',
-              'youtube.com/channel/UCyoQBRnx-UU2gBPPFjU1hIw',
-              'https://www.youtube.com/channel/UCyoQBRnx-UU2gBPPFjU1hIw',
-              AppColors.youtube,
-            ),
-            _buildLinkItem(
-              context,
-              Icons.ondemand_video,
-              'RuTube каналы',
-              'rutube.ru/channel/38324482',
-              'https://rutube.ru/channel/38324482',
-              AppColors.rutube,
-            ),
-            _buildLinkItem(
-              context,
-              Icons.people_alt,
-              'ВКонтакте',
-              'vk.com/tat_islam_com',
-              'https://vk.com/tat_islam_com',
-              AppColors.vkontakte,
-            ),
-            _buildLinkItem(
-              context,
-              Icons.chat,
-              'Бип',
-              'bip.ai/join/tatislam',
-              'https://bip.ai/join/tatislam',
-              AppColors.bip,
-            ),
-            _buildLinkItem(
-              context,
-              Icons.forum,
-              'Макс',
-              'max.ru/join/W0hU3jNSKOSno',
-              'https://max.ru/join/W0hU3jNSKOSno',
-              AppColors.max,
-            ),
-            _buildLinkItem(
-              context,
-              Icons.telegram,
-              'Telegram каналы',
-              't.me/tatislam',
-              'https://t.me/tatislam',
-              AppColors.telegram,
-            ),
-            const SizedBox(height: 32),
+                // --- Links ---
+                Text(
+                  'Сылтамалар:',
+                  style: TextStyle(
+                    color: const Color(0xFFF8F7F2),
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                _buildLinkCard(
+                  item: const _LinkItem(
+                    icon: Icons.language,
+                    title: 'Безнең сайт',
+                    subtitle: 'tatislam.com',
+                    url: 'https://tatislam.com',
+                  ),
+                ),
+                const SizedBox(height: 10),
+                _buildLinkCard(
+                  item: const _LinkItem(
+                    icon: Icons.play_circle_filled,
+                    title: 'YouTube каналы',
+                    subtitle: 'youtube.com/channel/UCyoQBRnx-UU2gBPPFjU1hIw',
+                    url: 'https://www.youtube.com/channel/UCyoQBRnx-UU2gBPPFjU1hIw',
+                  ),
+                ),
+                const SizedBox(height: 10),
+                _buildLinkCard(
+                  item: const _LinkItem(
+                    icon: Icons.ondemand_video,
+                    title: 'RuTube каналы',
+                    subtitle: 'rutube.ru/channel/38324482',
+                    url: 'https://rutube.ru/channel/38324482',
+                  ),
+                ),
+                const SizedBox(height: 10),
+                _buildLinkCard(
+                  item: const _LinkItem(
+                    icon: Icons.people_alt,
+                    title: 'ВКонтакте',
+                    subtitle: 'vk.com/tat_islam_com',
+                    url: 'https://vk.com/tat_islam_com',
+                  ),
+                ),
+                const SizedBox(height: 10),
+                _buildLinkCard(
+                  item: const _LinkItem(
+                    icon: Icons.chat,
+                    title: 'Бип',
+                    subtitle: 'bip.ai/join/tatislam',
+                    url: 'https://bip.ai/join/tatislam',
+                  ),
+                ),
+                const SizedBox(height: 10),
+                _buildLinkCard(
+                  item: const _LinkItem(
+                    icon: Icons.forum,
+                    title: 'Макс',
+                    subtitle: 'max.ru/join/W0hU3jNSKOSno',
+                    url: 'https://max.ru/join/W0hU3jNSKOSno',
+                  ),
+                ),
+                const SizedBox(height: 10),
+                _buildLinkCard(
+                  item: const _LinkItem(
+                    icon: Icons.telegram,
+                    title: 'Telegram каналы',
+                    subtitle: 't.me/tatislam',
+                    url: 'https://t.me/tatislam',
+                  ),
+                ),
+                const SizedBox(height: 20),
 
-            // Contact
-            Text(
-              'Контактлар:',
-              style: Theme.of(
-                context,
-              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 16),
-            _buildContactItem(
-              context,
-              Icons.email,
-              'Email',
-              'faizr@inbox.ru',
-              AppColors.email,
-            ),
-            const SizedBox(height: 32),
+                // --- Contacts ---
+                Text(
+                  'Контактлар:',
+                  style: TextStyle(
+                    color: const Color(0xFFF8F7F2),
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                _buildLinkCard(
+                  item: const _LinkItem(
+                    icon: Icons.email,
+                    title: 'Email',
+                    subtitle: 'faizr@inbox.ru',
+                    url: 'faizr@inbox.ru',
+                    isEmail: true,
+                  ),
+                ),
+                const SizedBox(height: 20),
 
-            // Footer
-            // Барлык хокуклар сакланган.
-            Text(
-              '© 2026 ${AppStrings.appName}.',
-              style: Theme.of(
-                context,
-              ).textTheme.bodySmall?.copyWith(color: Colors.grey[600]),
-              textAlign: TextAlign.center,
+                // --- Footer ---
+                Center(
+                  child: Text(
+                    '© 2026 ${AppStrings.appName}.',
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.60),
+                      fontSize: 13,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+              ],
             ),
-          ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Builds a generic glassmorphism container.
+  Widget _buildGlassCard({required Widget child}) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(_glassRadius),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: _glassBlur, sigmaY: _glassBlur),
+        child: Container(
+          width: double.infinity,
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: _glassOpacity),
+            borderRadius: BorderRadius.circular(_glassRadius),
+            border: Border.all(
+              color: Colors.white.withValues(alpha: _glassBorderOpacity),
+              width: _glassBorderWidth,
+            ),
+          ),
+          padding: const EdgeInsets.all(_cardPadding),
+          child: child,
         ),
       ),
     );
   }
 
-  Widget _buildFeatureItem(
-    BuildContext context,
-    IconData icon,
-    String title,
-    String description,
-    Color iconColor,
-  ) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Row(
-        children: [
-          Icon(icon, color: iconColor),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: Theme.of(
-                    context,
-                  ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500),
+  /// Builds a small feature card with a gold icon and label.
+  Widget _buildFeatureCard({
+    required IconData icon,
+    required String label,
+  }) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(12),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+        child: Container(
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.25),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: Colors.white.withValues(alpha: 0.25),
+              width: 0.8,
+            ),
+          ),
+          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, color: _goldAccent, size: 28),
+              const SizedBox(height: 6),
+              Text(
+                label,
+                style: const TextStyle(
+                  color: Color(0xFFF8F7F2),
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
                 ),
-                Text(
-                  description,
-                  style: Theme.of(context).textTheme.bodySmall,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Builds a glass link/contact card with icon, title, subtitle, and arrow.
+  Widget _buildLinkCard({required _LinkItem item}) {
+    return GestureDetector(
+      onTap: () => _launchUrl(
+        context,
+        item.isEmail ? 'mailto:${item.url}' : item.url,
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.25),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.25),
+                width: 0.8,
+              ),
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            child: Row(
+              children: [
+                Icon(item.icon, color: _goldAccent, size: 24),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        item.title,
+                        style: const TextStyle(
+                          color: Color(0xFFF8F7F2),
+                          fontSize: 15,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        item.subtitle,
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.70),
+                          fontSize: 12,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(
+                  Icons.chevron_right,
+                  color: _goldAccent.withValues(alpha: 0.70),
+                  size: 22,
                 ),
               ],
             ),
           ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildLinkItem(
-    BuildContext context,
-    IconData icon,
-    String title,
-    String subtitle,
-    String url,
-    Color iconColor,
-  ) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      child: ListTile(
-        leading: Icon(icon, color: iconColor),
-        title: Text(title),
-        subtitle: Text(subtitle),
-        trailing: Icon(Icons.chevron_right, color: iconColor),
-        onTap: () => _launchUrl(context, url),
-      ),
-    );
-  }
-
-  Widget _buildContactItem(
-    BuildContext context,
-    IconData icon,
-    String title,
-    String subtitle,
-    Color iconColor,
-  ) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      child: ListTile(
-        leading: Icon(icon, color: iconColor),
-        title: Text(title),
-        subtitle: Text(subtitle),
-        trailing: Icon(Icons.chevron_right, color: iconColor),
-        onTap: () => _launchUrl(context, 'mailto:$subtitle'),
+        ),
       ),
     );
   }

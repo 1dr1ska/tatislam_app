@@ -25,7 +25,8 @@ insert into publications (
   created_at, 
   updated_at,
   status,
-  type
+  type,
+  primary_section_id
 ) values (
   '11111111-1111-1111-1111-111111111111',
   'Сәлам, дөньия!',
@@ -35,7 +36,8 @@ insert into publications (
   '2024-01-01 12:00:00+00',
   '2024-01-01 12:00:00+00',
   'published',
-  'article'
+  'article',
+  (select id from sections where slug = 'articles' limit 1)
 ) on conflict (id) do nothing;
 
 -- Insert content blocks for the article publication
@@ -61,7 +63,8 @@ insert into publications (
   created_at, 
   updated_at,
   status,
-  type
+  type,
+  primary_section_id
 ) values (
   '22222222-2222-2222-2222-222222222222',
   'Видео дәрес',
@@ -71,7 +74,8 @@ insert into publications (
   '2024-01-02 12:00:00+00',
   '2024-01-02 12:00:00+00',
   'published',
-  'article'
+  'article',
+  (select id from sections where slug = 'video' limit 1)
 ) on conflict (id) do nothing;
 
 -- Sample audio publication
@@ -84,7 +88,8 @@ insert into publications (
   created_at, 
   updated_at,
   status,
-  type
+  type,
+  primary_section_id
 ) values (
   '33333333-3333-3333-3333-333333333333',
   'Аудио хикәя',
@@ -94,7 +99,8 @@ insert into publications (
   '2024-01-03 12:00:00+00',
   '2024-01-03 12:00:00+00',
   'published',
-  'article'
+  'article',
+  (select id from sections where slug = 'audio' limit 1)
 ) on conflict (id) do nothing;
 
 -- Sample draft publication
@@ -107,7 +113,8 @@ insert into publications (
   created_at, 
   updated_at,
   status,
-  type
+  type,
+  primary_section_id
 ) values (
   '44444444-4444-4444-4444-444444444444',
   'Эшкәртелеш барынча',
@@ -117,7 +124,8 @@ insert into publications (
   '2024-01-04 12:00:00+00',
   '2024-01-04 12:00:00+00',
   'draft',
-  'article'
+  'article',
+  (select id from sections where slug = 'articles' limit 1)
 ) on conflict (id) do nothing;
 
 -- Insert content blocks for the draft publication
@@ -143,7 +151,8 @@ insert into publications (
   created_at, 
   updated_at,
   status,
-  type
+  type,
+  primary_section_id
 ) values (
   '55555555-5555-5555-5555-555555555555',
   'Истәлекле мәкалә',
@@ -153,7 +162,8 @@ insert into publications (
   '2023-01-01 12:00:00+00',
   '2023-01-01 12:00:00+00',
   'archived',
-  'article'
+  'article',
+  (select id from sections where slug = 'articles' limit 1)
 ) on conflict (id) do nothing;
 
 -- Insert content blocks for the archived publication

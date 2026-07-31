@@ -129,10 +129,9 @@ class VideoContentWidget extends ConsumerWidget {
                     padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
                     child: Text(
                       caption,
-                      style: const TextStyle(
-                        color: Color(0xFF2D2D44),
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: const Color(0xFF2D2D44),
                         height: 1.5,
-                        fontSize: 13,
                       ),
                     ),
                   ),
@@ -223,10 +222,9 @@ class VideoContentWidget extends ConsumerWidget {
                     padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
                     child: Text(
                       caption,
-                      style: const TextStyle(
-                        color: Color(0xFF2D2D44),
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: const Color(0xFF2D2D44),
                         height: 1.5,
-                        fontSize: 13,
                       ),
                     ),
                   ),
@@ -298,10 +296,9 @@ class VideoContentWidget extends ConsumerWidget {
                     padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
                     child: Text(
                       caption,
-                      style: const TextStyle(
-                        color: Color(0xFF2D2D44),
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: const Color(0xFF2D2D44),
                         height: 1.5,
-                        fontSize: 13,
                       ),
                     ),
                   ),

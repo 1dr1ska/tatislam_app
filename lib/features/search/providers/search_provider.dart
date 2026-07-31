@@ -6,7 +6,7 @@ import 'package:tatislam_app/features/publications/domain/entities/publication.d
 /// Provider for SearchScreen - provides search results
 final searchQueryProvider = StateProvider<String?>((ref) => null);
 
-/// Provider for search results
+/// Provider for search results — network-only.
 final searchResultsProvider = FutureProvider<List<Publication>>((ref) async {
   final query = ref.watch(searchQueryProvider);
 
@@ -14,7 +14,6 @@ final searchResultsProvider = FutureProvider<List<Publication>>((ref) async {
     return [];
   }
 
-  // Use the search use case to get results
   final searchPublications = ref.watch(searchPublicationsProvider);
   return await searchPublications(query);
 });

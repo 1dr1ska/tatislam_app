@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:tatislam_app/core/constants/app_strings.dart';
 import 'package:tatislam_app/core/constants/app_colors.dart';
+import 'package:tatislam_app/core/providers/text_scale_provider.dart';
 import 'package:tatislam_app/core/utils/responsive.dart';
 import 'package:tatislam_app/features/publications/domain/entities/publication.dart';
 import 'package:tatislam_app/features/publications/presentation/providers/publications_providers.dart';
@@ -91,13 +92,13 @@ class _MainScreenState extends ConsumerState<MainScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final sectionsAsync = ref.watch(sectionsProvider);
-    final publicationsAsync = ref.watch(mainPublicationsProvider);
+    final sections = ref.watch(sectionsProvider);
+    final publicationsAsync = ref.watch(filteredPublicationsProvider);
     final showFavoritesOnly = ref.watch(favoritesFilterProvider);
     final selectedSection = ref.watch(selectedSectionProvider);
 
     final backgroundPath = selectedSection?.backgroundImage;
-    final isLoading = sectionsAsync.isLoading || publicationsAsync.isLoading;
+    final isLoading = publicationsAsync.isLoading;
 
     return Stack(
       children: [
@@ -158,9 +159,8 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                               focusNode: _searchFocusNode,
                               decoration: InputDecoration(
                                 hintText: 'Эзләү...',
-                                hintStyle: TextStyle(
+                                hintStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(
                                   color: Colors.white.withValues(alpha: 0.85),
-                                  fontSize: 14,
                                 ),
                                 border: InputBorder.none,
                                 enabledBorder: InputBorder.none,
@@ -175,9 +175,8 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                                       )
                                     : null,
                               ),
-                              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                                 color: const Color(0xFFF8F7F2),
-                                fontSize: 14,
                               ),
                             ),
                           ),
@@ -214,14 +213,11 @@ class _MainScreenState extends ConsumerState<MainScreen> {
           ),
           body: RefreshIndicator(
             onRefresh: () async {
-              ref.invalidate(sectionsProvider);
+              await ref.read(sectionsProvider.notifier).refresh();
               ref.invalidate(mainPublicationsProvider);
               ref.invalidate(favoritesProvider);
-              await Future.wait([
-                ref.read(sectionsProvider.future),
-                ref.read(mainPublicationsProvider.future),
-                ref.read(favoritesProvider.future),
-              ]);
+              await ref.read(mainPublicationsProvider.future);
+              await ref.read(favoritesProvider.future);
             },
             child: isLoading
                 ? const Center(child: CircularProgressIndicator())
@@ -229,13 +225,24 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                     physics: const AlwaysScrollableScrollPhysics(),
                     child: Center(
                       child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 1000),
+                        constraints: BoxConstraints(
+                          maxWidth: 1000,
+                          // Ensure the scrollable area is always taller than
+                          // the viewport so RefreshIndicator works even when
+                          // there are only 1-2 publication cards.
+                          minHeight: MediaQuery.of(context).size.height,
+                        ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            _buildSectionFilters(ref, sectionsAsync),
+                            _buildSectionFilters(ref, sections),
                             const SizedBox(height: 16),
-                            _buildPublicationsGrid(context, ref, publicationsAsync),
+                            _buildPublicationsGrid(
+                              context,
+                              ref,
+                              publicationsAsync,
+                              hasLocalSections: sections.isNotEmpty,
+                            ),
                           ],
                         ),
                       ),
@@ -248,57 +255,49 @@ class _MainScreenState extends ConsumerState<MainScreen> {
   }
 
   Widget _buildSectionFilters(
-      WidgetRef ref, AsyncValue<List<Section>> sectionsAsync) {
+      WidgetRef ref, List<Section> sections) {
     final selectedSection = ref.watch(selectedSectionProvider);
+    final textScale = ref.watch(textScaleProvider).scale;
     final scale = ResponsiveBreakpoints.glassScale(context);
-    final chipH = (40 * scale).clamp(36.0, 52.0);
-    final chipHoriPad = (14 * scale).clamp(12.0, 20.0);
-    final chipFontSize = (13 * scale).clamp(12.0, 16.0);
 
-    return sectionsAsync.when(
-      data: (sections) {
-        return SizedBox(
-          height: chipH + 8,
-          child: ListView(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            scrollDirection: Axis.horizontal,
-            children: [
-              _buildFilterChip(
-                label: 'Барлык бүлекләр',
-                selected: selectedSection == null,
-                onSelected: (selected) {
-                  ref.read(selectedSectionProvider.notifier).state = null;
-                },
-                height: chipH,
-                horizontalPadding: chipHoriPad,
-                fontSize: chipFontSize,
-              ),
-              const SizedBox(width: 8),
-              ...sections.map((section) => Padding(
-                padding: const EdgeInsets.only(right: 8),
-                child: _buildFilterChip(
-                  label: section.name,
-                  selected: selectedSection?.id == section.id,
-                  onSelected: (selected) {
-                    ref.read(selectedSectionProvider.notifier).state =
-                        selected ? section : null;
-                  },
-                  height: chipH,
-                  horizontalPadding: chipHoriPad,
-                  fontSize: chipFontSize,
-                ),
-              )),
-            ],
+    if (sections.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    // Height adapts to both device size and text scale so chips don't clip
+    final chipH = (40 * scale * (0.5 + textScale * 0.5)).clamp(36.0, 60.0);
+    final chipHoriPad = (14 * scale).clamp(12.0, 20.0);
+
+    return SizedBox(
+      height: chipH + 8,
+      child: ListView(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        scrollDirection: Axis.horizontal,
+        children: [
+          _buildFilterChip(
+            label: 'Барлык бүлекләр',
+            selected: selectedSection == null,
+            onSelected: (selected) {
+              ref.read(selectedSectionProvider.notifier).state = null;
+            },
+            height: chipH,
+            horizontalPadding: chipHoriPad,
           ),
-        );
-      },
-      loading: () => const SizedBox.shrink(),
-      error: (error, stackTrace) => Padding(
-        padding: const EdgeInsets.all(16),
-        child: Text(
-          'Бүлекләрне йөкләү хатасы',
-          style: Theme.of(context).textTheme.bodySmall,
-        ),
+          const SizedBox(width: 8),
+          ...sections.map((section) => Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: _buildFilterChip(
+              label: section.name,
+              selected: selectedSection?.id == section.id,
+              onSelected: (selected) {
+                ref.read(selectedSectionProvider.notifier).state =
+                    selected ? section : null;
+              },
+              height: chipH,
+              horizontalPadding: chipHoriPad,
+            ),
+          )),
+        ],
       ),
     );
   }
@@ -309,7 +308,6 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     required ValueChanged<bool> onSelected,
     double height = 40,
     double horizontalPadding = 14,
-    double fontSize = 13,
   }) {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 200),
@@ -338,10 +336,9 @@ class _MainScreenState extends ConsumerState<MainScreen> {
               ),
               child: Text(
                 label,
-                style: TextStyle(
+                style: Theme.of(context).textTheme.labelMedium?.copyWith(
                   color: selected ? Colors.black87 : Colors.white,
                   fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
-                  fontSize: fontSize,
                 ),
               ),
             ),
@@ -351,8 +348,12 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     );
   }
 
-  Widget _buildPublicationsGrid(BuildContext context, WidgetRef ref,
-      AsyncValue<List<Publication>> publicationsAsync) {
+  Widget _buildPublicationsGrid(
+    BuildContext context,
+    WidgetRef ref,
+    AsyncValue<List<Publication>> publicationsAsync, {
+    required bool hasLocalSections,
+  }) {
     return publicationsAsync.when(
       data: (publications) {
         if (publications.isEmpty) {
@@ -384,8 +385,13 @@ class _MainScreenState extends ConsumerState<MainScreen> {
         final availableWidth = ResponsiveBreakpoints.layoutWidth(context) - 32;
         final cardMinWidth = isTablet ? 280.0 : (isLandscape ? 200.0 : 160.0);
         final cols = (availableWidth / cardMinWidth).floor().clamp(2, 4);
-        // Aspect ratio: taller cards on mobile, more compact on landscape/tablet
-        final aspectRatio = isTablet ? 0.80 : (isLandscape ? 0.90 : 0.85);
+        // Base aspect ratio (width/height) for the card grid.
+        // Taller cards on mobile, more compact on landscape/tablet.
+        final baseAspectRatio = isTablet ? 0.80 : (isLandscape ? 0.90 : 0.85);
+        // Scale aspect ratio inversely with text size so cards grow taller
+        // when text is larger, preventing overflow.
+        final textScale = ref.watch(textScaleProvider).scale;
+        final aspectRatio = baseAspectRatio / (0.5 + textScale * 0.5);
 
         return GridView.builder(
           shrinkWrap: true,
@@ -420,12 +426,19 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                 color: AppColors.error,
               ),
               const SizedBox(height: 16),
-              Text(AppStrings.errorLoading),
-              const SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: () => ref.invalidate(mainPublicationsProvider),
-                child: Text(AppStrings.retry),
+              Text(
+                hasLocalSections
+                    ? AppStrings.errorLoading
+                    : AppStrings.needInternetForFirstLoad,
+                textAlign: TextAlign.center,
               ),
+              if (hasLocalSections) ...[
+                const SizedBox(height: 16),
+                ElevatedButton(
+                  onPressed: () => ref.invalidate(mainPublicationsProvider),
+                  child: Text(AppStrings.retry),
+                ),
+              ],
             ],
           ),
         ),
@@ -459,6 +472,10 @@ class _PublicationCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final isFavorite = ref.watch(favoritesIsFavoriteProvider(publication.id));
+    final textScale = ref.watch(textScaleProvider).scale;
+    // Scale bottom padding and spacing with text size so cards don't overflow
+    final bottomPadding = (14 * (0.5 + textScale * 0.5)).clamp(14.0, 24.0);
+    final titleDateSpacing = (6 * (0.5 + textScale * 0.5)).clamp(6.0, 12.0);
 
     return TweenAnimationBuilder<double>(
       tween: Tween(begin: 0.0, end: 1.0),
@@ -507,7 +524,7 @@ class _PublicationCard extends ConsumerWidget {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Icon — raised up by negative margin
+                  // Icon area
                   Transform.translate(
                     offset: const Offset(0, -8),
                     child: AspectRatio(
@@ -523,7 +540,7 @@ class _PublicationCard extends ConsumerWidget {
                     ),
                   ),
                   Padding(
-                    padding: const EdgeInsets.fromLTRB(12, 0, 12, 14),
+                    padding: EdgeInsets.fromLTRB(12, 0, 12, bottomPadding),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -539,7 +556,7 @@ class _PublicationCard extends ConsumerWidget {
                                 fontWeight: FontWeight.w500,
                               ),
                         ),
-                        const SizedBox(height: 6),
+                        SizedBox(height: titleDateSpacing),
                         Row(
                           mainAxisAlignment:
                               MainAxisAlignment.spaceBetween,

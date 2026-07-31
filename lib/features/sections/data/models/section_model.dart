@@ -35,6 +35,19 @@ class SectionModel {
     );
   }
 
+  /// Full serialization for local caching (includes all fields).
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'name': name,
+        'slug': slug,
+        'is_visible': isVisible,
+        'sort_order': sortOrder,
+        'created_at': createdAt.toIso8601String(),
+        'updated_at': updatedAt.toIso8601String(),
+        if (backgroundImage != null) 'background_image': backgroundImage,
+      };
+
+  /// Minimal JSON for insert (no id, no timestamps — server fills them).
   Map<String, dynamic> toInsertJson() => {
         'name': name,
         'slug': slug,

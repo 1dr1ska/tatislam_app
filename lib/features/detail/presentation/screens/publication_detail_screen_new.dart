@@ -46,47 +46,6 @@ class PublicationDetailScreen extends ConsumerStatefulWidget {
 
 class _PublicationDetailScreenState
     extends ConsumerState<PublicationDetailScreen> {
-  bool _isFavorite = false;
-  bool _favoriteLoaded = false;
-
-  @override
-  void initState() {
-    super.initState();
-    // Defer favorite check to after first frame — no need to block build
-    WidgetsBinding.instance.addPostFrameCallback((_) => _loadFavoriteState());
-  }
-
-  Future<void> _loadFavoriteState() async {
-    if (_favoriteLoaded) return;
-    final asyncPublication = ref.read(
-      publicationDetailProvider(widget.publicationId),
-    );
-    final publication = asyncPublication.asData?.value;
-    if (publication == null) return;
-    final favoritesAsync = ref.read(favoritesProvider);
-    final favorites = favoritesAsync.asData?.value ?? [];
-    final isFav =
-        favorites.any((p) => p.id == publication.publication.id);
-    if (mounted) {
-      setState(() {
-        _isFavorite = isFav;
-        _favoriteLoaded = true;
-      });
-    }
-  }
-
-  Future<void> _toggleFavorite() async {
-    final toggleFavorite = ref.read(toggleFavoriteProvider);
-    final newFavoriteState = await toggleFavorite(widget.publicationId);
-    if (mounted) {
-      setState(() {
-        _isFavorite = newFavoriteState;
-      });
-    }
-    Future.microtask(() {
-      ref.invalidate(favoritesProvider);
-    });
-  }
 
   void _navigateBackSafely(BuildContext context) {
     try {
@@ -125,8 +84,9 @@ class _PublicationDetailScreenState
     if (asyncPublication is AsyncData && asyncPublication.value != null) {
       final publication = asyncPublication.value!.publication;
       publicationTitle = publication.title;
-      final sectionAsync = ref.watch(sectionByIdProvider(publication.primarySectionId));
-      backgroundImage = sectionAsync.asData?.value?.backgroundImage;
+      backgroundImage = ref.watch(
+        sectionByIdProvider(publication.primarySectionId),
+      )?.backgroundImage;
     }
 
     return Stack(
@@ -148,176 +108,196 @@ class _PublicationDetailScreenState
                   ),
                   title: Text(
                     publicationTitle ?? '',
-                    style: const TextStyle(
-                      color: Color(0xFFF8F7F2),
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      color: const Color(0xFFF8F7F2),
                       fontWeight: FontWeight.w600,
-                      fontSize: 17,
                     ),
                     overflow: TextOverflow.ellipsis,
                     maxLines: 1,
                   ),
                   actions: [
-                    Padding(
-                      padding: const EdgeInsets.only(right: 8),
-                      child: Container(
-                        width: 38,
-                        height: 38,
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.18),
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(
-                            color: Colors.white.withValues(alpha: 0.30),
-                            width: 0.8,
-                          ),
-                        ),
-                        child: IconButton(
-                          icon: Icon(
-                            _isFavorite ? Icons.star : Icons.star_border,
-                            color: _isFavorite
-                                ? Colors.amber
-                                : Colors.white.withValues(alpha: 0.85),
-                            size: 20,
-                          ),
-                          onPressed: _toggleFavorite,
-                          padding: EdgeInsets.zero,
-                        ),
-                      ),
-                    ),
+                    // Favorite button — reactive via provider
+                    _FavoriteButton(publicationId: widget.publicationId),
                   ],
                 ),
               ),
             ),
           ),
-          body: asyncPublication.when(
-            data: (publication) {
-              if (publication == null) {
-                return Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(
-                        Icons.error_outline,
-                        size: 64,
-                        color: AppColors.error,
-                      ),
-                      const SizedBox(height: 16),
-                      Text(AppStrings.errorLoading),
-                    ],
-                  ),
-                );
-              }
-
-              final isWide = ResponsiveBreakpoints.isTablet(context) || ResponsiveBreakpoints.isCompactLandscape(context);
-              final horizontalPadding = isWide ? 32.0 : 16.0;
-
-              return Align(
-                alignment: Alignment.topCenter,
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 860),
-                  child: SingleChildScrollView(
-                    padding: EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: 24),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(_detailGlassRadius),
-                      child: BackdropFilter(
-                        filter: ImageFilter.blur(
-                          sigmaX: _detailGlassBlur,
-                          sigmaY: _detailGlassBlur,
+          body: RefreshIndicator(
+            onRefresh: () async {
+              ref.invalidate(publicationDetailProvider(widget.publicationId));
+              await ref.read(publicationDetailProvider(widget.publicationId).future);
+            },
+            child: asyncPublication.when(
+              data: (publication) {
+                if (publication == null) {
+                  return SingleChildScrollView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    child: SizedBox(
+                      height: MediaQuery.of(context).size.height * 0.5,
+                      child: Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(
+                              Icons.error_outline,
+                              size: 64,
+                              color: AppColors.error,
+                            ),
+                            const SizedBox(height: 16),
+                            Text(AppStrings.errorLoading),
+                          ],
                         ),
-                        child: Container(
-                          width: double.infinity,
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: _detailGlassOpacity),
-                            borderRadius: BorderRadius.circular(_detailGlassRadius),
-                            border: Border.all(
-                              color: Colors.white.withValues(alpha: _detailGlassBorderOpacity),
-                              width: _detailGlassBorderWidth,
+                      ),
+                    ),
+                  );
+                }
+
+                final isWide = ResponsiveBreakpoints.isTablet(context) || ResponsiveBreakpoints.isCompactLandscape(context);
+                final horizontalPadding = isWide ? 32.0 : 16.0;
+
+                return SingleChildScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: 24),
+                  child: Align(
+                    alignment: Alignment.topCenter,
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(
+                          maxWidth: 860,
+                          minHeight: MediaQuery.of(context).size.height,
+                        ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(_detailGlassRadius),
+                        child: BackdropFilter(
+                          filter: ImageFilter.blur(
+                            sigmaX: _detailGlassBlur,
+                            sigmaY: _detailGlassBlur,
+                          ),
+                          child: Container(
+                            width: double.infinity,
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: _detailGlassOpacity),
+                              borderRadius: BorderRadius.circular(_detailGlassRadius),
+                              border: Border.all(
+                                color: Colors.white.withValues(alpha: _detailGlassBorderOpacity),
+                                width: _detailGlassBorderWidth,
+                              ),
+                            ),
+                            padding: const EdgeInsets.all(_detailPadding),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                // Content blocks (title removed — now in AppBar)
+                                ...publication.blocks.map(
+                                  (block) => _buildContentBlock(block, mediaStorage),
+                                ),
+
+                                const SizedBox(height: 24),
+
+                                // Description
+                                if (publication.publication.description.isNotEmpty)
+                                  Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Тасвирлама',
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .titleMedium
+                                            ?.copyWith(
+                                              fontWeight: FontWeight.bold,
+                                              color: const Color(0xFF1A1A2E),
+                                            ),
+                                      ),
+                                      const SizedBox(height: 8),
+                                      Text(
+                                        publication.publication.description,
+                                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                          color: const Color(0xFF2D2D44),
+                                          height: 1.6,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                              ],
                             ),
                           ),
-                          padding: const EdgeInsets.all(_detailPadding),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              // Content blocks (title removed — now in AppBar)
-                              ...publication.blocks.map(
-                                (block) => _buildContentBlock(block, mediaStorage),
-                              ),
-
-                              const SizedBox(height: 24),
-
-                              // Description
-                              if (publication.publication.description.isNotEmpty)
-                                Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      'Тасвирлама',
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .titleMedium
-                                          ?.copyWith(
-                                            fontWeight: FontWeight.bold,
-                                            color: const Color(0xFF1A1A2E),
-                                          ),
-                                    ),
-                                    const SizedBox(height: 8),
-                                    Text(
-                                      publication.publication.description,
-                                      style: const TextStyle(
-                                        color: Color(0xFF2D2D44),
-                                        height: 1.6,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                            ],
-                          ),
                         ),
                       ),
                     ),
                   ),
-                ),
-              );
-            },
-            loading: () => Center(
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(_detailGlassRadius),
-                child: BackdropFilter(
-                  filter: ImageFilter.blur(sigmaX: _detailGlassBlur, sigmaY: _detailGlassBlur),
-                  child: Container(
-                    width: 200,
-                    height: 200,
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: _detailGlassOpacity),
-                      borderRadius: BorderRadius.circular(_detailGlassRadius),
-                      border: Border.all(
-                        color: Colors.white.withValues(alpha: _detailGlassBorderOpacity),
-                        width: _detailGlassBorderWidth,
-                      ),
+                );
+              },
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (error, stackTrace) => SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                child: SizedBox(
+                  height: MediaQuery.of(context).size.height * 0.5,
+                  child: Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.error_outline,
+                            size: 64, color: AppColors.error),
+                        const SizedBox(height: 16),
+                        Text(AppStrings.errorLoading),
+                        const SizedBox(height: 16),
+                        ElevatedButton(
+                          onPressed: () => ref.invalidate(publicationDetailProvider(widget.publicationId)),
+                          child: Text(AppStrings.retry),
+                        ),
+                      ],
                     ),
-                    child: const Center(child: CircularProgressIndicator()),
                   ),
                 ),
-              ),
-            ),
-            error: (error, stackTrace) => Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(Icons.error_outline,
-                      size: 64, color: AppColors.error),
-                  const SizedBox(height: 16),
-                  Text(AppStrings.errorLoading),
-                  const SizedBox(height: 16),
-                  ElevatedButton(
-                    onPressed: () => ref.invalidate(publicationDetailProvider(widget.publicationId)),
-                    child: Text(AppStrings.retry),
-                  ),
-                ],
               ),
             ),
           ),
         ),
       ],
+    );
+  }
+}
+
+/// AppBar favorite button — reactive via [favoritesIsFavoriteProvider].
+class _FavoriteButton extends ConsumerWidget {
+  final String publicationId;
+
+  const _FavoriteButton({required this.publicationId});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final isFavorite = ref.watch(favoritesIsFavoriteProvider(publicationId));
+
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: Container(
+        width: 38,
+        height: 38,
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.18),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: Colors.white.withValues(alpha: 0.30),
+            width: 0.8,
+          ),
+        ),
+        child: IconButton(
+          icon: Icon(
+            isFavorite ? Icons.star : Icons.star_border,
+            color: isFavorite
+                ? Colors.amber
+                : Colors.white.withValues(alpha: 0.85),
+            size: 20,
+          ),
+          onPressed: () async {
+            final toggleFavorite = ref.read(toggleFavoriteProvider);
+            await toggleFavorite(publicationId);
+            ref.invalidate(favoritesProvider);
+          },
+          padding: EdgeInsets.zero,
+        ),
+      ),
     );
   }
 }

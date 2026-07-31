@@ -65,9 +65,8 @@ class ImageViewerScreen extends StatelessWidget {
                   ),
                   child: Text(
                     caption!,
-                    style: const TextStyle(
+                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                       color: Colors.white,
-                      fontSize: 16,
                     ),
                     textAlign: TextAlign.center,
                   ),

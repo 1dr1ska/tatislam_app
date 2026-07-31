@@ -71,8 +71,8 @@ class ImageContentWidget extends StatelessWidget {
                     padding: const EdgeInsets.all(16),
                     child: Text(
                       block.caption!,
-                      style: const TextStyle(
-                        color: Color(0xFF2D2D44),
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: const Color(0xFF2D2D44),
                         height: 1.5,
                       ),
                     ),

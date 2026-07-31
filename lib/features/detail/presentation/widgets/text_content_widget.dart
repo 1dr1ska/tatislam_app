@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:tatislam_app/core/providers/text_scale_provider.dart';
 import 'package:tatislam_app/features/detail/domain/services/html_parser_service.dart';
 import 'package:tatislam_app/features/publications/domain/entities/content_block.dart';
 
 /// Renders a [TextContentBlock] as plain text with HTML stripped.
-class TextContentWidget extends StatelessWidget {
+class TextContentWidget extends ConsumerWidget {
   final TextContentBlock block;
   final HtmlParserService htmlParser;
 
@@ -14,18 +16,22 @@ class TextContentWidget extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final textScale = ref.watch(textScaleProvider).scale;
+    // At large text sizes justified alignment creates excessive word gaps.
+    // Switch to start-aligned for better readability.
+    final align = textScale > 1.15 ? TextAlign.start : TextAlign.justify;
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
       child: Text(
         htmlParser.parseToPlainText(block.text),
-        style: const TextStyle(
-          color: Color(0xFF2D2D44),
-          fontSize: 16,
+        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+          color: const Color(0xFF2D2D44),
           height: 1.7,
           letterSpacing: 0.2,
         ),
-        textAlign: TextAlign.justify,
+        textAlign: align,
       ),
     );
   }

@@ -210,9 +210,11 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                             valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                           ),
                         )
-                      : const Text(
+                      : Text(
                           'Зарегистрироваться',
-                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                          style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                 ),
                 const SizedBox(height: 16),

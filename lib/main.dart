@@ -2,49 +2,35 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:tatislam_app/core/navigation/app_router.dart';
+import 'package:tatislam_app/core/providers/text_scale_provider.dart';
 import 'package:tatislam_app/core/services/local_storage_service.dart';
 import 'package:tatislam_app/core/theme/app_theme.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Start both initializations in parallel
-  final supabaseFuture = Supabase.initialize(
-    url: 'https://vboffcgpkdruvqgdfpbp.supabase.co',
-    publishableKey: 'sb_publishable_suE8ON3T8O-J6g8dfLFuBQ_Ci0aT_48',
-  );
-
-  // Hive init is deferred to after first frame — not needed before UI
-  // LocalStorageService.initialize() will be called in MyApp.initState
-
-  await supabaseFuture;
+  // Initialize both Supabase and Hive before the first frame.
+  await Future.wait([
+    Supabase.initialize(
+      url: 'https://vboffcgpkdruvqgdfpbp.supabase.co',
+      publishableKey: 'sb_publishable_suE8ON3T8O-J6g8dfLFuBQ_Ci0aT_48',
+    ),
+    LocalStorageService.initialize(),
+  ]);
 
   runApp(const ProviderScope(child: MyApp()));
 }
 
-class MyApp extends ConsumerStatefulWidget {
+class MyApp extends ConsumerWidget {
   const MyApp({super.key});
 
   @override
-  ConsumerState<MyApp> createState() => _MyAppState();
-}
-
-class _MyAppState extends ConsumerState<MyApp> {
-  @override
-  void initState() {
-    super.initState();
-    // Defer Hive init to after first frame — not needed before UI paints
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      LocalStorageService.initialize();
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final router = ref.watch(appRouterProvider);
+    final textScale = ref.watch(textScaleProvider);
     return MaterialApp.router(
       title: 'TatIslam',
-      theme: AppTheme.lightTheme,
+      theme: AppTheme.lightThemeWithScale(textScale),
       routerConfig: router,
     );
   }

@@ -33,4 +33,12 @@ abstract class SectionRepository {
   /// Updates the background image for a section.
   /// Pass null to clear the background (use default).
   Future<Section> setBackgroundImage(String id, String? backgroundImage);
+
+  /// Returns sections from the local cache only, without any network call.
+  /// Returns an empty list if nothing is cached.
+  Future<List<Section>> getCachedSections({bool includeHidden = false});
+
+  /// Fetches fresh sections from Supabase and updates the local cache.
+  /// Returns the fresh list.
+  Future<List<Section>> refreshSections({bool includeHidden = false});
 }

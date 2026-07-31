@@ -19,29 +19,29 @@ final toggleFavoritesFilterProvider = Provider<void Function()>((ref) {
   };
 });
 
-/// Main publications provider that combines all filters:
-/// search query + section filter + favorites filter.
-/// Search and section filters are applied server-side (Supabase query).
-/// Favorites filter is applied client-side using the existing [favoritesProvider].
+/// Main publications provider — network-only.
 final mainPublicationsProvider = FutureProvider<List<Publication>>((ref) async {
   final query = ref.watch(searchQueryProvider);
   final selectedSection = ref.watch(selectedSectionProvider);
   final showFavoritesOnly = ref.watch(favoritesFilterProvider);
-  
-  final getPublications = ref.watch(getPublicationsWithFiltersProvider);
-  
-  // Fetch publications from server with all applicable filters
-  final publications = await getPublications(
+
+  final publications = await ref.watch(getPublicationsWithFiltersProvider)(
     sectionId: selectedSection?.id,
     searchQuery: query.isEmpty ? null : query,
   );
-  
-  // If favorites filter is enabled, filter client-side using existing favorites
+
+  // Apply favorites filter (client-side)
   if (showFavoritesOnly) {
     final favorites = await ref.watch(favoritesProvider.future);
     final favoriteIds = favorites.map((p) => p.id).toSet();
     return publications.where((p) => favoriteIds.contains(p.id)).toList();
   }
-  
+
   return publications;
+});
+
+/// Filtered publications — kept for API compatibility, simply returns
+/// [mainPublicationsProvider] since offline filter is removed.
+final filteredPublicationsProvider = Provider<AsyncValue<List<Publication>>>((ref) {
+  return ref.watch(mainPublicationsProvider);
 });

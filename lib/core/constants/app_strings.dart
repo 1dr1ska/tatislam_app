@@ -55,6 +55,8 @@ class AppStrings {
   static const String noContent = 'Эчтәлек юк';
   static const String noPublications = 'Язмалар юк';
   static const String errorLoading = 'Ошибка загрузки';
+  static const String needInternetForFirstLoad =
+      'Для первой загрузки приложения требуется подключение к сети';
   static const String retry = 'Повторить';
   static const String loading = 'Загрузка...';
   static const String share = 'Поделиться';

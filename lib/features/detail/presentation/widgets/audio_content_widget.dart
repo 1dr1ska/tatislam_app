@@ -29,6 +29,8 @@ const Color _goldAccentDark = Color(0xFFC49A2E);
 
 /// Renders an [AudioContentBlock] with play/pause control, seek slider,
 /// playback speed selector, and persisted playback position.
+///
+/// Audio source is always a network URL — offline support has been removed.
 class AudioContentWidget extends ConsumerStatefulWidget {
   final AudioContentBlock block;
   final MediaStorageRepository mediaStorage;
@@ -46,31 +48,19 @@ class AudioContentWidget extends ConsumerStatefulWidget {
 
 class _AudioContentWidgetState extends ConsumerState<AudioContentWidget> {
   double _speed = 1.0;
-  String? _mediaUrl;
   String? _positionKey;
   Duration _lastPosition = Duration.zero;
-  StreamSubscription<Duration>? _positionSub;
+  StreamSubscription<dynamic>? _positionSub;
   AudioPlayer? _audioPlayer;
 
   @override
   void initState() {
     super.initState();
 
-    // Resolve media URL once
-    if (widget.block.source == AudioSourceType.upload &&
-        widget.block.audioPath != null) {
-      _mediaUrl = widget.mediaStorage.publicUrlFor(widget.block.audioPath!);
-    } else if (widget.block.source == AudioSourceType.external &&
-        widget.block.audioUrl != null) {
-      _mediaUrl = widget.block.audioUrl;
-    }
-
-    if (_mediaUrl != null && _mediaUrl!.isNotEmpty && _isValidUrl(_mediaUrl!)) {
-      // Key based on publication + block id for uniqueness
+    if (_hasValidBlock()) {
       _positionKey =
           '$_positionKeyPrefix${widget.block.publicationId}_${widget.block.id}';
 
-      // Keep a reference to the player for safe access in dispose()
       _audioPlayer = ref.read(audioPlayerProvider);
       _positionSub = _audioPlayer!.positionStream.listen((pos) {
         _lastPosition = pos;
@@ -91,7 +81,18 @@ class _AudioContentWidgetState extends ConsumerState<AudioContentWidget> {
     super.dispose();
   }
 
-  /// Saves the current playback position to Hive.
+  bool _hasValidBlock() {
+    if (widget.block.source == AudioSourceType.upload &&
+        widget.block.audioPath != null) {
+      return true;
+    }
+    if (widget.block.source == AudioSourceType.external &&
+        widget.block.audioUrl != null) {
+      return true;
+    }
+    return false;
+  }
+
   void _savePosition() {
     if (_positionKey == null) return;
 
@@ -99,36 +100,29 @@ class _AudioContentWidgetState extends ConsumerState<AudioContentWidget> {
       if (_lastPosition.inSeconds > 0) {
         LocalStorageService.settingsBox
             .put(_positionKey!, _lastPosition.inSeconds);
-        debugPrint('Saved audio position: ${_lastPosition.inSeconds}s');
       }
     } catch (e) {
       debugPrint('Error saving audio position: $e');
     }
   }
 
-  /// Restores the saved playback position after the audio source is loaded.
   Future<void> _restorePosition() async {
-    if (_positionKey == null || _mediaUrl == null) return;
+    if (_positionKey == null) return;
 
     try {
       final audioPlayer = ref.read(audioPlayerProvider);
+      final mediaUrl = _resolveMediaUrl();
 
-      // Check if the player already has this source loaded
-      final currentSource = audioPlayer.audioSource;
-      final currentUrl = currentSource?.toString() ?? '';
-      final needsReload = !currentUrl.contains(_mediaUrl!);
+      if (mediaUrl == null) return;
 
-      if (needsReload) {
-        await audioPlayer.setUrl(_mediaUrl!);
-        // Wait for the audio to be loaded before seeking
-        await audioPlayer.load();
-      }
+      // Always set URL — this is a network-only player
+      await audioPlayer.setUrl(mediaUrl);
+      await audioPlayer.load();
 
       final savedSeconds =
           LocalStorageService.settingsBox.get(_positionKey, defaultValue: 0);
       if (savedSeconds is int && savedSeconds > 0) {
         await audioPlayer.seek(Duration(seconds: savedSeconds));
-        debugPrint('Restored audio position: ${savedSeconds}s');
       }
     } catch (e) {
       debugPrint('Error restoring audio position: $e');
@@ -139,11 +133,27 @@ class _AudioContentWidgetState extends ConsumerState<AudioContentWidget> {
     }
   }
 
+  /// Resolves the audio URL directly from the block's source.
+  /// Always returns a network URL — offline support is removed.
+  String? _resolveMediaUrl() {
+    if (!_hasValidBlock()) return null;
+
+    if (widget.block.source == AudioSourceType.upload &&
+        widget.block.audioPath != null) {
+      return widget.mediaStorage.publicUrlFor(widget.block.audioPath!);
+    }
+    if (widget.block.source == AudioSourceType.external &&
+        widget.block.audioUrl != null) {
+      return widget.block.audioUrl;
+    }
+    return null;
+  }
+
   @override
   Widget build(BuildContext context) {
     final audioPlayer = ref.watch(audioPlayerProvider);
 
-    if (_mediaUrl == null || _mediaUrl!.isEmpty || !_isValidUrl(_mediaUrl!)) {
+    if (!_hasValidBlock()) {
       return _buildUnavailable(context);
     }
 
@@ -187,7 +197,7 @@ class _AudioContentWidgetState extends ConsumerState<AudioContentWidget> {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        // Play / Pause button — main visual accent, enlarged
+        // Play / Pause button
         StreamBuilder(
           stream: audioPlayer.playerStateStream,
           builder: (context, snapshot) {
@@ -199,6 +209,9 @@ class _AudioContentWidgetState extends ConsumerState<AudioContentWidget> {
             return GestureDetector(
               onTap: () async {
                 try {
+                  final mediaUrl = _resolveMediaUrl();
+                  if (mediaUrl == null) return;
+
                   await audioPlayer.setSpeed(_speed);
                   if (isPlaying) {
                     _savePosition();
@@ -245,10 +258,8 @@ class _AudioContentWidgetState extends ConsumerState<AudioContentWidget> {
           },
         ),
         const SizedBox(height: 16),
-        // Seek slider — more expressive
         _buildSeekBar(audioPlayer),
         const SizedBox(height: 12),
-        // Playback speed selector — glassmorphism chips
         _buildSpeedSelector(audioPlayer),
         if (widget.block.caption != null &&
             widget.block.caption!.isNotEmpty)
@@ -256,10 +267,9 @@ class _AudioContentWidgetState extends ConsumerState<AudioContentWidget> {
             padding: const EdgeInsets.only(top: 12),
             child: Text(
               widget.block.caption!,
-              style: const TextStyle(
-                color: Color(0xFF2D2D44),
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: const Color(0xFF2D2D44),
                 height: 1.5,
-                fontSize: 14,
               ),
             ),
           ),
@@ -271,7 +281,6 @@ class _AudioContentWidgetState extends ConsumerState<AudioContentWidget> {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        // Large play button on the left
         StreamBuilder(
           stream: audioPlayer.playerStateStream,
           builder: (context, snapshot) {
@@ -283,6 +292,9 @@ class _AudioContentWidgetState extends ConsumerState<AudioContentWidget> {
             return GestureDetector(
               onTap: () async {
                 try {
+                  final mediaUrl = _resolveMediaUrl();
+                  if (mediaUrl == null) return;
+
                   await audioPlayer.setSpeed(_speed);
                   if (isPlaying) {
                     _savePosition();
@@ -329,7 +341,6 @@ class _AudioContentWidgetState extends ConsumerState<AudioContentWidget> {
           },
         ),
         const SizedBox(width: 16),
-        // Right side: slider + controls
         Expanded(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -348,10 +359,9 @@ class _AudioContentWidgetState extends ConsumerState<AudioContentWidget> {
                   padding: const EdgeInsets.only(top: 8),
                   child: Text(
                     widget.block.caption!,
-                    style: const TextStyle(
-                      color: Color(0xFF2D2D44),
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: const Color(0xFF2D2D44),
                       height: 1.5,
-                      fontSize: 14,
                     ),
                     textAlign: TextAlign.start,
                     maxLines: 1,
@@ -405,17 +415,15 @@ class _AudioContentWidgetState extends ConsumerState<AudioContentWidget> {
                 children: [
                   Text(
                     _formatDuration(position),
-                    style: TextStyle(
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: Colors.white.withValues(alpha: 0.85),
-                      fontSize: 13,
                       fontWeight: FontWeight.w500,
                     ),
                   ),
                   Text(
                     _formatDuration(duration),
-                    style: TextStyle(
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
                       color: Colors.white.withValues(alpha: 0.85),
-                      fontSize: 13,
                       fontWeight: FontWeight.w500,
                     ),
                   ),
@@ -517,14 +525,5 @@ class _AudioContentWidgetState extends ConsumerState<AudioContentWidget> {
         ),
       ),
     );
-  }
-
-  bool _isValidUrl(String url) {
-    try {
-      final uri = Uri.parse(url);
-      return uri.hasScheme && (uri.scheme == 'http' || uri.scheme == 'https');
-    } catch (_) {
-      return false;
-    }
   }
 }

@@ -9,6 +9,7 @@ import 'package:uuid/uuid.dart';
 
 import 'package:image_picker/image_picker.dart';
 import 'package:tatislam_app/core/constants/app_colors.dart';
+import 'package:tatislam_app/core/services/media_optimization_service.dart';
 import 'package:tatislam_app/core/constants/app_icons.dart';
 import 'package:tatislam_app/core/storage/storage_paths.dart';
 import 'package:tatislam_app/core/storage/storage_providers.dart';
@@ -64,11 +65,16 @@ class _PublicationEditorScreenState
   // Map to store selected audio files for each content block
   final Map<String, File> _selectedBlockAudioFiles = {};
 
+  // Track which blocks are expanded/collapsed
+  final Set<String> _collapsedBlockIds = {};
+
   bool _isSaving = false;
   _SaveStep _currentSaveStep = _SaveStep.idle;
   int _uploadedFileCount = 0;
   int _totalFileCount = 0;
   Timer? _autoSaveTimer;
+  bool _hasUnsavedChanges = false;
+  String _initialStatus = 'draft';
 
   @override
   void initState() {
@@ -78,6 +84,7 @@ class _PublicationEditorScreenState
       _publicationFuture = _loadPublication(widget.publicationId!);
     } else {
       _publicationFuture = Future.value(null);
+      _hasUnsavedChanges = false;
     }
   }
 
@@ -108,6 +115,9 @@ class _PublicationEditorScreenState
       _publishedAt = detail.publication.publishedAt;
       _dateController.text = _formatDate(_publishedAt!);
 
+      // Save initial state for change detection
+      _initialStatus = _status;
+
       if (mounted) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           setState(() {});
@@ -126,13 +136,35 @@ class _PublicationEditorScreenState
   }
 
   Future<void> _pickBlockImage(String blockId) async {
-    final picker = ImagePicker();
-    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
+    try {
+      final picker = ImagePicker();
+      final pickedFile = await picker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 95,
+      );
 
-    if (pickedFile != null) {
-      setState(() {
-        _selectedBlockImageFiles[blockId] = File(pickedFile.path);
-      });
+      if (pickedFile != null) {
+        // Verify the file is accessible
+        final file = File(pickedFile.path);
+        if (!await file.exists()) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Ошибка: файл не найден')),
+            );
+          }
+          return;
+        }
+        setState(() {
+          _selectedBlockImageFiles[blockId] = file;
+          _hasUnsavedChanges = true;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Ошибка выбора изображения: $e')),
+        );
+      }
     }
   }
 
@@ -144,6 +176,7 @@ class _PublicationEditorScreenState
     if (result != null && result.files.single.path != null) {
       setState(() {
         _selectedBlockAudioFiles[blockId] = File(result.files.single.path!);
+        _hasUnsavedChanges = true;
       });
       _scheduleAutoSave();
     }
@@ -160,8 +193,16 @@ class _PublicationEditorScreenState
     try {
       final storageRepository = ref.read(mediaStorageRepositoryProvider);
 
-      final bytes = await selectedImageFile.readAsBytes();
-      final extension = selectedImageFile.path.split('.').last;
+      // Optimize image before upload (resize to 1920px max, JPEG quality 90)
+      final rawBytes = await selectedImageFile.readAsBytes();
+      final optimizationService = const MediaOptimizationService();
+      final result = await optimizationService.optimizeImage(
+        originalBytes: rawBytes,
+        originalFileName: selectedImageFile.path.split('/').last,
+      );
+
+      final bytes = result.bytes;
+      final extension = result.fileName.split('.').last;
 
       final path = StoragePaths.blockImage(
           widget.publicationId ?? _uuid.v4(), extension,
@@ -289,10 +330,23 @@ class _PublicationEditorScreenState
     _autoSaveTimer = Timer(const Duration(seconds: 3), _autoSave);
   }
 
+  /// Auto-fills date when first publishing if no date is set.
+  /// Does NOT modify already-published publications.
+  void _ensureDateOnPublish() {
+    if (_status == 'published' && _publishedAt == null && _initialStatus != 'published') {
+      final now = DateTime.now();
+      _publishedAt = now;
+      _dateController.text = _formatDate(now);
+    }
+  }
+
   Future<void> _savePublication() async {
     if (!_formKey.currentState!.validate()) {
       return;
     }
+
+    // Auto-set date if publishing for the first time
+    _ensureDateOnPublish();
 
     setState(() {
       _isSaving = true;
@@ -310,7 +364,7 @@ class _PublicationEditorScreenState
           description: '',
           icon: _selectedIcon,
           type: 'article',
-          publishedAt: DateTime.now(),
+          publishedAt: _publishedAt ?? DateTime.now(),
           status: _status,
           primarySectionId: _primarySectionId ?? '',
         );
@@ -384,6 +438,7 @@ class _PublicationEditorScreenState
             widget.publicationId!, updatedBlocks);
 
         setState(() {
+          _hasUnsavedChanges = false;
           _currentSaveStep = _SaveStep.done;
         });
 
@@ -466,6 +521,7 @@ class _PublicationEditorScreenState
           widget.publicationId!, updatedBlocks);
 
       setState(() {
+        _hasUnsavedChanges = false;
         _currentSaveStep = _SaveStep.done;
       });
 
@@ -556,6 +612,7 @@ class _PublicationEditorScreenState
             timePicked.minute,
           );
           _dateController.text = _formatDate(_publishedAt!);
+          _hasUnsavedChanges = true;
         });
         _scheduleAutoSave();
       }
@@ -582,16 +639,72 @@ class _PublicationEditorScreenState
     }
   }
 
+  /// Shows exit confirmation dialog if there are unsaved changes.
+  /// If no changes, exits immediately.
+  Future<bool> _onWillPop() async {
+    if (!_hasUnsavedChanges || _isSaving) return true;
+
+    final result = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Несохранённые изменения'),
+        content: const Text('У вас есть несохранённые изменения. Что вы хотите сделать?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, 'cancel'),
+            child: const Text('Отмена'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, 'discard'),
+            child: const Text('Выйти без сохранения'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, 'save'),
+            child: const Text('Сохранить'),
+          ),
+        ],
+      ),
+    );
+
+    if (result == 'save') {
+      await _savePublication();
+      // _savePublication already handles navigation after success
+      return false;
+    } else if (result == 'discard') {
+      return true;
+    }
+    return false; // cancel
+  }
+
+  void _onBackPressed() async {
+    final canPop = await _onWillPop();
+    if (canPop && mounted) {
+      context.go('/admin');
+    }
+  }
+
+  void _markUnsaved() {
+    if (!_hasUnsavedChanges) {
+      setState(() {
+        _hasUnsavedChanges = true;
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return PopScope(
       canPop: false,
+      onPopInvokedWithResult: (didPop, result) async {
+        if (didPop) return;
+        _onBackPressed();
+      },
       child: Scaffold(
         appBar: AppBar(
           backgroundColor: AppColors.secondary,
           leading: IconButton(
             icon: const Icon(Icons.arrow_back),
-            onPressed: () => context.go('/admin'),
+            onPressed: _onBackPressed,
           ),
           title: Text(
               widget.publicationId == null ? 'Новая публикация' : 'Редактировать публикацию'),
@@ -617,203 +730,199 @@ class _PublicationEditorScreenState
                   return Form(
                     key: _formKey,
                     child: SingleChildScrollView(
-                      padding: const EdgeInsets.all(16.0),
+                      padding: const EdgeInsets.all(12.0),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           // Metadata Card
-                          Card(
-                            child: Padding(
-                              padding: const EdgeInsets.all(16.0),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text(
-                                    'Метаданные',
-                                    style: TextStyle(
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.bold),
+                          _buildSectionCard(
+                            title: 'Метаданные',
+                            icon: Icons.info_outline,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                TextFormField(
+                                  controller: _titleController,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Заголовок',
+                                    border: OutlineInputBorder(),
                                   ),
-                                  const SizedBox(height: 16),
-                                  TextFormField(
-                                    controller: _titleController,
-                                    decoration: const InputDecoration(
-                                      labelText: 'Заголовок',
-                                      border: OutlineInputBorder(),
-                                    ),
-                                    validator: (value) {
-                                      if (value == null || value.isEmpty) {
-                                        return 'Введите заголовок';
-                                      }
-                                      return null;
-                                    },
-                                    onChanged: (value) {
-                                      _scheduleAutoSave();
-                                    },
-                                  ),
-                                  const SizedBox(height: 16),
-                                  // Icon selector
-                                  _buildIconSelector(),
-                                  const SizedBox(height: 16),
-                                  // Primary section (radio)
-                                  FutureBuilder<List<Section>>(
-                                    future: _sectionsFuture,
-                                    builder: (context, snapshot) {
-                                      if (snapshot.connectionState ==
-                                          ConnectionState.waiting) {
-                                        return const CircularProgressIndicator();
-                                      }
+                                  validator: (value) {
+                                    if (value == null || value.isEmpty) {
+                                      return 'Введите заголовок';
+                                    }
+                                    return null;
+                                  },
+                                  onChanged: (value) {
+                                    _markUnsaved();
+                                    _scheduleAutoSave();
+                                  },
+                                ),
+                                const SizedBox(height: 12),
+                                _buildIconSelector(),
+                                const SizedBox(height: 12),
+                                // Primary section (radio)
+                                FutureBuilder<List<Section>>(
+                                  future: _sectionsFuture,
+                                  builder: (context, snapshot) {
+                                    if (snapshot.connectionState ==
+                                        ConnectionState.waiting) {
+                                      return const Padding(
+                                        padding: EdgeInsets.symmetric(vertical: 8),
+                                        child: LinearProgressIndicator(),
+                                      );
+                                    }
 
-                                      if (snapshot.hasError) {
-                                        return Text(
-                                            'Ошибка загрузки разделов: ${snapshot.error}');
-                                      }
+                                    if (snapshot.hasError) {
+                                      return Text(
+                                          'Ошибка загрузки разделов: ${snapshot.error}');
+                                    }
 
-                                      if (!snapshot.hasData ||
-                                          snapshot.data!.isEmpty) {
-                                        return const Text(
-                                            'Нет доступных разделов');
-                                      }
+                                    if (!snapshot.hasData ||
+                                        snapshot.data!.isEmpty) {
+                                      return const Text(
+                                          'Нет доступных разделов');
+                                    }
 
-                                      final sections = snapshot.data!;
-                                      return Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          const Text(
-                                            'Основной раздел (обязательно)',
-                                            style: TextStyle(
-                                                fontSize: 16,
-                                                fontWeight: FontWeight.bold),
-                                          ),
-                                          const SizedBox(height: 8),
-                                          RadioGroup<String>(
-                                            groupValue: _primarySectionId,
-                                            onChanged: (value) {
+                                    final sections = snapshot.data!;
+                                    return Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        const Text(
+                                          'Основной раздел (обязательно)',
+                                          style: TextStyle(
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.bold),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        ...sections.map((section) {
+                                          final isPrimary = _primarySectionId == section.id;
+                                          return ListTile(
+                                            title: Text(section.name, style: const TextStyle(fontSize: 14)),
+                                            leading: Icon(
+                                              isPrimary
+                                                  ? Icons.radio_button_checked
+                                                  : Icons.radio_button_off,
+                                              color: isPrimary ? Colors.blue : AppColors.textLight,
+                                              size: 20,
+                                            ),
+                                            onTap: () {
                                               setState(() {
-                                                _primarySectionId = value;
-                                                if (value != null) {
-                                                  _selectedSectionIds.add(value);
-                                                }
+                                                _primarySectionId = section.id;
+                                                _selectedSectionIds.add(section.id);
                                               });
+                                              _markUnsaved();
                                               _scheduleAutoSave();
                                             },
-                                            child: Column(
-                                              crossAxisAlignment: CrossAxisAlignment.start,
-                                              children: sections.map((section) {
-                                                final isSelected = _primarySectionId == section.id;
-                                                return ListTile(
-                                                  title: Text(section.name),
-                                                  leading: Radio<String>(
-                                                    value: section.id,
-                                                  ),
-                                                  selected: isSelected,
-                                                  onTap: () {
-                                                    setState(() {
-                                                      _primarySectionId = section.id;
-                                                      _selectedSectionIds.add(section.id);
-                                                    });
-                                                    _scheduleAutoSave();
-                                                  },
-                                                  contentPadding: EdgeInsets.zero,
-                                                  dense: true,
-                                                );
-                                              }).toList(),
-                                            ),
-                                          ),
-                                        ],
+                                            contentPadding: EdgeInsets.zero,
+                                            dense: true,
+                                            visualDensity: VisualDensity.compact,
+                                          );
+                                        }),
+                                      ],
+                                    );
+                                  },
+                                ),
+                                const SizedBox(height: 12),
+                                // Additional sections (multi-select)
+                                FutureBuilder<List<Section>>(
+                                  future: _sectionsFuture,
+                                  builder: (context, snapshot) {
+                                    if (snapshot.connectionState ==
+                                        ConnectionState.waiting) {
+                                      return const Padding(
+                                        padding: EdgeInsets.symmetric(vertical: 8),
+                                        child: LinearProgressIndicator(),
                                       );
-                                    },
-                                  ),
-                                  const SizedBox(height: 16),
-                                  // Additional sections (multi-select)
-                                  FutureBuilder<List<Section>>(
-                                    future: _sectionsFuture,
-                                    builder: (context, snapshot) {
-                                      if (snapshot.connectionState ==
-                                          ConnectionState.waiting) {
-                                        return const CircularProgressIndicator();
-                                      }
+                                    }
 
-                                      if (snapshot.hasError) {
-                                        return Text(
-                                            'Ошибка загрузки разделов: ${snapshot.error}');
-                                      }
+                                    if (snapshot.hasError) {
+                                      return Text(
+                                          'Ошибка загрузки разделов: ${snapshot.error}');
+                                    }
 
-                                      if (!snapshot.hasData ||
-                                          snapshot.data!.isEmpty) {
-                                        return const Text(
-                                            'Нет доступных разделов');
-                                      }
+                                    if (!snapshot.hasData ||
+                                        snapshot.data!.isEmpty) {
+                                      return const Text(
+                                          'Нет доступных разделов');
+                                    }
 
-                                      final sections = snapshot.data!;
-                                      return Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          const Text(
-                                            'Дополнительные разделы',
-                                            style: TextStyle(
-                                                fontSize: 16,
-                                                fontWeight: FontWeight.bold),
-                                          ),
-                                          const SizedBox(height: 8),
-                                          Wrap(
-                                            spacing: 8.0,
-                                            runSpacing: 8.0,
-                                            children: sections.map((section) {
-                                              final isPrimary = section.id == _primarySectionId;
-                                              return FilterChip(
-                                                label: Text(section.name),
-                                                selected: _selectedSectionIds
-                                                    .contains(section.id),
-                                                onSelected: isPrimary
-                                                    ? null
-                                                    : (selected) {
-                                                        setState(() {
-                                                          if (selected) {
-                                                            _selectedSectionIds
-                                                                .add(section.id);
-                                                          } else {
-                                                            _selectedSectionIds
-                                                                .remove(section.id);
-                                                          }
-                                                        });
-                                                        _scheduleAutoSave();
-                                                      },
-                                              );
-                                            }).toList(),
-                                          ),
-                                        ],
-                                      );
-                                    },
+                                    final sections = snapshot.data!;
+                                    return Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        const Text(
+                                          'Дополнительные разделы',
+                                          style: TextStyle(
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.bold),
+                                        ),
+                                        const SizedBox(height: 8),
+                                        Wrap(
+                                          spacing: 6.0,
+                                          runSpacing: 6.0,
+                                          children: sections.map((section) {
+                                            final isPrimary = section.id == _primarySectionId;
+                                            return FilterChip(
+                                              label: Text(section.name, style: const TextStyle(fontSize: 12)),
+                                              selected: _selectedSectionIds
+                                                  .contains(section.id),
+                                              onSelected: isPrimary
+                                                  ? null
+                                                  : (selected) {
+                                                      setState(() {
+                                                        if (selected) {
+                                                          _selectedSectionIds
+                                                              .add(section.id);
+                                                        } else {
+                                                          _selectedSectionIds
+                                                              .remove(section.id);
+                                                        }
+                                                      });
+                                                      _markUnsaved();
+                                                      _scheduleAutoSave();
+                                                    },
+                                            );
+                                          }).toList(),
+                                        ),
+                                      ],
+                                    );
+                                  },
+                                ),
+                                const SizedBox(height: 12),
+                                DropdownButtonFormField<String>(
+                                  initialValue: _status,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Статус',
+                                    border: OutlineInputBorder(),
                                   ),
-                                  const SizedBox(height: 16),
-                                  DropdownButtonFormField<String>(
-                                    initialValue: _status,
-                                    decoration: const InputDecoration(
-                                      labelText: 'Статус',
-                                      border: OutlineInputBorder(),
-                                    ),
-                                    items: const [
-                                      DropdownMenuItem(
-                                          value: 'draft',
-                                          child: Text('Черновик')),
-                                      DropdownMenuItem(
-                                          value: 'published',
-                                          child: Text('Опубликовано')),
-                                      DropdownMenuItem(
-                                          value: 'archived',
-                                          child: Text('Архив')),
-                                    ],
-                                    onChanged: (value) {
-                                      if (value != null) {
-                                        setState(() {
-                                          _status = value;
-                                        });
-                                        _scheduleAutoSave();
-                                      }
-                                    },
-                                  ),
-                                  const SizedBox(height: 16),
+                                  items: const [
+                                    DropdownMenuItem(
+                                        value: 'draft',
+                                        child: Text('Черновик')),
+                                    DropdownMenuItem(
+                                        value: 'published',
+                                        child: Text('Опубликовано')),
+                                  ],
+                                  onChanged: (value) {
+                                    if (value != null) {
+                                      setState(() {
+                                        _status = value;
+                                        // Auto-set date when first publishing
+                                        if (value == 'published' && _publishedAt == null && _initialStatus != 'published') {
+                                          final now = DateTime.now();
+                                          _publishedAt = now;
+                                          _dateController.text = _formatDate(now);
+                                        }
+                                      });
+                                      _markUnsaved();
+                                      _scheduleAutoSave();
+                                    }
+                                  },
+                                ),
+                                // Date field — hidden for new drafts, shown for published or when editing
+                                if (_status == 'published' || widget.publicationId != null) ...[
+                                  const SizedBox(height: 12),
                                   TextFormField(
                                     controller: _dateController,
                                     decoration: const InputDecoration(
@@ -825,109 +934,29 @@ class _PublicationEditorScreenState
                                     onTap: _pickDate,
                                   ),
                                 ],
-                              ),
+                              ],
                             ),
                           ),
-                          const SizedBox(height: 16),
+                          const SizedBox(height: 12),
                           // Content Blocks
-                          Card(
-                            child: Padding(
-                              padding: const EdgeInsets.all(16.0),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text(
-                                    'Блоки контента',
-                                    style: TextStyle(
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.bold),
-                                  ),
-                                  const SizedBox(height: 16),
-                                  Wrap(
-                                    spacing: 8.0,
-                                    runSpacing: 8.0,
-                                    children: [
-                                      ElevatedButton.icon(
-                                        onPressed: () {
-                                          setState(() {
-                                            _contentBlocks.add(
-                                                TextContentBlock(
-                                              id: _uuid.v4(),
-                                              publicationId:
-                                                  widget.publicationId ?? '',
-                                              orderIndex:
-                                                  _contentBlocks.length,
-                                              text: '',
-                                            ));
-                                          });
-                                          _scheduleAutoSave();
-                                        },
-                                        icon: const Icon(Icons.text_fields),
-                                        label: const Text('Текст'),
+                          _buildSectionCard(
+                            title: 'Блоки контента',
+                            icon: Icons.view_stream,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                // Blocks list
+                                if (_contentBlocks.isEmpty)
+                                  const Padding(
+                                    padding: EdgeInsets.symmetric(vertical: 16),
+                                    child: Center(
+                                      child: Text(
+                                        'Добавьте первый блок контента',
+                                        style: TextStyle(color: Colors.grey),
                                       ),
-                                      ElevatedButton.icon(
-                                        onPressed: () {
-                                          setState(() {
-                                            _contentBlocks.add(
-                                                ImageContentBlock.single(
-                                              id: _uuid.v4(),
-                                              publicationId:
-                                                  widget.publicationId ?? '',
-                                              orderIndex:
-                                                  _contentBlocks.length,
-                                              imagePath: '',
-                                              caption: '',
-                                            ));
-                                          });
-                                          _scheduleAutoSave();
-                                        },
-                                        icon: const Icon(Icons.image),
-                                        label: const Text('Изображение'),
-                                      ),
-                                      ElevatedButton.icon(
-                                        onPressed: () {
-                                          setState(() {
-                                            _contentBlocks.add(
-                                                VideoContentBlock(
-                                              id: _uuid.v4(),
-                                              publicationId:
-                                                  widget.publicationId ?? '',
-                                              orderIndex:
-                                                  _contentBlocks.length,
-                                              url: '',
-                                              provider:
-                                                  VideoProviderType.rutube,
-                                              caption: '',
-                                            ));
-                                          });
-                                          _scheduleAutoSave();
-                                        },
-                                        icon: const Icon(Icons.video_library),
-                                        label: const Text('Видео'),
-                                      ),
-                                      ElevatedButton.icon(
-                                        onPressed: () {
-                                          setState(() {
-                                            _contentBlocks.add(
-                                                AudioContentBlock(
-                                              id: _uuid.v4(),
-                                              publicationId:
-                                                  widget.publicationId ?? '',
-                                              orderIndex:
-                                                  _contentBlocks.length,
-                                              source: AudioSourceType.upload,
-                                              audioPath: '',
-                                              caption: '',
-                                            ));
-                                          });
-                                          _scheduleAutoSave();
-                                        },
-                                        icon: const Icon(Icons.audiotrack),
-                                        label: const Text('Аудио'),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 16),
+                                    ),
+                                  )
+                                else
                                   ListView.builder(
                                     shrinkWrap: true,
                                     physics:
@@ -939,10 +968,25 @@ class _PublicationEditorScreenState
                                           block, index);
                                     },
                                   ),
-                                ],
-                              ),
+                                const SizedBox(height: 8),
+                                const Divider(),
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(vertical: 2),
+                                  child: Text(
+                                    'Добавить блок',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.grey[600],
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 6),
+                                _buildAddBlockButtons(),
+                              ],
                             ),
                           ),
+                          const SizedBox(height: 24),
                         ],
                       ),
                     ),
@@ -956,18 +1000,156 @@ class _PublicationEditorScreenState
     );
   }
 
+  Widget _buildSectionCard({
+    required String title,
+    required IconData icon,
+    required Widget child,
+  }) {
+    return Card(
+      margin: EdgeInsets.zero,
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(icon, size: 18, color: AppColors.secondary),
+                const SizedBox(width: 8),
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            child,
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAddBlockButtons() {
+    return Wrap(
+      spacing: 6,
+      runSpacing: 6,
+      children: [
+        _buildAddBlockChip(
+          icon: Icons.text_fields,
+          label: 'Текст',
+          color: Colors.blue,
+          onPressed: () {
+            setState(() {
+              _contentBlocks.add(
+                TextContentBlock(
+                  id: _uuid.v4(),
+                  publicationId: widget.publicationId ?? '',
+                  orderIndex: _contentBlocks.length,
+                  text: '',
+                ),
+              );
+            });
+            _markUnsaved();
+            _scheduleAutoSave();
+          },
+        ),
+        _buildAddBlockChip(
+          icon: Icons.image,
+          label: 'Изображение',
+          color: Colors.green,
+          onPressed: () {
+            setState(() {
+              _contentBlocks.add(
+                ImageContentBlock.single(
+                  id: _uuid.v4(),
+                  publicationId: widget.publicationId ?? '',
+                  orderIndex: _contentBlocks.length,
+                  imagePath: '',
+                  caption: '',
+                ),
+              );
+            });
+            _markUnsaved();
+            _scheduleAutoSave();
+          },
+        ),
+        _buildAddBlockChip(
+          icon: Icons.video_library,
+          label: 'Видео',
+          color: Colors.purple,
+          onPressed: () {
+            setState(() {
+              _contentBlocks.add(
+                VideoContentBlock(
+                  id: _uuid.v4(),
+                  publicationId: widget.publicationId ?? '',
+                  orderIndex: _contentBlocks.length,
+                  url: '',
+                  provider: VideoProviderType.rutube,
+                  caption: '',
+                ),
+              );
+            });
+            _markUnsaved();
+            _scheduleAutoSave();
+          },
+        ),
+        _buildAddBlockChip(
+          icon: Icons.audiotrack,
+          label: 'Аудио',
+          color: Colors.orange,
+          onPressed: () {
+            setState(() {
+              _contentBlocks.add(
+                AudioContentBlock(
+                  id: _uuid.v4(),
+                  publicationId: widget.publicationId ?? '',
+                  orderIndex: _contentBlocks.length,
+                  source: AudioSourceType.upload,
+                  audioPath: '',
+                  caption: '',
+                ),
+              );
+            });
+            _markUnsaved();
+            _scheduleAutoSave();
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildAddBlockChip({
+    required IconData icon,
+    required String label,
+    required Color color,
+    required VoidCallback onPressed,
+  }) {
+    return ActionChip(
+      avatar: Icon(icon, size: 16, color: color),
+      label: Text(label, style: const TextStyle(fontSize: 12)),
+      onPressed: onPressed,
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+    );
+  }
+
   Widget _buildIconSelector() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
           'Иконка',
-          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 6),
         Wrap(
-          spacing: 12,
-          runSpacing: 12,
+          spacing: 6,
+          runSpacing: 6,
           children: AppIcons.paths.entries.map((entry) {
             final iconId = entry.key;
             final iconPath = entry.value;
@@ -978,19 +1160,20 @@ class _PublicationEditorScreenState
                 setState(() {
                   _selectedIcon = iconId;
                 });
+                _markUnsaved();
                 _scheduleAutoSave();
               },
               child: Container(
-                width: 72,
-                height: 72,
+                width: 48,
+                height: 48,
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(8),
                   border: Border.all(
                     color: isSelected ? Colors.blue : Colors.grey.shade300,
-                    width: isSelected ? 3 : 1,
+                    width: isSelected ? 2 : 1,
                   ),
                   color: isSelected
-                      ? Colors.blue.withValues(alpha: 0.1)
+                      ? Colors.blue.withValues(alpha: 0.08)
                       : Colors.transparent,
                 ),
                 child: Column(
@@ -998,16 +1181,17 @@ class _PublicationEditorScreenState
                   children: [
                     Image.asset(
                       iconPath,
-                      width: 36,
-                      height: 36,
+                      width: 24,
+                      height: 24,
                       fit: BoxFit.contain,
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 1),
                     Text(
                       iconId,
                       style: TextStyle(
-                        fontSize: 10,
+                        fontSize: 8,
                         color: isSelected ? Colors.blue : Colors.grey,
+                        fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
                       ),
                     ),
                   ],
@@ -1074,385 +1258,553 @@ class _PublicationEditorScreenState
     }
   }
 
+  Widget _buildBlockHeader({
+    required String title,
+    required IconData icon,
+    required Color iconColor,
+    required int index,
+    required bool isCollapsed,
+    required VoidCallback onToggleCollapse,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: AppColors.background,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
+      ),
+      child: Row(
+        children: [
+          // Reorder buttons - compact horizontal
+          SizedBox(
+            width: 24,
+            height: 24,
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(4),
+                onTap: index > 0 ? () => _moveBlockUp(index) : null,
+                child: Icon(
+                  Icons.keyboard_arrow_up,
+                  size: 18,
+                  color: index > 0 ? AppColors.textSecondary : Colors.grey.shade300,
+                ),
+              ),
+            ),
+          ),
+          SizedBox(
+            width: 24,
+            height: 24,
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(4),
+                onTap: index < _contentBlocks.length - 1 ? () => _moveBlockDown(index) : null,
+                child: Icon(
+                  Icons.keyboard_arrow_down,
+                  size: 18,
+                  color: index < _contentBlocks.length - 1 ? AppColors.textSecondary : Colors.grey.shade300,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Icon(icon, size: 16, color: iconColor),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              title,
+              style: const TextStyle(
+                fontWeight: FontWeight.w600,
+                fontSize: 13,
+              ),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          // Collapse toggle
+          SizedBox(
+            width: 32,
+            height: 32,
+            child: IconButton(
+              icon: Icon(
+                isCollapsed ? Icons.keyboard_arrow_down : Icons.keyboard_arrow_up,
+                size: 18,
+                color: AppColors.textSecondary,
+              ),
+              onPressed: onToggleCollapse,
+              padding: EdgeInsets.zero,
+              splashRadius: 16,
+            ),
+          ),
+          // Delete button
+          SizedBox(
+            width: 32,
+            height: 32,
+            child: IconButton(
+              icon: const Icon(Icons.delete_outline, size: 18, color: Colors.red),
+              onPressed: () => _removeBlock(index),
+              padding: EdgeInsets.zero,
+              splashRadius: 16,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildTextBlockWidget(TextContentBlock block, int index) {
+    final isCollapsed = _collapsedBlockIds.contains(block.id);
+
     return Card(
       key: Key(block.id),
-      margin: const EdgeInsets.only(bottom: 16),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Column(
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.arrow_upward),
-                      onPressed:
-                          index > 0 ? () => _moveBlockUp(index) : null,
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.arrow_downward),
-                      onPressed: index < _contentBlocks.length - 1
-                          ? () => _moveBlockDown(index)
-                          : null,
-                    ),
-                  ],
+      margin: const EdgeInsets.only(bottom: 8),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildBlockHeader(
+            title: 'Текстовый блок',
+            icon: Icons.text_fields,
+            iconColor: Colors.blue,
+            index: index,
+            isCollapsed: isCollapsed,
+            onToggleCollapse: () {
+              setState(() {
+                if (isCollapsed) {
+                  _collapsedBlockIds.remove(block.id);
+                } else {
+                  _collapsedBlockIds.add(block.id);
+                }
+              });
+            },
+          ),
+          if (!isCollapsed)
+            Padding(
+              padding: const EdgeInsets.all(10),
+              child: TextFormField(
+                initialValue: block.text,
+                decoration: const InputDecoration(
+                  hintText: 'Введите текст...',
+                  border: OutlineInputBorder(),
+                  contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                 ),
-                const SizedBox(width: 8),
-                const Text('Текстовый блок',
-                    style: TextStyle(fontWeight: FontWeight.bold)),
-                const Spacer(),
-                IconButton(
-                  icon: const Icon(Icons.delete),
-                  onPressed: () => _removeBlock(index),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            TextFormField(
-              initialValue: block.text,
-              decoration: const InputDecoration(
-                labelText: 'Текст',
-                border: OutlineInputBorder(),
+                maxLines: 5,
+                minLines: 2,
+                onChanged: (value) {
+                  setState(() {
+                    _contentBlocks[index] = block.copyWith(text: value);
+                  });
+                  _markUnsaved();
+                  _scheduleAutoSave();
+                },
               ),
-              maxLines: 5,
-              onChanged: (value) {
-                setState(() {
-                  _contentBlocks[index] = block.copyWith(text: value);
-                });
-                _scheduleAutoSave();
-              },
             ),
-          ],
-        ),
+        ],
       ),
     );
   }
 
   Widget _buildImageBlockWidget(ImageContentBlock block, int index) {
+    final isCollapsed = _collapsedBlockIds.contains(block.id);
+    final hasLocalFile = _selectedBlockImageFiles.containsKey(block.id);
+    final localFile = hasLocalFile ? _selectedBlockImageFiles[block.id] : null;
+
     return Card(
       key: Key(block.id),
-      margin: const EdgeInsets.only(bottom: 16),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Column(
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.arrow_upward),
-                      onPressed:
-                          index > 0 ? () => _moveBlockUp(index) : null,
+      margin: const EdgeInsets.only(bottom: 8),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildBlockHeader(
+            title: 'Изображение',
+            icon: Icons.image,
+            iconColor: Colors.green,
+            index: index,
+            isCollapsed: isCollapsed,
+            onToggleCollapse: () {
+              setState(() {
+                if (isCollapsed) {
+                  _collapsedBlockIds.remove(block.id);
+                } else {
+                  _collapsedBlockIds.add(block.id);
+                }
+              });
+            },
+          ),
+          if (!isCollapsed)
+            Padding(
+              padding: const EdgeInsets.all(10),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Image selection area
+                  Container(
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.grey.shade300),
+                      borderRadius: BorderRadius.circular(8),
                     ),
-                    IconButton(
-                      icon: const Icon(Icons.arrow_downward),
-                      onPressed: index < _contentBlocks.length - 1
-                          ? () => _moveBlockDown(index)
-                          : null,
+                    child: Column(
+                      children: [
+                        // Preview
+                        if (hasLocalFile || block.imagePath.isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.all(8),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(6),
+                              child: Container(
+                                constraints: const BoxConstraints(maxHeight: 200),
+                                width: double.infinity,
+                                color: Colors.grey.shade100,
+                                child: hasLocalFile
+                                    ? Image.file(
+                                        localFile!,
+                                        fit: BoxFit.contain,
+                                        errorBuilder: (context, error, stackTrace) =>
+                                            const Center(child: Icon(Icons.broken_image, size: 32)),
+                                      )
+                                    : Image.network(
+                                        ref
+                                            .read(mediaStorageRepositoryProvider)
+                                            .publicUrlFor(block.imagePath),
+                                        fit: BoxFit.contain,
+                                        errorBuilder: (context, error, stackTrace) =>
+                                            const Center(child: Icon(Icons.broken_image, size: 32)),
+                                      ),
+                              ),
+                            ),
+                          )
+                        else
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 24),
+                            child: Center(
+                              child: Icon(Icons.add_photo_alternate_outlined, size: 40, color: Colors.grey.shade400),
+                            ),
+                          ),
+                        // Select / Replace / Remove buttons
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              TextButton.icon(
+                                onPressed: () => _pickBlockImage(block.id),
+                                icon: Icon(
+                                  hasLocalFile || block.imagePath.isNotEmpty
+                                      ? Icons.swap_horiz
+                                      : Icons.add_photo_alternate,
+                                  size: 16,
+                                ),
+                                label: Text(
+                                  hasLocalFile || block.imagePath.isNotEmpty
+                                      ? 'Заменить'
+                                      : 'Выбрать',
+                                  style: const TextStyle(fontSize: 12),
+                                ),
+                                style: TextButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                ),
+                              ),
+                              if (hasLocalFile || block.imagePath.isNotEmpty) ...[
+                                const SizedBox(width: 8),
+                                TextButton.icon(
+                                  onPressed: () {
+                                    setState(() {
+                                      _selectedBlockImageFiles.remove(block.id);
+                                      final idx = _contentBlocks.indexWhere((b) => b.id == block.id);
+                                      if (idx != -1) {
+                                        _contentBlocks[idx] = block.copyWith(imagePaths: ['']);
+                                      }
+                                    });
+                                    _markUnsaved();
+                                    _scheduleAutoSave();
+                                  },
+                                  icon: const Icon(Icons.delete_outline, size: 16, color: Colors.red),
+                                  label: const Text(
+                                    'Удалить',
+                                    style: TextStyle(fontSize: 12, color: Colors.red),
+                                  ),
+                                  style: TextButton.styleFrom(
+                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
-                const SizedBox(width: 8),
-                const Text('Изображение',
-                    style: TextStyle(fontWeight: FontWeight.bold)),
-                const Spacer(),
-                IconButton(
-                  icon: const Icon(Icons.delete),
-                  onPressed: () => _removeBlock(index),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: TextFormField(
-                    readOnly: true,
+                  ),
+                  const SizedBox(height: 10),
+                  TextFormField(
+                    initialValue: block.caption,
                     decoration: const InputDecoration(
-                      labelText: 'Изображение',
+                      labelText: 'Подпись',
                       border: OutlineInputBorder(),
+                      contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                     ),
-                    controller: TextEditingController(
-                      text: block.imagePath.split('/').last,
-                    ),
+                    onChanged: (value) {
+                      setState(() {
+                        _contentBlocks[index] = block.copyWith(captions: [value]);
+                      });
+                      _markUnsaved();
+                      _scheduleAutoSave();
+                    },
                   ),
-                ),
-                const SizedBox(width: 16),
-                ElevatedButton(
-                  onPressed: () => _pickBlockImage(block.id),
-                  child: const Text('Выбрать'),
-                ),
-              ],
-            ),
-            if (block.imagePath.isNotEmpty) ...[
-              const SizedBox(height: 16),
-              Container(
-                decoration: BoxDecoration(
-                  border: Border.all(color: Colors.grey),
-                ),
-                child: AspectRatio(
-                  aspectRatio: 3 / 2,
-                  child: Image.network(
-                    ref
-                        .read(mediaStorageRepositoryProvider)
-                        .publicUrlFor(block.imagePath),
-                    fit: BoxFit.contain,
-                    errorBuilder: (context, error, stackTrace) =>
-                        const Icon(Icons.broken_image),
-                  ),
-                ),
+                ],
               ),
-            ],
-            const SizedBox(height: 16),
-            TextFormField(
-              initialValue: block.caption,
-              decoration: const InputDecoration(
-                labelText: 'Подпись',
-                border: OutlineInputBorder(),
-              ),
-              onChanged: (value) {
-                setState(() {
-                  _contentBlocks[index] = block.copyWith(captions: [value]);
-                });
-                _scheduleAutoSave();
-              },
             ),
-          ],
-        ),
+        ],
       ),
     );
   }
 
   Widget _buildVideoBlockWidget(VideoContentBlock block, int index) {
+    final isCollapsed = _collapsedBlockIds.contains(block.id);
+
     return Card(
       key: Key(block.id),
-      margin: const EdgeInsets.only(bottom: 16),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Column(
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.arrow_upward),
-                      onPressed:
-                          index > 0 ? () => _moveBlockUp(index) : null,
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.arrow_downward),
-                      onPressed: index < _contentBlocks.length - 1
-                          ? () => _moveBlockDown(index)
-                          : null,
-                    ),
-                  ],
-                ),
-                const SizedBox(width: 8),
-                const Text('Видео',
-                    style: TextStyle(fontWeight: FontWeight.bold)),
-                const Spacer(),
-                IconButton(
-                  icon: const Icon(Icons.delete),
-                  onPressed: () => _removeBlock(index),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            TextFormField(
-              initialValue: block.url,
-              decoration: const InputDecoration(
-                labelText: 'URL видео',
-                border: OutlineInputBorder(),
-              ),
-              onChanged: (value) {
-                setState(() {
-                  _contentBlocks[index] = block.copyWith(url: value);
-                });
-                _scheduleAutoSave();
-              },
-            ),
-            const SizedBox(height: 16),
-            DropdownButtonFormField<VideoProviderType>(
-              initialValue: block.provider,
-              decoration: const InputDecoration(
-                labelText: 'Платформа',
-                border: OutlineInputBorder(),
-              ),
-              items: const [
-                DropdownMenuItem(
-                  value: VideoProviderType.youtube,
-                  child: Text('YouTube'),
-                ),
-                DropdownMenuItem(
-                  value: VideoProviderType.rutube,
-                  child: Text('RuTube'),
-                ),
-              ],
-              onChanged: (value) {
-                if (value != null) {
-                  setState(() {
-                    _contentBlocks[index] =
-                        block.copyWith(provider: value);
-                  });
-                  _scheduleAutoSave();
+      margin: const EdgeInsets.only(bottom: 8),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildBlockHeader(
+            title: 'Видео',
+            icon: Icons.video_library,
+            iconColor: Colors.purple,
+            index: index,
+            isCollapsed: isCollapsed,
+            onToggleCollapse: () {
+              setState(() {
+                if (isCollapsed) {
+                  _collapsedBlockIds.remove(block.id);
+                } else {
+                  _collapsedBlockIds.add(block.id);
                 }
-              },
-            ),
-            const SizedBox(height: 16),
-            TextFormField(
-              initialValue: block.caption,
-              decoration: const InputDecoration(
-                labelText: 'Подпись',
-                border: OutlineInputBorder(),
+              });
+            },
+          ),
+          if (!isCollapsed)
+            Padding(
+              padding: const EdgeInsets.all(10),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  TextFormField(
+                    initialValue: block.url,
+                    decoration: const InputDecoration(
+                      labelText: 'URL видео',
+                      border: OutlineInputBorder(),
+                      contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    ),
+                    onChanged: (value) {
+                      setState(() {
+                        _contentBlocks[index] = block.copyWith(url: value);
+                      });
+                      _markUnsaved();
+                      _scheduleAutoSave();
+                    },
+                  ),
+                  const SizedBox(height: 10),
+                  DropdownButtonFormField<VideoProviderType>(
+                    initialValue: block.provider,
+                    decoration: const InputDecoration(
+                      labelText: 'Платформа',
+                      border: OutlineInputBorder(),
+                      contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    ),
+                    items: const [
+                      DropdownMenuItem(
+                        value: VideoProviderType.youtube,
+                        child: Text('YouTube'),
+                      ),
+                      DropdownMenuItem(
+                        value: VideoProviderType.rutube,
+                        child: Text('RuTube'),
+                      ),
+                    ],
+                    onChanged: (value) {
+                      if (value != null) {
+                        setState(() {
+                          _contentBlocks[index] =
+                              block.copyWith(provider: value);
+                        });
+                        _markUnsaved();
+                        _scheduleAutoSave();
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 10),
+                  TextFormField(
+                    initialValue: block.caption,
+                    decoration: const InputDecoration(
+                      labelText: 'Подпись',
+                      border: OutlineInputBorder(),
+                      contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    ),
+                    onChanged: (value) {
+                      setState(() {
+                        _contentBlocks[index] = block.copyWith(caption: value);
+                      });
+                      _markUnsaved();
+                      _scheduleAutoSave();
+                    },
+                  ),
+                ],
               ),
-              onChanged: (value) {
-                setState(() {
-                  _contentBlocks[index] = block.copyWith(caption: value);
-                });
-                _scheduleAutoSave();
-              },
             ),
-          ],
-        ),
+        ],
       ),
     );
   }
 
   Widget _buildAudioBlockWidget(AudioContentBlock block, int index) {
+    final isCollapsed = _collapsedBlockIds.contains(block.id);
     final selectedAudioFile = _selectedBlockAudioFiles[block.id];
 
     return Card(
       key: Key(block.id),
-      margin: const EdgeInsets.only(bottom: 16),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Column(
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.arrow_upward),
-                      onPressed:
-                          index > 0 ? () => _moveBlockUp(index) : null,
+      margin: const EdgeInsets.only(bottom: 8),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildBlockHeader(
+            title: 'Аудио',
+            icon: Icons.audiotrack,
+            iconColor: Colors.orange,
+            index: index,
+            isCollapsed: isCollapsed,
+            onToggleCollapse: () {
+              setState(() {
+                if (isCollapsed) {
+                  _collapsedBlockIds.remove(block.id);
+                } else {
+                  _collapsedBlockIds.add(block.id);
+                }
+              });
+            },
+          ),
+          if (!isCollapsed)
+            Padding(
+              padding: const EdgeInsets.all(10),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Audio file selection
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.grey.shade300),
+                      borderRadius: BorderRadius.circular(8),
                     ),
-                    IconButton(
-                      icon: const Icon(Icons.arrow_downward),
-                      onPressed: index < _contentBlocks.length - 1
-                          ? () => _moveBlockDown(index)
-                          : null,
-                    ),
-                  ],
-                ),
-                const SizedBox(width: 8),
-                const Text('Аудио',
-                    style: TextStyle(fontWeight: FontWeight.bold)),
-                const Spacer(),
-                IconButton(
-                  icon: const Icon(Icons.delete),
-                  onPressed: () => _removeBlock(index),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            const Text('Загрузить файл',
-                style: TextStyle(fontWeight: FontWeight.bold)),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: TextFormField(
-                    readOnly: true,
-                    decoration: const InputDecoration(
-                      labelText: 'Аудио файл',
-                      border: OutlineInputBorder(),
-                    ),
-                    controller: TextEditingController(
-                      text: selectedAudioFile != null
-                          ? selectedAudioFile.path.split('/').last
-                          : (block.audioPath?.split('/').last ?? ''),
+                    child: Column(
+                      children: [
+                        if (selectedAudioFile != null) ...[
+                          Row(
+                            children: [
+                              const Icon(Icons.audiotrack, size: 20, color: Colors.orange),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  selectedAudioFile.path.split('/').last,
+                                  style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 12),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              const Icon(Icons.check_circle, color: Colors.green, size: 18),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                        ] else if (block.audioPath?.isNotEmpty ?? false) ...[
+                          Row(
+                            children: [
+                              const Icon(Icons.audiotrack, size: 20, color: Colors.orange),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  block.audioPath!.split('/').last,
+                                  style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 12),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              const Icon(Icons.check_circle, color: Colors.green, size: 18),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                        ],
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            TextButton.icon(
+                              onPressed: () => _pickBlockAudio(block.id),
+                              icon: const Icon(Icons.upload_file, size: 16),
+                              label: Text(
+                                selectedAudioFile != null || (block.audioPath?.isNotEmpty ?? false)
+                                    ? 'Заменить'
+                                    : 'Выбрать файл',
+                                style: const TextStyle(fontSize: 12),
+                              ),
+                              style: TextButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              ),
+                            ),
+                            if (selectedAudioFile != null || (block.audioPath?.isNotEmpty ?? false)) ...[
+                              const SizedBox(width: 8),
+                              TextButton.icon(
+                                onPressed: () {
+                                  setState(() {
+                                    _selectedBlockAudioFiles.remove(block.id);
+                                    final idx = _contentBlocks.indexWhere((b) => b.id == block.id);
+                                    if (idx != -1) {
+                                      _contentBlocks[idx] = block.copyWith(audioPath: '');
+                                    }
+                                  });
+                                  _markUnsaved();
+                                  _scheduleAutoSave();
+                                },
+                                icon: const Icon(Icons.delete_outline, size: 16, color: Colors.red),
+                                label: const Text('Удалить', style: TextStyle(fontSize: 12, color: Colors.red)),
+                                style: TextButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ],
                     ),
                   ),
-                ),
-                const SizedBox(width: 16),
-                ElevatedButton(
-                  onPressed: () => _pickBlockAudio(block.id),
-                  child: const Text('Выбрать'),
-                ),
-              ],
-            ),
-            if (selectedAudioFile != null) ...[
-              const SizedBox(height: 16),
-              Container(
-                padding: const EdgeInsets.all(16.0),
-                decoration: BoxDecoration(
-                  border: Border.all(color: Colors.grey),
-                  borderRadius: BorderRadius.circular(8.0),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.audiotrack, size: 24),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        selectedAudioFile.path.split('/').last,
-                        style:
-                            const TextStyle(fontWeight: FontWeight.bold),
-                      ),
+                  const SizedBox(height: 10),
+                  TextFormField(
+                    initialValue: block.caption,
+                    decoration: const InputDecoration(
+                      labelText: 'Подпись',
+                      border: OutlineInputBorder(),
+                      contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                     ),
-                    const Icon(Icons.check, color: Colors.green),
-                  ],
-                ),
+                    onChanged: (value) {
+                      setState(() {
+                        _contentBlocks[index] = block.copyWith(caption: value);
+                      });
+                      _markUnsaved();
+                      _scheduleAutoSave();
+                    },
+                  ),
+                ],
               ),
-            ] else if (block.audioPath?.isNotEmpty ?? false) ...[
-              const SizedBox(height: 16),
-              Container(
-                padding: const EdgeInsets.all(16.0),
-                decoration: BoxDecoration(
-                  border: Border.all(color: Colors.grey),
-                  borderRadius: BorderRadius.circular(8.0),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.audiotrack, size: 24),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        block.audioPath!.split('/').last,
-                        style:
-                            const TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                    const Icon(Icons.check, color: Colors.green),
-                  ],
-                ),
-              ),
-            ],
-            const SizedBox(height: 16),
-            TextFormField(
-              initialValue: block.caption,
-              decoration: const InputDecoration(
-                labelText: 'Подпись',
-                border: OutlineInputBorder(),
-              ),
-              onChanged: (value) {
-                setState(() {
-                  _contentBlocks[index] = block.copyWith(caption: value);
-                });
-                _scheduleAutoSave();
-              },
             ),
-          ],
-        ),
+        ],
       ),
     );
   }

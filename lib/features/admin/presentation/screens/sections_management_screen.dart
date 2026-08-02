@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:tatislam_app/core/constants/app_colors.dart';
 import 'package:tatislam_app/features/sections/data/section_providers.dart';
 import 'package:tatislam_app/features/sections/domain/entities/section.dart';
+import 'package:tatislam_app/features/publications/data/publication_providers.dart';
 
 class SectionsManagementScreen extends ConsumerStatefulWidget {
   const SectionsManagementScreen({super.key});
@@ -76,6 +77,15 @@ class _SectionsManagementScreenState extends ConsumerState<SectionsManagementScr
   }
 
   Future<void> _deleteSection(Section section) async {
+    // Check if section has publications before allowing deletion
+    final hasPublications = await _checkSectionHasPublications(section.id);
+    if (hasPublications) {
+      if (mounted) {
+        _showCannotDeleteDialog(section.name);
+      }
+      return;
+    }
+
     final confirmed = await _showDeleteConfirmationDialog(section.name);
     if (confirmed) {
       setState(() {
@@ -104,6 +114,44 @@ class _SectionsManagementScreenState extends ConsumerState<SectionsManagementScr
         });
       }
     }
+  }
+
+  /// Checks if any publication references this section (primary or additional).
+  Future<bool> _checkSectionHasPublications(String sectionId) async {
+    try {
+      final repository = ref.read(publicationRepositoryProvider);
+      final publications = await repository.getPublications(includeAllStatuses: true);
+      return publications.any((pub) => pub.primarySectionId == sectionId);
+    } catch (_) {
+      // If we can't check (e.g. network error), assume safe to proceed
+      // The DB will enforce referential integrity
+      return false;
+    }
+  }
+
+  void _showCannotDeleteDialog(String sectionName) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 24),
+            SizedBox(width: 8),
+            Expanded(child: Text('Нельзя удалить')),
+          ],
+        ),
+        content: Text(
+          'Раздел "$sectionName" содержит публикации.\n\n'
+          'Сначала переместите публикации в другой раздел или удалите их.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Понятно'),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<bool> _showDeleteConfirmationDialog(String sectionName) async {
@@ -136,17 +184,13 @@ class _SectionsManagementScreenState extends ConsumerState<SectionsManagementScr
 
     try {
       final repository = ref.read(sectionRepositoryProvider);
-      final result = await repository.moveSectionUp(section);
+      await repository.moveSectionUp(section);
+      await _refreshSections();
       
-      if (result != null || result == null) {
-        // Refresh the list regardless of result (null is expected)
-        await _refreshSections();
-        
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Раздел перемещен вверх')),
-          );
-        }
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Раздел перемещен вверх')),
+        );
       }
     } catch (e) {
       if (mounted) {
@@ -168,17 +212,13 @@ class _SectionsManagementScreenState extends ConsumerState<SectionsManagementScr
 
     try {
       final repository = ref.read(sectionRepositoryProvider);
-      final result = await repository.moveSectionDown(section);
+      await repository.moveSectionDown(section);
+      await _refreshSections();
       
-      if (result != null || result == null) {
-        // Refresh the list regardless of result (null is expected)
-        await _refreshSections();
-        
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Раздел перемещен вниз')),
-          );
-        }
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Раздел перемещен вниз')),
+        );
       }
     } catch (e) {
       if (mounted) {
@@ -243,8 +283,10 @@ class _SectionsManagementScreenState extends ConsumerState<SectionsManagementScr
                   Icon(Icons.category_outlined, size: 64, color: Colors.grey),
                   SizedBox(height: 16),
                   Text('Разделы не найдены'),
-                  SizedBox(height: 16),
-                  Text('Нажмите + для создания нового раздела'),
+                  SizedBox(height: 8),
+                  Text('Нажмите + для создания нового раздела',
+                    style: TextStyle(color: AppColors.textLight, fontSize: 13),
+                  ),
                 ],
               ),
             );
@@ -252,12 +294,15 @@ class _SectionsManagementScreenState extends ConsumerState<SectionsManagementScr
 
           final sections = snapshot.data!;
           
-          return ListView.builder(
-            padding: const EdgeInsets.all(16),
-            itemCount: sections.length,
-            itemBuilder: (context, index) {
-              return _buildSectionTile(sections[index], index, sections.length);
-            },
+          return RefreshIndicator(
+            onRefresh: _refreshSections,
+            child: ListView.builder(
+              padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+              itemCount: sections.length,
+              itemBuilder: (context, index) {
+                return _buildSectionTile(sections[index], index, sections.length);
+              },
+            ),
           );
         },
       ),
@@ -267,47 +312,96 @@ class _SectionsManagementScreenState extends ConsumerState<SectionsManagementScr
   Widget _buildSectionTile(Section section, int index, int totalSections) {
     return Card(
       key: Key(section.id),
-      margin: const EdgeInsets.only(bottom: 16),
-      child: ListTile(
-        leading: Row(
-          mainAxisSize: MainAxisSize.min,
+      margin: const EdgeInsets.only(bottom: 8),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      clipBehavior: Clip.antiAlias,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        child: Row(
           children: [
-            IconButton(
-              icon: const Icon(Icons.arrow_upward, size: 18),
-              onPressed: index > 0 ? () => _moveSectionUp(section) : null,
-              padding: const EdgeInsets.all(4),
-              constraints: const BoxConstraints.tightFor(width: 36, height: 36),
+            // Reorder buttons
+            Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SizedBox(
+                  width: 28,
+                  height: 28,
+                  child: IconButton(
+                    icon: const Icon(Icons.keyboard_arrow_up, size: 18),
+                    onPressed: index > 0 ? () => _moveSectionUp(section) : null,
+                    padding: EdgeInsets.zero,
+                    splashRadius: 14,
+                  ),
+                ),
+                SizedBox(
+                  width: 28,
+                  height: 28,
+                  child: IconButton(
+                    icon: const Icon(Icons.keyboard_arrow_down, size: 18),
+                    onPressed: index < totalSections - 1 ? () => _moveSectionDown(section) : null,
+                    padding: EdgeInsets.zero,
+                    splashRadius: 14,
+                  ),
+                ),
+              ],
             ),
-            IconButton(
-              icon: const Icon(Icons.arrow_downward, size: 18),
-              onPressed: index < totalSections - 1 ? () => _moveSectionDown(section) : null,
-              padding: const EdgeInsets.all(4),
-              constraints: const BoxConstraints.tightFor(width: 36, height: 36),
+            const SizedBox(width: 8),
+            // Section info
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    section.name,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 14,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    'Порядок: ${section.sortOrder}',
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: AppColors.textLight,
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ],
-        ),
-        title: Text(section.name),
-        subtitle: Text('Порядок: ${section.sortOrder}'),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
+            // Visibility switch
             Switch(
               value: section.isVisible,
               onChanged: (value) => _setVisibility(section, value),
+              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
             ),
-            IconButton(
-              icon: const Icon(Icons.edit),
-              onPressed: () => _renameSection(section),
+            // Edit button
+            SizedBox(
+              width: 36,
+              height: 36,
+              child: IconButton(
+                icon: const Icon(Icons.edit_outlined, size: 18),
+                onPressed: () => _renameSection(section),
+                padding: EdgeInsets.zero,
+                splashRadius: 18,
+              ),
             ),
-            IconButton(
-              icon: const Icon(Icons.delete),
-              onPressed: () => _deleteSection(section),
+            // Delete button
+            SizedBox(
+              width: 36,
+              height: 36,
+              child: IconButton(
+                icon: const Icon(Icons.delete_outline, size: 18, color: Colors.red),
+                onPressed: () => _deleteSection(section),
+                padding: EdgeInsets.zero,
+                splashRadius: 18,
+              ),
             ),
           ],
         ),
-        onTap: () => _renameSection(section),
       ),
     );
   }
-
 }

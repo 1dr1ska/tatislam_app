@@ -59,6 +59,19 @@ class _PublicationDetailScreenState
     }
   }
 
+  String _formatDate(DateTime date) {
+    final now = DateTime.now();
+    final diff = now.difference(date);
+
+    if (diff.inMinutes < 60) {
+      return '${diff.inMinutes} мин. элек';
+    } else if (diff.inHours < 24) {
+      return '${diff.inHours} сәг. элек';
+    } else {
+      return '${diff.inDays} көн элек';
+    }
+  }
+
   Widget _buildContentBlock(
     ContentBlock block,
     MediaStorageRepository mediaStorage,
@@ -184,13 +197,30 @@ class _PublicationDetailScreenState
                               ),
                             ),
                             padding: const EdgeInsets.all(_detailPadding),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                // Content blocks (title removed — now in AppBar)
-                                ...publication.blocks.map(
-                                  (block) => _buildContentBlock(block, mediaStorage),
-                                ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  // Full title — always visible, not truncated
+                                  Text(
+                                    publication.publication.title,
+                                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                                      color: const Color(0xFFFEFEF7),
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  // Publication date
+                                  Text(
+                                    _formatDate(publication.publication.publishedAt),
+                                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                      color: Colors.white.withValues(alpha: 0.75),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 20),
+                                  // Content blocks
+                                  ...publication.blocks.map(
+                                    (block) => _buildContentBlock(block, mediaStorage),
+                                  ),
 
                                 const SizedBox(height: 24),
 

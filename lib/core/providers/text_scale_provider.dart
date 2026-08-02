@@ -3,10 +3,10 @@ import 'package:tatislam_app/core/services/local_storage_service.dart';
 
 /// Four text size levels with their respective scale factors.
 enum TextScaleLevel {
-  standard(1.0),
-  large(1.15),
-  extraLarge(1.3),
-  maximum(1.5);
+  compact(1.0),
+  normal(1.15),
+  large(1.3),
+  extraLarge(1.5);
 
   const TextScaleLevel(this.scale);
 
@@ -16,10 +16,10 @@ enum TextScaleLevel {
   /// Display name in Tatar.
   String get displayName {
     return switch (this) {
-      TextScaleLevel.standard => 'Стандартный',
+      TextScaleLevel.compact => 'Компактный',
+      TextScaleLevel.normal => 'Обычный',
       TextScaleLevel.large => 'Крупный',
       TextScaleLevel.extraLarge => 'Очень крупный',
-      TextScaleLevel.maximum => 'Максимальный',
     };
   }
 }
@@ -35,16 +35,24 @@ class TextScaleNotifier extends Notifier<TextScaleLevel> {
     try {
       final box = LocalStorageService.settingsBox;
       if (box.isOpen) {
-        final stored = box.get(_storageKey, defaultValue: 'standard') as String;
-        return TextScaleLevel.values.firstWhere(
-          (level) => level.name == stored,
-          orElse: () => TextScaleLevel.standard,
-        );
+        final stored = box.get(_storageKey, defaultValue: 'normal') as String;
+        // Migrate old enum names (standard→compact, large→normal, etc.)
+        // to preserve existing user choices after rename.
+        return switch (stored) {
+          'standard' => TextScaleLevel.compact,   // old 1.0 → compact 1.0
+          'large' => TextScaleLevel.normal,       // old 1.15 → normal 1.15
+          'extraLarge' => TextScaleLevel.large,   // old 1.3 → large 1.3
+          'maximum' => TextScaleLevel.extraLarge, // old 1.5 → extraLarge 1.5
+          _ => TextScaleLevel.values.firstWhere(
+            (level) => level.name == stored,
+            orElse: () => TextScaleLevel.normal,
+          ),
+        };
       }
     } catch (_) {
       // Silently fall through to default
     }
-    return TextScaleLevel.standard;
+    return TextScaleLevel.normal;
   }
 
   void setScale(TextScaleLevel level) {

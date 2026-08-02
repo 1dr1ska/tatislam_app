@@ -1,9 +1,12 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:tatislam_app/core/constants/app_colors.dart';
+import 'package:tatislam_app/core/constants/app_icons.dart';
 import 'package:tatislam_app/features/publications/data/publication_providers.dart';
 import 'package:tatislam_app/features/publications/domain/entities/publication.dart';
+
 class PublicationsListScreen extends ConsumerStatefulWidget {
   const PublicationsListScreen({super.key});
 
@@ -16,11 +19,21 @@ class _PublicationsListScreenState extends ConsumerState<PublicationsListScreen>
   String _searchQuery = '';
   final String _sortBy = 'publishedAt';
   final bool _sortAscending = false;
+  bool _mounted = true;
+  Timer? _debounceTimer;
 
   @override
   void initState() {
     super.initState();
+    _mounted = true;
     _publicationsFuture = _loadPublications();
+  }
+
+  @override
+  void dispose() {
+    _mounted = false;
+    _debounceTimer?.cancel();
+    super.dispose();
   }
 
   Future<List<Publication>> _loadPublications() async {
@@ -28,19 +41,24 @@ class _PublicationsListScreenState extends ConsumerState<PublicationsListScreen>
     if (_searchQuery.trim().isNotEmpty) {
       return repository.getPublications(searchQuery: _searchQuery.trim(), includeAllStatuses: true);
     }
-    return repository.getPublications(includeAllStatuses: true); // Include all statuses for admin
+    return repository.getPublications(includeAllStatuses: true);
   }
 
   void _refreshPublications() {
+    if (!_mounted) return;
     setState(() {
       _publicationsFuture = _loadPublications();
     });
   }
 
   void _onSearchChanged(String query) {
-    setState(() {
-      _searchQuery = query;
-      _refreshPublications();
+    _debounceTimer?.cancel();
+    _debounceTimer = Timer(const Duration(milliseconds: 350), () {
+      if (!_mounted) return;
+      setState(() {
+        _searchQuery = query;
+        _publicationsFuture = _loadPublications();
+      });
     });
   }
 
@@ -62,14 +80,20 @@ class _PublicationsListScreenState extends ConsumerState<PublicationsListScreen>
       body: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.all(16.0),
+            padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
             child: TextField(
-              decoration: const InputDecoration(
-                labelText: 'Поиск',
-                prefixIcon: Icon(Icons.search),
-                border: OutlineInputBorder(),
+              decoration: InputDecoration(
+                hintText: 'Поиск публикаций...',
+                prefixIcon: const Icon(Icons.search, size: 20),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                filled: true,
+                fillColor: Colors.white,
               ),
               onChanged: _onSearchChanged,
+              style: const TextStyle(fontSize: 14),
             ),
           ),
           Expanded(
@@ -112,61 +136,31 @@ class _PublicationsListScreenState extends ConsumerState<PublicationsListScreen>
                 }
 
                 final publications = snapshot.data!;
-                debugPrint('PublicationsListScreen: loaded ${publications.length} publications');
-                for (final p in publications) {
-                  debugPrint('PublicationsListScreen: publication id="${p.id}" title="${p.title}"');
-                }
 
-                // Sort publications
-                publications.sort((a, b) {
-                  switch (_sortBy) {
-                    case 'title':
-                      final comparison = a.title.compareTo(b.title);
-                      return _sortAscending ? comparison : -comparison;
-                    case 'publishedAt':
-                      final comparison = a.publishedAt.compareTo(b.publishedAt);
-                      return _sortAscending ? comparison : -comparison;
-                    default:
-                      return 0;
-                  }
-                });
+                // Create a sorted copy — never mutate the original list in build()
+                final sorted = List<Publication>.from(publications)
+                  ..sort((a, b) {
+                    switch (_sortBy) {
+                      case 'title':
+                        final comparison = a.title.compareTo(b.title);
+                        return _sortAscending ? comparison : -comparison;
+                      case 'publishedAt':
+                        final comparison = a.publishedAt.compareTo(b.publishedAt);
+                        return _sortAscending ? comparison : -comparison;
+                      default:
+                        return 0;
+                    }
+                  });
 
-                return ListView.builder(
-                  itemCount: publications.length,
-                  itemBuilder: (context, index) {
-                    final publication = publications[index];
-                    return Card(
-                      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                      child: ListTile(
-                        leading: _getIconForType(publication.type),
-                        title: Text(publication.title),
-                        subtitle: _getStatusBadge(publication.status ?? 'draft'),
-                        trailing: PopupMenuButton<String>(
-                          onSelected: (value) {
-                            if (value == 'edit') {
-                              debugPrint('PublicationsListScreen: navigating to edit with id="${publication.id}"');
-                              context.push('/admin/publications/${publication.id}/edit');
-                            } else if (value == 'delete') {
-                              _confirmDelete(context, publication);
-                            }
-                          },
-                          itemBuilder: (context) => [
-                            const PopupMenuItem(
-                              value: 'edit',
-                              child: Text('Редактировать'),
-                            ),
-                            const PopupMenuItem(
-                              value: 'delete',
-                              child: Text('Удалить'),
-                            ),
-                          ],
-                        ),
-                        onTap: () {
-                          context.push('/admin/publications/${publication.id}/edit');
-                        },
-                      ),
-                    );
-                  },
+                return RefreshIndicator(
+                  onRefresh: () async => _refreshPublications(),
+                  child: ListView.builder(
+                    padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
+                    itemCount: sorted.length,
+                    itemBuilder: (context, index) {
+                      return _buildPublicationCard(sorted[index]);
+                    },
+                  ),
                 );
               },
             ),
@@ -176,17 +170,177 @@ class _PublicationsListScreenState extends ConsumerState<PublicationsListScreen>
     );
   }
 
-  Widget _getIconForType(String type) {
+  Widget _buildPublicationCard(Publication publication) {
+    final typeInfo = _getTypeInfo(publication.type);
+    final statusInfo = _getStatusInfo(publication.status ?? 'draft');
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: () {
+          context.push('/admin/publications/${publication.id}/edit');
+        },
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Top row: icon + title + menu
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Publication icon (actual icon selected for this publication)
+                  Container(
+                    width: 56,
+                    height: 56,
+                    decoration: BoxDecoration(
+                      color: typeInfo.color.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Center(
+                      child: publication.icon != null &&
+                              AppIcons.paths.containsKey(publication.icon)
+                          ? Image.asset(
+                              AppIcons.paths[publication.icon]!,
+                              width: 28,
+                              height: 28,
+                              fit: BoxFit.contain,
+                              errorBuilder: (context, error, stackTrace) =>
+                                  Icon(typeInfo.icon,
+                                      color: typeInfo.color, size: 24),
+                            )
+                          : Icon(typeInfo.icon,
+                              color: typeInfo.color, size: 24),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  // Title
+                  Expanded(
+                    child: Text(
+                      publication.title,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  // Menu
+                  PopupMenuButton<String>(
+                    onSelected: (value) {
+                      if (value == 'edit') {
+                        context.push('/admin/publications/${publication.id}/edit');
+                      } else if (value == 'delete') {
+                        _confirmDelete(context, publication);
+                      }
+                    },
+                    itemBuilder: (context) => [
+                      const PopupMenuItem(
+                        value: 'edit',
+                        child: Text('Редактировать'),
+                      ),
+                      const PopupMenuItem(
+                        value: 'delete',
+                        child: Text('Удалить'),
+                      ),
+                    ],
+                    icon: const Icon(Icons.more_vert, size: 18, color: AppColors.textSecondary),
+                    padding: EdgeInsets.zero,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              // Bottom row: type badge + status badge + date
+              Row(
+                children: [
+                  // Type badge
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: typeInfo.color.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      typeInfo.label,
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: typeInfo.color,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  // Status badge
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: statusInfo.color.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(statusInfo.icon, size: 10, color: statusInfo.color),
+                        const SizedBox(width: 3),
+                        Text(
+                          statusInfo.label,
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: statusInfo.color,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Spacer(),
+                  // Date
+                  Text(
+                    _formatDate(publication.publishedAt),
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: AppColors.textLight,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  _TypeInfo _getTypeInfo(String type) {
     switch (type) {
       case 'article':
-        return const Icon(Icons.article, color: AppColors.articleColor);
+        return _TypeInfo(Icons.article, AppColors.articleColor, 'Статья');
       case 'video':
-        return const Icon(Icons.play_circle, color: AppColors.videoColor);
+        return _TypeInfo(Icons.play_circle, AppColors.videoColor, 'Видео');
       case 'audio':
-        return const Icon(Icons.audiotrack, color: AppColors.audioColor);
+        return _TypeInfo(Icons.audiotrack, AppColors.audioColor, 'Аудио');
       default:
-        return const Icon(Icons.article, color: AppColors.articleColor);
+        return _TypeInfo(Icons.article, AppColors.articleColor, 'Статья');
     }
+  }
+
+  _StatusInfo _getStatusInfo(String status) {
+    switch (status) {
+      case 'draft':
+        return _StatusInfo(Icons.edit_note, Colors.grey, 'Черновик');
+      case 'published':
+        return _StatusInfo(Icons.check_circle, AppColors.islamGreen, 'Опубликовано');
+      default:
+        return _StatusInfo(Icons.edit_note, Colors.grey, status);
+    }
+  }
+
+  String _formatDate(DateTime date) {
+    return '${date.day.toString().padLeft(2, '0')}.${date.month.toString().padLeft(2, '0')}.${date.year}';
   }
 
   void _confirmDelete(BuildContext context, Publication publication) {
@@ -214,7 +368,6 @@ class _PublicationsListScreenState extends ConsumerState<PublicationsListScreen>
   }
 
   Future<void> _deletePublication(BuildContext context, Publication publication) async {
-    debugPrint('PublicationsListScreen: deleting publication id="${publication.id}"');
     try {
       final repository = ref.read(publicationRepositoryProvider);
       await repository.deletePublication(publication.id);
@@ -233,43 +386,18 @@ class _PublicationsListScreenState extends ConsumerState<PublicationsListScreen>
       }
     }
   }
+}
 
-  Widget _getStatusBadge(String status) {
-    Color color;
-    String text;
+class _TypeInfo {
+  final IconData icon;
+  final Color color;
+  final String label;
+  const _TypeInfo(this.icon, this.color, this.label);
+}
 
-    switch (status) {
-      case 'draft':
-        color = Colors.grey;
-        text = 'Черновик';
-        break;
-      case 'published':
-        color = AppColors.islamGreen;
-        text = 'Опубликовано';
-        break;
-      case 'archived':
-        color = Colors.orange;
-        text = 'Архив';
-        break;
-      default:
-        color = Colors.grey;
-        text = status;
-    }
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: color,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Text(
-        text,
-        style: const TextStyle(
-          color: Colors.white,
-          fontSize: 12,
-          fontWeight: FontWeight.bold,
-        ),
-      ),
-    );
-  }
+class _StatusInfo {
+  final IconData icon;
+  final Color color;
+  final String label;
+  const _StatusInfo(this.icon, this.color, this.label);
 }

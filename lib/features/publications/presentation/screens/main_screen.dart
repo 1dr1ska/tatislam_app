@@ -387,7 +387,8 @@ class _MainScreenState extends ConsumerState<MainScreen> {
         final cols = (availableWidth / cardMinWidth).floor().clamp(2, 4);
         // Base aspect ratio (width/height) for the card grid.
         // Taller cards on mobile, more compact on landscape/tablet.
-        final baseAspectRatio = isTablet ? 0.80 : (isLandscape ? 0.90 : 0.85);
+        // Reduced by ~10% to give more room for 3-line titles.
+        final baseAspectRatio = isTablet ? 0.75 : (isLandscape ? 0.85 : 0.78);
         // Scale aspect ratio inversely with text size so cards grow taller
         // when text is larger, preventing overflow.
         final textScale = ref.watch(textScaleProvider).scale;
@@ -546,7 +547,7 @@ class _PublicationCard extends ConsumerWidget {
                       children: [
                         Text(
                           publication.title,
-                          maxLines: 2,
+                          maxLines: 3,
                           overflow: TextOverflow.ellipsis,
                           style: Theme.of(context)
                               .textTheme
@@ -571,16 +572,8 @@ class _PublicationCard extends ConsumerWidget {
                                         Colors.white.withValues(alpha: 0.85),
                                   ),
                             ),
-                            IconButton(
-                              icon: Icon(
-                                isFavorite
-                                    ? Icons.star
-                                    : Icons.star_border,
-                                color: isFavorite
-                                    ? Colors.amber
-                                    : Colors.white.withValues(alpha: 0.70),
-                              ),
-                              onPressed: () async {
+                            GestureDetector(
+                              onTap: () async {
                                 final toggleFavorite =
                                     ref.read(toggleFavoriteProvider);
                                 await toggleFavorite(publication.id);
@@ -589,8 +582,15 @@ class _PublicationCard extends ConsumerWidget {
                                   ref.invalidate(mainPublicationsProvider);
                                 });
                               },
-                              padding: EdgeInsets.zero,
-                              constraints: const BoxConstraints(),
+                              child: Icon(
+                                isFavorite
+                                    ? Icons.star
+                                    : Icons.star_border,
+                                color: isFavorite
+                                    ? Colors.amber
+                                    : Colors.white.withValues(alpha: 0.70),
+                                size: 20,
+                              ),
                             ),
                           ],
                         ),

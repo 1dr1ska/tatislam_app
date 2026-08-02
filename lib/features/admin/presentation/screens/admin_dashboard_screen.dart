@@ -31,7 +31,9 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
     return Scaffold(
       appBar: AppBar(
         backgroundColor: AppColors.secondary,
-        title: const Text('Панель администратора'),
+        title: Text(
+          _selectedIndex == 0 ? 'Публикации' : 'Разделы',
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.home),
@@ -42,54 +44,125 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
         ],
       ),
       drawer: Drawer(
-        child: ListView(
-          padding: EdgeInsets.zero,
+        child: Column(
           children: [
-            DrawerHeader(
-              decoration: const BoxDecoration(
-                color: Colors.blue,
+            // Header with app branding
+            Container(
+              width: double.infinity,
+              padding: EdgeInsets.only(
+                top: MediaQuery.of(context).padding.top + 16,
+                bottom: 16,
+                left: 16,
+                right: 16,
               ),
-              child: Text(
-                'Admin Panel',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 24,
-                ),
+              color: AppColors.secondary,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(
+                    Icons.admin_panel_settings,
+                    color: Colors.white,
+                    size: 28,
+                  ),
+                  const SizedBox(height: 12),
+                  const Text(
+                    'Admin Panel',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    'Управление контентом',
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.8),
+                      fontSize: 13,
+                    ),
+                  ),
+                ],
               ),
             ),
+            // Navigation items
             ListTile(
-              title: const Text('Publications'),
+              leading: Icon(
+                Icons.article_outlined,
+                color: _selectedIndex == 0 ? Colors.blue : Colors.grey[600],
+              ),
+              title: Text(
+                'Публикации',
+                style: TextStyle(
+                  color: _selectedIndex == 0 ? Colors.blue : Colors.black87,
+                  fontWeight: _selectedIndex == 0 ? FontWeight.w600 : FontWeight.normal,
+                ),
+              ),
               selected: _selectedIndex == 0,
+              selectedTileColor: Colors.blue.withValues(alpha: 0.08),
               onTap: () {
                 _onItemTapped(0);
                 Navigator.pop(context);
               },
             ),
             ListTile(
-              title: const Text('Sections'),
+              leading: Icon(
+                Icons.category_outlined,
+                color: _selectedIndex == 1 ? Colors.blue : Colors.grey[600],
+              ),
+              title: Text(
+                'Разделы',
+                style: TextStyle(
+                  color: _selectedIndex == 1 ? Colors.blue : Colors.black87,
+                  fontWeight: _selectedIndex == 1 ? FontWeight.w600 : FontWeight.normal,
+                ),
+              ),
               selected: _selectedIndex == 1,
+              selectedTileColor: Colors.blue.withValues(alpha: 0.08),
               onTap: () {
                 _onItemTapped(1);
                 Navigator.pop(context);
               },
             ),
+            const Divider(),
+            ListTile(
+              leading: Icon(Icons.home_outlined, color: Colors.grey[600]),
+              title: const Text('На главную'),
+              onTap: () {
+                Navigator.pop(context);
+                context.go('/');
+              },
+            ),
+            const Spacer(),
+            // Footer
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Text(
+                'TatIslam v1.0',
+                style: TextStyle(
+                  color: Colors.grey[400],
+                  fontSize: 12,
+                ),
+              ),
+            ),
           ],
         ),
       ),
       body: _widgetOptions.elementAt(_selectedIndex),
-      bottomNavigationBar: BottomNavigationBar(
-        items: const <BottomNavigationBarItem>[
-          BottomNavigationBarItem(
-            icon: Icon(Icons.article),
-            label: 'Publications',
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _selectedIndex,
+        onDestinationSelected: _onItemTapped,
+        destinations: const [
+          NavigationDestination(
+            icon: Icon(Icons.article_outlined),
+            selectedIcon: Icon(Icons.article),
+            label: 'Публикации',
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.category),
-            label: 'Sections',
+          NavigationDestination(
+            icon: Icon(Icons.category_outlined),
+            selectedIcon: Icon(Icons.category),
+            label: 'Разделы',
           ),
         ],
-        currentIndex: _selectedIndex,
-        onTap: _onItemTapped,
       ),
     );
   }

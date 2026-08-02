@@ -69,6 +69,8 @@ class _SectionEditorScreenState extends ConsumerState<SectionEditorScreen> {
       return;
     }
 
+    if (_isSaving) return; // Prevent double tap
+
     setState(() => _isSaving = true);
     try {
       final repository = ref.read(sectionRepositoryProvider);
@@ -111,59 +113,63 @@ class _SectionEditorScreenState extends ConsumerState<SectionEditorScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-        appBar: AppBar(
-          backgroundColor: AppColors.secondary,
-          title: Text(_isEditing ? 'Редактировать раздел' : 'Создать раздел'),
-          actions: [
-            TextButton(
-              onPressed: _isSaving ? null : _save,
-              child: _isSaving
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Text('Сохранить'),
-            ),
-          ],
-        ),
-        body: _isLoading
-            ? const Center(child: CircularProgressIndicator())
-            : Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    TextField(
-                      controller: _nameController,
-                      decoration: const InputDecoration(
-                        labelText: 'Название раздела',
-                        border: OutlineInputBorder(),
-                      ),
-                      autofocus: !_isEditing,
-                      textCapitalization: TextCapitalization.sentences,
+      appBar: AppBar(
+        backgroundColor: AppColors.secondary,
+        title: Text(_isEditing ? 'Редактировать раздел' : 'Создать раздел'),
+        actions: [
+          TextButton(
+            onPressed: _isSaving ? null : _save,
+            child: _isSaving
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Text('Сохранить'),
+          ),
+        ],
+      ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
+              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  TextField(
+                    controller: _nameController,
+                    decoration: const InputDecoration(
+                      labelText: 'Название раздела',
+                      border: OutlineInputBorder(),
+                      counterText: '',
                     ),
-                    if (_isEditing) ...[
-                      const SizedBox(height: 24),
-                      SwitchListTile(
-                        title: const Text('Отображать раздел'),
-                        subtitle: const Text('Если выключено, раздел будет скрыт из каталога'),
-                        value: _isVisible ?? true,
-                        onChanged: (value) {
-                          setState(() => _isVisible = value);
-                        },
-                      ),
-                    ],
+                    autofocus: !_isEditing,
+                    textCapitalization: TextCapitalization.sentences,
+                    maxLength: 100,
+                  ),
+                  if (_isEditing) ...[
                     const SizedBox(height: 24),
-                    BackgroundSelector(
-                      value: _backgroundImage,
+                    SwitchListTile(
+                      title: const Text('Отображать раздел'),
+                      subtitle: const Text('Если выключено, раздел будет скрыт из каталога'),
+                      value: _isVisible ?? true,
                       onChanged: (value) {
-                        setState(() => _backgroundImage = value);
+                        setState(() => _isVisible = value);
                       },
+                      contentPadding: EdgeInsets.zero,
                     ),
                   ],
-                ),
-      ),
+                  const SizedBox(height: 24),
+                  BackgroundSelector(
+                    value: _backgroundImage,
+                    onChanged: (value) {
+                      setState(() => _backgroundImage = value);
+                    },
+                  ),
+                ],
+              ),
+            ),
     );
   }
 }

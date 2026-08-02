@@ -17,7 +17,10 @@ const double _glassRadius = 12;
 
 /// Renders a [VideoContentBlock] — YouTube or Rutube embedded via WebView,
 /// or a direct URL as an external link card.
-class VideoContentWidget extends ConsumerWidget {
+///
+/// Uses stateful widget to cache [WebViewController] so that the embedded
+/// player survives rebuilds (orientation changes, pull-to-refresh, etc.).
+class VideoContentWidget extends ConsumerStatefulWidget {
   final VideoContentBlock block;
   final VideoUrlParserService urlParser;
 
@@ -28,37 +31,132 @@ class VideoContentWidget extends ConsumerWidget {
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    if (block.url.isEmpty) {
+  ConsumerState<VideoContentWidget> createState() => _VideoContentWidgetState();
+}
+
+class _VideoContentWidgetState extends ConsumerState<VideoContentWidget> {
+  /// Cached WebViewController keyed by provider+videoId so the iframe is
+  /// loaded only once and survives rebuilds.
+  WebViewController? _youtubeController;
+  WebViewController? _rutubeController;
+  String? _lastYoutubeId;
+  String? _lastRutubeId;
+
+  @override
+  void initState() {
+    super.initState();
+    _initControllers();
+  }
+
+  @override
+  void didUpdateWidget(VideoContentWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // If the block URL changed (e.g. editing), re-init controllers.
+    if (oldWidget.block.url != widget.block.url) {
+      _youtubeController = null;
+      _rutubeController = null;
+      _lastYoutubeId = null;
+      _lastRutubeId = null;
+      _initControllers();
+    }
+  }
+
+  /// Lazily creates controllers only when a video of that type is first
+  /// encountered on the screen.
+  void _ensureYoutubeController(String videoId) {
+    if (_youtubeController == null || _lastYoutubeId != videoId) {
+      _lastYoutubeId = videoId;
+      _youtubeController = _buildController(
+        'https://www.youtube.com/embed/$videoId',
+      );
+    }
+  }
+
+  void _ensureRutubeController(String videoId) {
+    if (_rutubeController == null || _lastRutubeId != videoId) {
+      _lastRutubeId = videoId;
+      _rutubeController = _buildController(
+        'https://rutube.ru/play/embed/$videoId',
+      );
+    }
+  }
+
+  WebViewController _buildController(String embedUrl) {
+    return WebViewController()
+      ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      ..setNavigationDelegate(
+        NavigationDelegate(
+          onNavigationRequest: (request) {
+            if (request.url == embedUrl) {
+              return NavigationDecision.navigate;
+            }
+            _launchUrl(context, request.url);
+            return NavigationDecision.prevent;
+          },
+        ),
+      )
+      ..loadRequest(Uri.parse(embedUrl));
+  }
+
+  /// Called once per widget lifecycle to pre-init controllers for the
+  /// current block's URL.
+  void _initControllers() {
+    if (widget.block.url.isEmpty) return;
+
+    if (widget.block.provider == VideoProviderType.youtube) {
+      final videoId = widget.urlParser.extractYouTubeId(widget.block.url);
+      if (videoId != null) {
+        _ensureYoutubeController(videoId);
+      }
+    } else if (widget.block.provider == VideoProviderType.rutube) {
+      final videoId = widget.urlParser.extractRutubeId(widget.block.url);
+      if (videoId != null) {
+        _ensureRutubeController(videoId);
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    // Controllers are discarded; WebView internally releases resources.
+    _youtubeController = null;
+    _rutubeController = null;
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.block.url.isEmpty) {
       return _buildUnavailable(context);
     }
 
-    if (block.provider == VideoProviderType.youtube) {
-      final videoId = urlParser.extractYouTubeId(block.url);
-      if (videoId != null) {
+    if (widget.block.provider == VideoProviderType.youtube) {
+      final videoId = widget.urlParser.extractYouTubeId(widget.block.url);
+      if (videoId != null && _youtubeController != null) {
         return _buildEmbeddedVideo(
           context: context,
-          embedUrl: 'https://www.youtube.com/embed/$videoId',
-          caption: block.caption,
+          controller: _youtubeController!,
+          caption: widget.block.caption,
         );
       }
-    } else if (block.provider == VideoProviderType.rutube) {
-      final videoId = urlParser.extractRutubeId(block.url);
-      if (videoId != null) {
+      // Fall through to fallback if no controller
+    } else if (widget.block.provider == VideoProviderType.rutube) {
+      final videoId = widget.urlParser.extractRutubeId(widget.block.url);
+      if (videoId != null && _rutubeController != null) {
         return _buildEmbeddedVideo(
           context: context,
-          embedUrl: 'https://rutube.ru/play/embed/$videoId',
-          caption: block.caption,
+          controller: _rutubeController!,
+          caption: widget.block.caption,
         );
       }
       // Rutube video ID not found — show fallback
-      return _buildRutubeFallback(context, block.url, block.caption);
+      return _buildRutubeFallback(context, widget.block.url, widget.block.caption);
     } else {
-      if (urlParser.isValidUrl(block.url)) {
+      if (widget.urlParser.isValidUrl(widget.block.url)) {
         return _buildExternalLinkCard(
           context: context,
-          url: block.url,
-          caption: block.caption,
+          url: widget.block.url,
+          caption: widget.block.caption,
         );
       }
     }
@@ -67,10 +165,10 @@ class VideoContentWidget extends ConsumerWidget {
   }
 
   /// Compact glass container wrapping the embedded video.
-  /// Minimal padding — video player takes maximum space.
+  /// Uses the cached [controller] so the iframe is loaded only once.
   Widget _buildEmbeddedVideo({
     required BuildContext context,
-    required String embedUrl,
+    required WebViewController controller,
     String? caption,
   }) {
     final isWide = ResponsiveBreakpoints.isTablet(context) ||
@@ -105,22 +203,7 @@ class VideoContentWidget extends ConsumerWidget {
                     ),
                     child: AspectRatio(
                       aspectRatio: 16 / 9,
-                      child: WebViewWidget(
-                        controller: WebViewController()
-                          ..setJavaScriptMode(JavaScriptMode.unrestricted)
-                          ..setNavigationDelegate(
-                            NavigationDelegate(
-                              onNavigationRequest: (request) {
-                                if (request.url == embedUrl) {
-                                  return NavigationDecision.navigate;
-                                }
-                                _launchUrl(context, request.url);
-                                return NavigationDecision.prevent;
-                              },
-                            ),
-                          )
-                          ..loadRequest(Uri.parse(embedUrl)),
-                      ),
+                      child: WebViewWidget(controller: controller),
                     ),
                   ),
                 ),

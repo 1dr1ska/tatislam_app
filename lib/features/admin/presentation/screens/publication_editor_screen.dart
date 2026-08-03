@@ -72,6 +72,8 @@ class _PublicationEditorScreenState
   int _uploadedFileCount = 0;
   int _totalFileCount = 0;
   bool _hasUnsavedChanges = false;
+  bool _iconValidationAttempted = false;
+  bool _sectionValidationAttempted = false;
   String _initialStatus = 'draft';
 
   @override
@@ -346,6 +348,28 @@ class _PublicationEditorScreenState
 
   Future<void> _savePublication() async {
     if (!_formKey.currentState!.validate()) {
+      return;
+    }
+
+    // Icon is required
+    if (_selectedIcon == null || (_selectedIcon?.isEmpty ?? true)) {
+      setState(() {
+        _iconValidationAttempted = true;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Выберите иконку публикации')),
+      );
+      return;
+    }
+
+    // Primary section is required
+    if (_primarySectionId == null || _primarySectionId!.isEmpty) {
+      setState(() {
+        _sectionValidationAttempted = true;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Выберите основной раздел')),
+      );
       return;
     }
 
@@ -731,6 +755,7 @@ class _PublicationEditorScreenState
                                               setState(() {
                                                 _primarySectionId = section.id;
                                                 _selectedSectionIds.add(section.id);
+                                                _sectionValidationAttempted = false;
                                               });
                                               _markUnsaved();
                                             },
@@ -739,6 +764,17 @@ class _PublicationEditorScreenState
                                             visualDensity: VisualDensity.compact,
                                           );
                                         }),
+                                        if (_sectionValidationAttempted &&
+                                            (_primarySectionId == null || _primarySectionId!.isEmpty)) ...[
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            'Выберите основной раздел',
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              color: Colors.red[700],
+                                            ),
+                                          ),
+                                        ],
                                       ],
                                     );
                                   },
@@ -1053,11 +1089,14 @@ class _PublicationEditorScreenState
   }
 
   Widget _buildIconSelector() {
+    final showError = _iconValidationAttempted &&
+        (_selectedIcon == null || _selectedIcon!.isEmpty);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
-          'Иконка',
+          'Иконка *',
           style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
         ),
         const SizedBox(height: 6),
@@ -1073,12 +1112,13 @@ class _PublicationEditorScreenState
               onTap: () {
                 setState(() {
                   _selectedIcon = iconId;
+                  _iconValidationAttempted = false;
                 });
                 _markUnsaved();
               },
               child: Container(
-                width: 48,
-                height: 48,
+                width: 56,
+                height: 56,
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(
@@ -1089,30 +1129,28 @@ class _PublicationEditorScreenState
                       ? Colors.blue.withValues(alpha: 0.08)
                       : Colors.transparent,
                 ),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Image.asset(
-                      iconPath,
-                      width: 24,
-                      height: 24,
-                      fit: BoxFit.contain,
-                    ),
-                    const SizedBox(height: 1),
-                    Text(
-                      iconId,
-                      style: TextStyle(
-                        fontSize: 8,
-                        color: isSelected ? Colors.blue : Colors.grey,
-                        fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-                      ),
-                    ),
-                  ],
+                child: Center(
+                  child: Image.asset(
+                    iconPath,
+                    width: 32,
+                    height: 32,
+                    fit: BoxFit.contain,
+                  ),
                 ),
               ),
             );
           }).toList(),
         ),
+        if (showError) ...[
+          const SizedBox(height: 4),
+          Text(
+            'Выберите иконку',
+            style: TextStyle(
+              fontSize: 12,
+              color: Colors.red[700],
+            ),
+          ),
+        ],
       ],
     );
   }

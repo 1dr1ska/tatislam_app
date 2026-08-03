@@ -3,11 +3,11 @@
 /// Usage: `Image.asset(AppIcons.path('book')!)`
 class AppIcons {
   static const Map<String, String> paths = {
-    'book': 'assets/images/icons/книга.png',
-    'audio': 'assets/images/icons/аудио.png',
-    'video': 'assets/images/icons/ютуб.png',
-    'pen': 'assets/images/icons/перо.png',
-    'hands': 'assets/images/icons/руки.png',
+    'book': 'assets/images/icons/book.png',
+    'audio': 'assets/images/icons/audio.png',
+    'video': 'assets/images/icons/video.png',
+    'pen': 'assets/images/icons/pen.png',
+    'hands': 'assets/images/icons/hands.png',
   };
 
   /// Returns the asset path for [id], or null if unknown.

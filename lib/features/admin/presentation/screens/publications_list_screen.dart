@@ -178,30 +178,20 @@ class _PublicationsListScreenState extends ConsumerState<PublicationsListScreen>
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Publication icon (actual icon selected for this publication)
-                  Container(
-                    width: 56,
-                    height: 56,
-                    decoration: BoxDecoration(
-                      color: typeInfo.color.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Center(
-                      child: publication.icon != null &&
-                              AppIcons.paths.containsKey(publication.icon)
-                          ? Image.asset(
-                              AppIcons.paths[publication.icon]!,
-                              width: 28,
-                              height: 28,
-                              fit: BoxFit.contain,
-                              errorBuilder: (context, error, stackTrace) =>
-                                  Icon(typeInfo.icon,
-                                      color: typeInfo.color, size: 24),
-                            )
-                          : Icon(typeInfo.icon,
-                              color: typeInfo.color, size: 24),
-                    ),
-                  ),
+                  // Publication icon — large, no decorative container
+                  publication.icon != null &&
+                          AppIcons.paths.containsKey(publication.icon)
+                      ? Image.asset(
+                          AppIcons.paths[publication.icon]!,
+                          width: 40,
+                          height: 40,
+                          fit: BoxFit.contain,
+                          errorBuilder: (context, error, stackTrace) =>
+                              Icon(typeInfo.icon,
+                                  color: typeInfo.color, size: 36),
+                        )
+                      : Icon(typeInfo.icon,
+                          color: typeInfo.color, size: 36),
                   const SizedBox(width: 12),
                   // Title
                   Expanded(
@@ -240,26 +230,9 @@ class _PublicationsListScreenState extends ConsumerState<PublicationsListScreen>
                 ],
               ),
               const SizedBox(height: 8),
-              // Bottom row: type badge + status badge + date
+              // Bottom row: status badge + date
               Row(
                 children: [
-                  // Type badge
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: typeInfo.color.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Text(
-                      typeInfo.label,
-                      style: TextStyle(
-                        fontSize: 10,
-                        color: typeInfo.color,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 6),
                   // Status badge
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),

@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:tatislam_app/core/constants/app_strings.dart';
 import 'package:tatislam_app/core/constants/app_colors.dart';
 import 'package:tatislam_app/core/providers/text_scale_provider.dart';
+import 'package:tatislam_app/core/utils/date_format.dart';
 import 'package:tatislam_app/core/utils/responsive.dart';
 import 'package:tatislam_app/features/publications/domain/entities/publication.dart';
 import 'package:tatislam_app/features/publications/presentation/providers/publications_providers.dart';
@@ -460,19 +461,6 @@ class _PublicationCard extends ConsumerWidget {
     required this.index,
   });
 
-  String _formatDate(DateTime date) {
-    final now = DateTime.now();
-    final diff = now.difference(date);
-
-    if (diff.inMinutes < 60) {
-      return '${diff.inMinutes} мин. элек';
-    } else if (diff.inHours < 24) {
-      return '${diff.inHours} сәг. элек';
-    } else {
-      return '${diff.inDays} көн элек';
-    }
-  }
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final isFavorite = ref.watch(favoritesIsFavoriteProvider(publication.id));
@@ -566,7 +554,7 @@ class _PublicationCard extends ConsumerWidget {
                               MainAxisAlignment.spaceBetween,
                           children: [
                             Text(
-                              _formatDate(publication.publishedAt),
+                              formatRelativeDate(publication.publishedAt),
                               style: Theme.of(context)
                                   .textTheme
                                   .bodySmall

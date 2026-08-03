@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -72,7 +71,6 @@ class _PublicationEditorScreenState
   _SaveStep _currentSaveStep = _SaveStep.idle;
   int _uploadedFileCount = 0;
   int _totalFileCount = 0;
-  Timer? _autoSaveTimer;
   bool _hasUnsavedChanges = false;
   String _initialStatus = 'draft';
 
@@ -90,7 +88,6 @@ class _PublicationEditorScreenState
 
   @override
   void dispose() {
-    _autoSaveTimer?.cancel();
     _titleController.dispose();
     _dateController.dispose();
     super.dispose();
@@ -178,7 +175,6 @@ class _PublicationEditorScreenState
         _selectedBlockAudioFiles[blockId] = File(result.files.single.path!);
         _hasUnsavedChanges = true;
       });
-      _scheduleAutoSave();
     }
   }
 
@@ -323,13 +319,6 @@ class _PublicationEditorScreenState
     }
   }
 
-  void _scheduleAutoSave() {
-    if (widget.publicationId == null) return;
-
-    _autoSaveTimer?.cancel();
-    _autoSaveTimer = Timer(const Duration(seconds: 3), _autoSave);
-  }
-
   /// Auto-fills date when first publishing if no date is set.
   /// Does NOT modify already-published publications.
   void _ensureDateOnPublish() {
@@ -340,6 +329,21 @@ class _PublicationEditorScreenState
     }
   }
 
+  /// Removes content blocks that have no meaningful data.
+  /// Operates on [_contentBlocks] in-place.
+  void _removeEmptyBlocks() {
+    _contentBlocks.removeWhere((block) {
+      return switch (block) {
+        TextContentBlock() => block.text.trim().isEmpty,
+        ImageContentBlock() => block.imagePaths.every((p) => p.isEmpty),
+        VideoContentBlock() => block.url.trim().isEmpty,
+        AudioContentBlock() =>
+          (block.audioPath == null || block.audioPath!.trim().isEmpty) &&
+          (block.audioUrl == null || block.audioUrl!.trim().isEmpty),
+      };
+    });
+  }
+
   Future<void> _savePublication() async {
     if (!_formKey.currentState!.validate()) {
       return;
@@ -347,6 +351,9 @@ class _PublicationEditorScreenState
 
     // Auto-set date if publishing for the first time
     _ensureDateOnPublish();
+
+    // Remove empty blocks before saving
+    _removeEmptyBlocks();
 
     setState(() {
       _isSaving = true;
@@ -395,13 +402,12 @@ class _PublicationEditorScreenState
 
         if (mounted) {
           final messenger = ScaffoldMessenger.of(context);
-          final navigator = Navigator.of(context);
           await Future.delayed(const Duration(milliseconds: 500));
           messenger.showSnackBar(
             const SnackBar(content: Text('Публикация создана')),
           );
           ref.invalidate(publicationRepositoryProvider);
-          if (mounted) navigator.pop(true);
+          if (mounted) context.pop(true);
         }
       } else {
         // Update existing publication
@@ -444,13 +450,12 @@ class _PublicationEditorScreenState
 
         if (mounted) {
           final messenger = ScaffoldMessenger.of(context);
-          final navigator = Navigator.of(context);
           await Future.delayed(const Duration(milliseconds: 500));
           messenger.showSnackBar(
             const SnackBar(content: Text('Публикация обновлена')),
           );
           ref.invalidate(publicationRepositoryProvider);
-          if (mounted) navigator.pop(true);
+          if (mounted) context.pop(true);
         }
       }
     } catch (e) {
@@ -476,85 +481,6 @@ class _PublicationEditorScreenState
     }
   }
 
-  Future<void> _autoSave() async {
-    if (_isSaving) return;
-
-    setState(() {
-      _isSaving = true;
-      _currentSaveStep = _SaveStep.savingMetadata;
-    });
-
-    try {
-      final title = _titleController.text.trim();
-      final repository = ref.read(publicationRepositoryProvider);
-
-      await repository.updatePublication(
-        id: widget.publicationId!,
-        title: title,
-        description: '',
-        icon: _selectedIcon,
-        publishedAt: _publishedAt ?? DateTime.now(),
-        type: 'article',
-        status: _status,
-        primarySectionId: _primarySectionId ?? '',
-      );
-
-      setState(() {
-        _currentSaveStep = _SaveStep.uploadingFiles;
-      });
-
-      final updatedBlocks =
-          await _updateBlocksWithImagePaths(widget.publicationId!);
-
-      setState(() {
-        _currentSaveStep = _SaveStep.savingSections;
-      });
-
-      await repository.setSections(
-          widget.publicationId!, _selectedSectionIds.toList());
-
-      setState(() {
-        _currentSaveStep = _SaveStep.savingBlocks;
-      });
-
-      await repository.replaceBlocks(
-          widget.publicationId!, updatedBlocks);
-
-      setState(() {
-        _hasUnsavedChanges = false;
-        _currentSaveStep = _SaveStep.done;
-      });
-
-      if (mounted) {
-        await Future.delayed(const Duration(seconds: 1));
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Автосохранение выполнено'),
-            duration: Duration(seconds: 1),
-          ),
-        );
-        ref.invalidate(publicationRepositoryProvider);
-      }
-    } catch (e) {
-      debugPrint('Auto-save error: $e');
-      setState(() {
-        _currentSaveStep = _SaveStep.error;
-      });
-    } finally {
-      setState(() {
-        _isSaving = false;
-        Future.delayed(const Duration(seconds: 2), () {
-          if (mounted) {
-            setState(() {
-              _currentSaveStep = _SaveStep.idle;
-            });
-          }
-        });
-      });
-    }
-  }
-
   void _moveBlockUp(int index) {
     if (index > 0) {
       setState(() {
@@ -562,7 +488,6 @@ class _PublicationEditorScreenState
         _contentBlocks.insert(index - 1, block);
         _updateOrderIndices();
       });
-      _scheduleAutoSave();
     }
   }
 
@@ -573,7 +498,6 @@ class _PublicationEditorScreenState
         _contentBlocks.insert(index + 1, block);
         _updateOrderIndices();
       });
-      _scheduleAutoSave();
     }
   }
 
@@ -581,7 +505,6 @@ class _PublicationEditorScreenState
     setState(() {
       _contentBlocks.removeAt(index);
     });
-    _scheduleAutoSave();
   }
 
   String _formatDate(DateTime date) {
@@ -614,7 +537,6 @@ class _PublicationEditorScreenState
           _dateController.text = _formatDate(_publishedAt!);
           _hasUnsavedChanges = true;
         });
-        _scheduleAutoSave();
       }
     }
   }
@@ -679,7 +601,7 @@ class _PublicationEditorScreenState
   void _onBackPressed() async {
     final canPop = await _onWillPop();
     if (canPop && mounted) {
-      context.go('/admin');
+      context.pop();
     }
   }
 
@@ -755,7 +677,6 @@ class _PublicationEditorScreenState
                                   },
                                   onChanged: (value) {
                                     _markUnsaved();
-                                    _scheduleAutoSave();
                                   },
                                 ),
                                 const SizedBox(height: 12),
@@ -812,7 +733,6 @@ class _PublicationEditorScreenState
                                                 _selectedSectionIds.add(section.id);
                                               });
                                               _markUnsaved();
-                                              _scheduleAutoSave();
                                             },
                                             contentPadding: EdgeInsets.zero,
                                             dense: true,
@@ -880,7 +800,6 @@ class _PublicationEditorScreenState
                                                         }
                                                       });
                                                       _markUnsaved();
-                                                      _scheduleAutoSave();
                                                     },
                                             );
                                           }).toList(),
@@ -916,7 +835,6 @@ class _PublicationEditorScreenState
                                         }
                                       });
                                       _markUnsaved();
-                                      _scheduleAutoSave();
                                     }
                                   },
                                 ),
@@ -1054,7 +972,6 @@ class _PublicationEditorScreenState
               );
             });
             _markUnsaved();
-            _scheduleAutoSave();
           },
         ),
         _buildAddBlockChip(
@@ -1074,7 +991,6 @@ class _PublicationEditorScreenState
               );
             });
             _markUnsaved();
-            _scheduleAutoSave();
           },
         ),
         _buildAddBlockChip(
@@ -1095,7 +1011,6 @@ class _PublicationEditorScreenState
               );
             });
             _markUnsaved();
-            _scheduleAutoSave();
           },
         ),
         _buildAddBlockChip(
@@ -1116,7 +1031,6 @@ class _PublicationEditorScreenState
               );
             });
             _markUnsaved();
-            _scheduleAutoSave();
           },
         ),
       ],
@@ -1161,7 +1075,6 @@ class _PublicationEditorScreenState
                   _selectedIcon = iconId;
                 });
                 _markUnsaved();
-                _scheduleAutoSave();
               },
               child: Container(
                 width: 48,
@@ -1395,7 +1308,6 @@ class _PublicationEditorScreenState
                     _contentBlocks[index] = block.copyWith(text: value);
                   });
                   _markUnsaved();
-                  _scheduleAutoSave();
                 },
               ),
             ),
@@ -1520,7 +1432,6 @@ class _PublicationEditorScreenState
                                       }
                                     });
                                     _markUnsaved();
-                                    _scheduleAutoSave();
                                   },
                                   icon: const Icon(Icons.delete_outline, size: 16, color: Colors.red),
                                   label: const Text(
@@ -1538,22 +1449,6 @@ class _PublicationEditorScreenState
                         ),
                       ],
                     ),
-                  ),
-                  const SizedBox(height: 10),
-                  TextFormField(
-                    initialValue: block.caption,
-                    decoration: const InputDecoration(
-                      labelText: 'Подпись',
-                      border: OutlineInputBorder(),
-                      contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                    ),
-                    onChanged: (value) {
-                      setState(() {
-                        _contentBlocks[index] = block.copyWith(captions: [value]);
-                      });
-                      _markUnsaved();
-                      _scheduleAutoSave();
-                    },
                   ),
                 ],
               ),
@@ -1608,7 +1503,6 @@ class _PublicationEditorScreenState
                         _contentBlocks[index] = block.copyWith(url: value);
                       });
                       _markUnsaved();
-                      _scheduleAutoSave();
                     },
                   ),
                   const SizedBox(height: 10),
@@ -1636,24 +1530,7 @@ class _PublicationEditorScreenState
                               block.copyWith(provider: value);
                         });
                         _markUnsaved();
-                        _scheduleAutoSave();
                       }
-                    },
-                  ),
-                  const SizedBox(height: 10),
-                  TextFormField(
-                    initialValue: block.caption,
-                    decoration: const InputDecoration(
-                      labelText: 'Подпись',
-                      border: OutlineInputBorder(),
-                      contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                    ),
-                    onChanged: (value) {
-                      setState(() {
-                        _contentBlocks[index] = block.copyWith(caption: value);
-                      });
-                      _markUnsaved();
-                      _scheduleAutoSave();
                     },
                   ),
                 ],
@@ -1770,7 +1647,6 @@ class _PublicationEditorScreenState
                                     }
                                   });
                                   _markUnsaved();
-                                  _scheduleAutoSave();
                                 },
                                 icon: const Icon(Icons.delete_outline, size: 16, color: Colors.red),
                                 label: const Text('Удалить', style: TextStyle(fontSize: 12, color: Colors.red)),
@@ -1784,22 +1660,6 @@ class _PublicationEditorScreenState
                         ),
                       ],
                     ),
-                  ),
-                  const SizedBox(height: 10),
-                  TextFormField(
-                    initialValue: block.caption,
-                    decoration: const InputDecoration(
-                      labelText: 'Подпись',
-                      border: OutlineInputBorder(),
-                      contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                    ),
-                    onChanged: (value) {
-                      setState(() {
-                        _contentBlocks[index] = block.copyWith(caption: value);
-                      });
-                      _markUnsaved();
-                      _scheduleAutoSave();
-                    },
                   ),
                 ],
               ),

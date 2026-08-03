@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:webview_flutter/webview_flutter.dart';
-import 'package:tatislam_app/core/utils/responsive.dart';
 import 'package:tatislam_app/features/detail/domain/services/video_url_parser_service.dart';
 import 'package:tatislam_app/features/publications/domain/entities/content_block.dart';
 import 'package:tatislam_app/features/publications/domain/entities/video_provider_type.dart';
@@ -136,7 +135,6 @@ class _VideoContentWidgetState extends ConsumerState<VideoContentWidget> {
         return _buildEmbeddedVideo(
           context: context,
           controller: _youtubeController!,
-          caption: widget.block.caption,
         );
       }
       // Fall through to fallback if no controller
@@ -146,17 +144,15 @@ class _VideoContentWidgetState extends ConsumerState<VideoContentWidget> {
         return _buildEmbeddedVideo(
           context: context,
           controller: _rutubeController!,
-          caption: widget.block.caption,
         );
       }
       // Rutube video ID not found — show fallback
-      return _buildRutubeFallback(context, widget.block.url, widget.block.caption);
+      return _buildRutubeFallback(context, widget.block.url);
     } else {
       if (widget.urlParser.isValidUrl(widget.block.url)) {
         return _buildExternalLinkCard(
           context: context,
           url: widget.block.url,
-          caption: widget.block.caption,
         );
       }
     }
@@ -166,14 +162,14 @@ class _VideoContentWidgetState extends ConsumerState<VideoContentWidget> {
 
   /// Compact glass container wrapping the embedded video.
   /// Uses the cached [controller] so the iframe is loaded only once.
+  ///
+  /// The player keeps a stable 16:9 aspect ratio and spans the full width of
+  /// its container regardless of orientation, so it is never stretched,
+  /// cropped, or resized after load.
   Widget _buildEmbeddedVideo({
     required BuildContext context,
     required WebViewController controller,
-    String? caption,
   }) {
-    final isWide = ResponsiveBreakpoints.isTablet(context) ||
-        ResponsiveBreakpoints.isCompactLandscape(context);
-
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
       child: ClipRRect(
@@ -190,35 +186,14 @@ class _VideoContentWidgetState extends ConsumerState<VideoContentWidget> {
                 width: _glassBorderWidth,
               ),
             ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                ClipRRect(
-                  borderRadius: const BorderRadius.vertical(
-                    top: Radius.circular(_glassRadius),
-                  ),
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(
-                      maxHeight: isWide ? 400 : double.infinity,
-                    ),
-                    child: AspectRatio(
-                      aspectRatio: 16 / 9,
-                      child: WebViewWidget(controller: controller),
-                    ),
-                  ),
-                ),
-                if (caption != null && caption.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
-                    child: Text(
-                      caption,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: const Color(0xFF2D2D44),
-                        height: 1.5,
-                      ),
-                    ),
-                  ),
-              ],
+            child: ClipRRect(
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(_glassRadius),
+              ),
+              child: AspectRatio(
+                aspectRatio: 16 / 9,
+                child: WebViewWidget(controller: controller),
+              ),
             ),
           ),
         ),
@@ -230,7 +205,6 @@ class _VideoContentWidgetState extends ConsumerState<VideoContentWidget> {
   Widget _buildRutubeFallback(
     BuildContext context,
     String url,
-    String? caption,
   ) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
@@ -300,17 +274,6 @@ class _VideoContentWidgetState extends ConsumerState<VideoContentWidget> {
                     ),
                   ),
                 ),
-                if (caption != null && caption.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
-                    child: Text(
-                      caption,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: const Color(0xFF2D2D44),
-                        height: 1.5,
-                      ),
-                    ),
-                  ),
               ],
             ),
           ),
@@ -323,7 +286,6 @@ class _VideoContentWidgetState extends ConsumerState<VideoContentWidget> {
   Widget _buildExternalLinkCard({
     required BuildContext context,
     required String url,
-    String? caption,
   }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
@@ -374,17 +336,6 @@ class _VideoContentWidgetState extends ConsumerState<VideoContentWidget> {
                     ),
                   ),
                 ),
-                if (caption != null && caption.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
-                    child: Text(
-                      caption,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: const Color(0xFF2D2D44),
-                        height: 1.5,
-                      ),
-                    ),
-                  ),
               ],
             ),
           ),

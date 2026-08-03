@@ -24,7 +24,7 @@ class TextContentWidget extends ConsumerWidget {
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
-      child: Text(
+      child: SelectableText(
         htmlParser.parseToPlainText(block.text),
         style: Theme.of(context).textTheme.bodyLarge?.copyWith(
           color: const Color(0xFF2D2D44),

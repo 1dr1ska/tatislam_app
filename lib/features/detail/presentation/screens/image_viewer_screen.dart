@@ -3,12 +3,10 @@ import 'package:cached_network_image/cached_network_image.dart';
 
 class ImageViewerScreen extends StatelessWidget {
   final String imageUrl;
-  final String? caption;
 
   const ImageViewerScreen({
     super.key,
     required this.imageUrl,
-    this.caption,
   });
 
   @override
@@ -51,27 +49,6 @@ class ImageViewerScreen extends StatelessWidget {
               ),
             ),
             
-            // Caption (if exists)
-            if (caption != null && caption!.isNotEmpty)
-              Positioned(
-                bottom: 16,
-                left: 16,
-                right: 16,
-                child: Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.black54,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    caption!,
-                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                      color: Colors.white,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-              ),
           ],
         ),
       ),

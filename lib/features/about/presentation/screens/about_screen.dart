@@ -77,7 +77,7 @@ class _AboutScreenState extends ConsumerState<AboutScreen> {
                   titleSpacing: 0,
                   leading: IconButton(
                     icon: const Icon(Icons.arrow_back),
-                    onPressed: () => GoRouter.of(context).go('/'),
+                    onPressed: () => GoRouter.of(context).pop(),
                   ),
                   title: const Text(
                     'Кушымта турында',

@@ -15,7 +15,6 @@ class SectionsManagementScreen extends ConsumerStatefulWidget {
 
 class _SectionsManagementScreenState extends ConsumerState<SectionsManagementScreen> {
   late Future<List<Section>> _sectionsFuture;
-  bool _isLoading = false;
 
   @override
   void initState() {
@@ -34,13 +33,6 @@ class _SectionsManagementScreenState extends ConsumerState<SectionsManagementScr
     });
   }
 
-  Future<void> _createSection() async {
-    final result = await context.push<bool>('/admin/sections/new');
-    if (result == true && mounted) {
-      _refreshSections();
-    }
-  }
-
   Future<void> _renameSection(Section section) async {
     final result = await context.push<bool>('/admin/sections/${section.id}/edit');
     if (result == true && mounted) {
@@ -49,10 +41,6 @@ class _SectionsManagementScreenState extends ConsumerState<SectionsManagementScr
   }
 
   Future<void> _setVisibility(Section section, bool isVisible) async {
-    setState(() {
-      _isLoading = true;
-    });
-
     try {
       final repository = ref.read(sectionRepositoryProvider);
       await repository.setVisibility(section.id, isVisible);
@@ -69,10 +57,6 @@ class _SectionsManagementScreenState extends ConsumerState<SectionsManagementScr
           SnackBar(content: Text('Ошибка изменения видимости: $e')),
         );
       }
-    } finally {
-      setState(() {
-        _isLoading = false;
-      });
     }
   }
 
@@ -88,10 +72,6 @@ class _SectionsManagementScreenState extends ConsumerState<SectionsManagementScr
 
     final confirmed = await _showDeleteConfirmationDialog(section.name);
     if (confirmed) {
-      setState(() {
-        _isLoading = true;
-      });
-
       try {
         final repository = ref.read(sectionRepositoryProvider);
         await repository.deleteSection(section.id);
@@ -108,10 +88,6 @@ class _SectionsManagementScreenState extends ConsumerState<SectionsManagementScr
             SnackBar(content: Text('Ошибка удаления раздела: $e')),
           );
         }
-      } finally {
-        setState(() {
-          _isLoading = false;
-        });
       }
     }
   }
@@ -178,10 +154,6 @@ class _SectionsManagementScreenState extends ConsumerState<SectionsManagementScr
   }
 
   Future<void> _moveSectionUp(Section section) async {
-    setState(() {
-      _isLoading = true;
-    });
-
     try {
       final repository = ref.read(sectionRepositoryProvider);
       await repository.moveSectionUp(section);
@@ -198,18 +170,10 @@ class _SectionsManagementScreenState extends ConsumerState<SectionsManagementScr
           SnackBar(content: Text('Ошибка перемещения раздела вверх: $e')),
         );
       }
-    } finally {
-      setState(() {
-        _isLoading = false;
-      });
     }
   }
 
   Future<void> _moveSectionDown(Section section) async {
-    setState(() {
-      _isLoading = true;
-    });
-
     try {
       final repository = ref.read(sectionRepositoryProvider);
       await repository.moveSectionDown(section);
@@ -226,86 +190,66 @@ class _SectionsManagementScreenState extends ConsumerState<SectionsManagementScr
           SnackBar(content: Text('Ошибка перемещения раздела вниз: $e')),
         );
       }
-    } finally {
-      setState(() {
-        _isLoading = false;
-      });
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        backgroundColor: AppColors.secondary,
-        title: const Text('Управление разделами'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.add),
-            onPressed: _isLoading ? null : _createSection,
-          ),
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _isLoading ? null : _refreshSections,
-          ),
-        ],
-      ),
-      body: FutureBuilder<List<Section>>(
-        future: _sectionsFuture,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
+    return FutureBuilder<List<Section>>(
+      future: _sectionsFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
 
-          if (snapshot.hasError) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(Icons.error, size: 64, color: Colors.red),
-                  const SizedBox(height: 16),
-                  Text('Ошибка загрузки разделов: ${snapshot.error}'),
-                  const SizedBox(height: 16),
-                  ElevatedButton(
-                    onPressed: _refreshSections,
-                    child: const Text('Повторить'),
-                  ),
-                ],
-              ),
-            );
-          }
-
-          if (!snapshot.hasData || snapshot.data!.isEmpty) {
-            return const Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.category_outlined, size: 64, color: Colors.grey),
-                  SizedBox(height: 16),
-                  Text('Разделы не найдены'),
-                  SizedBox(height: 8),
-                  Text('Нажмите + для создания нового раздела',
-                    style: TextStyle(color: AppColors.textLight, fontSize: 13),
-                  ),
-                ],
-              ),
-            );
-          }
-
-          final sections = snapshot.data!;
-          
-          return RefreshIndicator(
-            onRefresh: _refreshSections,
-            child: ListView.builder(
-              padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
-              itemCount: sections.length,
-              itemBuilder: (context, index) {
-                return _buildSectionTile(sections[index], index, sections.length);
-              },
+        if (snapshot.hasError) {
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.error, size: 64, color: Colors.red),
+                const SizedBox(height: 16),
+                Text('Ошибка загрузки разделов: ${snapshot.error}'),
+                const SizedBox(height: 16),
+                ElevatedButton(
+                  onPressed: _refreshSections,
+                  child: const Text('Повторить'),
+                ),
+              ],
             ),
           );
-        },
-      ),
+        }
+
+        if (!snapshot.hasData || snapshot.data!.isEmpty) {
+          return const Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.category_outlined, size: 64, color: Colors.grey),
+                SizedBox(height: 16),
+                Text('Разделы не найдены'),
+                SizedBox(height: 8),
+                Text('Нажмите + для создания нового раздела',
+                  style: TextStyle(color: AppColors.textLight, fontSize: 13),
+                ),
+              ],
+            ),
+          );
+        }
+
+        final sections = snapshot.data!;
+        
+        return RefreshIndicator(
+          onRefresh: _refreshSections,
+          child: ListView.builder(
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+            itemCount: sections.length,
+            itemBuilder: (context, index) {
+              return _buildSectionTile(sections[index], index, sections.length);
+            },
+          ),
+        );
+      },
     );
   }
 

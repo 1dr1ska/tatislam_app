@@ -321,18 +321,6 @@ class _AudioContentWidgetState extends ConsumerState<AudioContentWidget>
         _buildSeekBar(audioPlayer),
         const SizedBox(height: 12),
         _buildSpeedSelector(audioPlayer),
-        if (widget.block.caption != null &&
-            widget.block.caption!.isNotEmpty)
-          Padding(
-            padding: const EdgeInsets.only(top: 12),
-            child: Text(
-              widget.block.caption!,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: const Color(0xFF2D2D44),
-                height: 1.5,
-              ),
-            ),
-          ),
       ],
     );
   }
@@ -425,21 +413,6 @@ class _AudioContentWidgetState extends ConsumerState<AudioContentWidget>
                   _buildSpeedSelector(audioPlayer),
                 ],
               ),
-              if (widget.block.caption != null &&
-                  widget.block.caption!.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.only(top: 8),
-                  child: Text(
-                    widget.block.caption!,
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: const Color(0xFF2D2D44),
-                      height: 1.5,
-                    ),
-                    textAlign: TextAlign.start,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
             ],
           ),
         ),

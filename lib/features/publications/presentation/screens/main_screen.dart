@@ -100,157 +100,160 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     final backgroundPath = selectedSection?.backgroundImage;
     final isLoading = publicationsAsync.isLoading;
 
-    return Stack(
-      children: [
-        AppBackground(imagePath: backgroundPath),
-        Scaffold(
-          backgroundColor: Colors.transparent,
-          appBar: PreferredSize(
-            preferredSize: const Size.fromHeight(kToolbarHeight),
-            child: ClipRRect(
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: _glassBlur, sigmaY: _glassBlur),
-                child: AppBar(
-                  backgroundColor: Colors.white.withValues(alpha: _glassOpacity),
-                  titleSpacing: 0,
-                  title: Row(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      // Logo — identical glass style
-                      GestureDetector(
-                        onTap: () {
-                          GoRouter.of(context).go('/about');
-                        },
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 8),
-                          child: Container(
-                            width: 36,
-                            height: 36,
-                            decoration: _glassBox(),
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(_glassRadius - 1),
-                              child: Image.asset(
-                                'assets/images/app_icon.png',
-                                fit: BoxFit.cover,
-                                errorBuilder: (context, error, stackTrace) =>
-                                    const Icon(Icons.mosque, size: 28),
+    return PopScope(
+      canPop: false,
+      child: Stack(
+        children: [
+          AppBackground(imagePath: backgroundPath),
+          Scaffold(
+            backgroundColor: Colors.transparent,
+            appBar: PreferredSize(
+              preferredSize: const Size.fromHeight(kToolbarHeight),
+              child: ClipRRect(
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: _glassBlur, sigmaY: _glassBlur),
+                  child: AppBar(
+                    backgroundColor: Colors.white.withValues(alpha: _glassOpacity),
+                    titleSpacing: 0,
+                    title: Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        // Logo — identical glass style
+                        GestureDetector(
+                          onTap: () {
+                            GoRouter.of(context).push('/about');
+                          },
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                            child: Container(
+                              width: 36,
+                              height: 36,
+                              decoration: _glassBox(),
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(_glassRadius - 1),
+                                child: Image.asset(
+                                  'assets/images/app_icon.png',
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (context, error, stackTrace) =>
+                                      const Icon(Icons.mosque, size: 28),
+                                ),
                               ),
                             ),
                           ),
                         ),
-                      ),
-                      // Search field
-                      Expanded(
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 4),
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: _glassOpacity),
-                              borderRadius: BorderRadius.circular(_glassRadius),
-                              border: Border.all(
-                                color: _isSearchFocused
-                                    ? const Color(0xFFD4A843).withValues(alpha: 0.6)
-                                    : _glassBorderColor.withValues(alpha: _glassBorderOpacity),
-                                width: _isSearchFocused ? 1.2 : _glassBorderWidth,
-                              ),
-                            ),
-                            child: TextField(
-                              controller: _searchController,
-                              focusNode: _searchFocusNode,
-                              decoration: InputDecoration(
-                                hintText: 'Эзләү...',
-                                hintStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                  color: Colors.white.withValues(alpha: 0.85),
+                        // Search field
+                        Expanded(
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 4),
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: _glassOpacity),
+                                borderRadius: BorderRadius.circular(_glassRadius),
+                                border: Border.all(
+                                  color: _isSearchFocused
+                                      ? const Color(0xFFD4A843).withValues(alpha: 0.6)
+                                      : _glassBorderColor.withValues(alpha: _glassBorderOpacity),
+                                  width: _isSearchFocused ? 1.2 : _glassBorderWidth,
                                 ),
-                                border: InputBorder.none,
-                                enabledBorder: InputBorder.none,
-                                focusedBorder: InputBorder.none,
-                                filled: false,
-                                fillColor: Colors.transparent,
-                                contentPadding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
-                                suffixIcon: _searchController.text.isNotEmpty
-                                    ? IconButton(
-                                        icon: const Icon(Icons.clear, size: 18, color: Colors.white70),
-                                        onPressed: _clearSearch,
-                                      )
-                                    : null,
                               ),
-                              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                color: const Color(0xFFF8F7F2),
+                              child: TextField(
+                                controller: _searchController,
+                                focusNode: _searchFocusNode,
+                                decoration: InputDecoration(
+                                  hintText: 'Эзләү...',
+                                  hintStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                    color: Colors.white.withValues(alpha: 0.85),
+                                  ),
+                                  border: InputBorder.none,
+                                  enabledBorder: InputBorder.none,
+                                  focusedBorder: InputBorder.none,
+                                  filled: false,
+                                  fillColor: Colors.transparent,
+                                  contentPadding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                                  suffixIcon: _searchController.text.isNotEmpty
+                                      ? IconButton(
+                                          icon: const Icon(Icons.clear, size: 18, color: Colors.white70),
+                                          onPressed: _clearSearch,
+                                        )
+                                      : null,
+                                ),
+                                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                  color: const Color(0xFFF8F7F2),
+                                ),
                               ),
                             ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    actions: [
+                      // Favorites toggle — identical glass style
+                      Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: Container(
+                          width: 36,
+                          height: 36,
+                          decoration: _glassBox(),
+                          child: IconButton(
+                            icon: Icon(
+                              showFavoritesOnly ? Icons.star : Icons.star_border,
+                              color: showFavoritesOnly ? Colors.amber : Colors.white.withValues(alpha: 0.85),
+                              size: 20,
+                            ),
+                            tooltip: showFavoritesOnly ? 'Барлык язмалар' : 'Сайланганнар',
+                            onPressed: () {
+                              ref.read(toggleFavoritesFilterProvider)();
+                            },
+                            padding: EdgeInsets.zero,
                           ),
                         ),
                       ),
                     ],
                   ),
-                  actions: [
-                    // Favorites toggle — identical glass style
-                    Padding(
-                      padding: const EdgeInsets.only(right: 8),
-                      child: Container(
-                        width: 36,
-                        height: 36,
-                        decoration: _glassBox(),
-                        child: IconButton(
-                          icon: Icon(
-                            showFavoritesOnly ? Icons.star : Icons.star_border,
-                            color: showFavoritesOnly ? Colors.amber : Colors.white.withValues(alpha: 0.85),
-                            size: 20,
-                          ),
-                          tooltip: showFavoritesOnly ? 'Барлык язмалар' : 'Сайланганнар',
-                          onPressed: () {
-                            ref.read(toggleFavoritesFilterProvider)();
-                          },
-                          padding: EdgeInsets.zero,
-                        ),
-                      ),
-                    ),
-                  ],
                 ),
               ),
             ),
-          ),
-          body: RefreshIndicator(
-            onRefresh: () async {
-              await ref.read(sectionsProvider.notifier).refresh();
-              ref.invalidate(mainPublicationsProvider);
-              ref.invalidate(favoritesProvider);
-              await ref.read(mainPublicationsProvider.future);
-              await ref.read(favoritesProvider.future);
-            },
-            child: isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : SingleChildScrollView(
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    child: Center(
-                      child: ConstrainedBox(
-                        constraints: BoxConstraints(
-                          maxWidth: 1000,
-                          // Ensure the scrollable area is always taller than
-                          // the viewport so RefreshIndicator works even when
-                          // there are only 1-2 publication cards.
-                          minHeight: MediaQuery.of(context).size.height,
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            _buildSectionFilters(ref, sections),
-                            const SizedBox(height: 16),
-                            _buildPublicationsGrid(
-                              context,
-                              ref,
-                              publicationsAsync,
-                              hasLocalSections: sections.isNotEmpty,
-                            ),
-                          ],
+            body: RefreshIndicator(
+              onRefresh: () async {
+                await ref.read(sectionsProvider.notifier).refresh();
+                ref.invalidate(mainPublicationsProvider);
+                ref.invalidate(favoritesProvider);
+                await ref.read(mainPublicationsProvider.future);
+                await ref.read(favoritesProvider.future);
+              },
+              child: isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : SingleChildScrollView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      child: Center(
+                        child: ConstrainedBox(
+                          constraints: BoxConstraints(
+                            maxWidth: 1000,
+                            // Ensure the scrollable area is always taller than
+                            // the viewport so RefreshIndicator works even when
+                            // there are only 1-2 publication cards.
+                            minHeight: MediaQuery.of(context).size.height,
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _buildSectionFilters(ref, sections),
+                              const SizedBox(height: 16),
+                              _buildPublicationsGrid(
+                                context,
+                                ref,
+                                publicationsAsync,
+                                hasLocalSections: sections.isNotEmpty,
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ),
-                  ),
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -494,9 +497,9 @@ class _PublicationCard extends ConsumerWidget {
       child: _TapScale(
         onTap: () {
           if (publication.type == 'admin') {
-            GoRouter.of(context).go('/admin');
+            GoRouter.of(context).go('/login');
           } else {
-            GoRouter.of(context).go(
+            GoRouter.of(context).push(
               '/publication/${publication.id}?source=catalog',
             );
           }

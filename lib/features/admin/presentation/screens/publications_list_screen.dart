@@ -64,109 +64,95 @@ class _PublicationsListScreenState extends ConsumerState<PublicationsListScreen>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        backgroundColor: AppColors.secondary,
-        title: const Text('Публикации'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.add),
-            onPressed: () {
-              context.push('/admin/publications/new');
-            },
-          ),
-        ],
-      ),
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
-            child: TextField(
-              decoration: InputDecoration(
-                hintText: 'Поиск публикаций...',
-                prefixIcon: const Icon(Icons.search, size: 20),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                filled: true,
-                fillColor: Colors.white,
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
+          child: TextField(
+            decoration: InputDecoration(
+              hintText: 'Поиск публикаций...',
+              prefixIcon: const Icon(Icons.search, size: 20),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
               ),
-              onChanged: _onSearchChanged,
-              style: const TextStyle(fontSize: 14),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              filled: true,
+              fillColor: Colors.white,
             ),
+            onChanged: _onSearchChanged,
+            style: const TextStyle(fontSize: 14),
           ),
-          Expanded(
-            child: FutureBuilder<List<Publication>>(
-              future: _publicationsFuture,
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
-                }
+        ),
+        Expanded(
+          child: FutureBuilder<List<Publication>>(
+            future: _publicationsFuture,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
 
-                if (snapshot.hasError) {
-                  return Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Icon(Icons.error, size: 64, color: Colors.red),
-                        const SizedBox(height: 16),
-                        Text('Ошибка загрузки: ${snapshot.error}'),
-                        const SizedBox(height: 16),
-                        ElevatedButton(
-                          onPressed: _refreshPublications,
-                          child: const Text('Повторить'),
-                        ),
-                      ],
-                    ),
-                  );
-                }
-
-                if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                  return const Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.article_outlined, size: 64, color: AppColors.articleColor),
-                        SizedBox(height: 16),
-                        Text('Публикации не найдены'),
-                      ],
-                    ),
-                  );
-                }
-
-                final publications = snapshot.data!;
-
-                // Create a sorted copy — never mutate the original list in build()
-                final sorted = List<Publication>.from(publications)
-                  ..sort((a, b) {
-                    switch (_sortBy) {
-                      case 'title':
-                        final comparison = a.title.compareTo(b.title);
-                        return _sortAscending ? comparison : -comparison;
-                      case 'publishedAt':
-                        final comparison = a.publishedAt.compareTo(b.publishedAt);
-                        return _sortAscending ? comparison : -comparison;
-                      default:
-                        return 0;
-                    }
-                  });
-
-                return RefreshIndicator(
-                  onRefresh: () async => _refreshPublications(),
-                  child: ListView.builder(
-                    padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
-                    itemCount: sorted.length,
-                    itemBuilder: (context, index) {
-                      return _buildPublicationCard(sorted[index]);
-                    },
+              if (snapshot.hasError) {
+                return Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.error, size: 64, color: Colors.red),
+                      const SizedBox(height: 16),
+                      Text('Ошибка загрузки: ${snapshot.error}'),
+                      const SizedBox(height: 16),
+                      ElevatedButton(
+                        onPressed: _refreshPublications,
+                        child: const Text('Повторить'),
+                      ),
+                    ],
                   ),
                 );
-              },
-            ),
+              }
+
+              if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                return const Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.article_outlined, size: 64, color: AppColors.articleColor),
+                      SizedBox(height: 16),
+                      Text('Публикации не найдены'),
+                    ],
+                  ),
+                );
+              }
+
+              final publications = snapshot.data!;
+
+              // Create a sorted copy — never mutate the original list in build()
+              final sorted = List<Publication>.from(publications)
+                ..sort((a, b) {
+                  switch (_sortBy) {
+                    case 'title':
+                      final comparison = a.title.compareTo(b.title);
+                      return _sortAscending ? comparison : -comparison;
+                    case 'publishedAt':
+                      final comparison = a.publishedAt.compareTo(b.publishedAt);
+                      return _sortAscending ? comparison : -comparison;
+                    default:
+                      return 0;
+                  }
+                });
+
+              return RefreshIndicator(
+                onRefresh: () async => _refreshPublications(),
+                child: ListView.builder(
+                  padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
+                  itemCount: sorted.length,
+                  itemBuilder: (context, index) {
+                    return _buildPublicationCard(sorted[index]);
+                  },
+                ),
+              );
+            },
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:tatislam_app/core/constants/app_colors.dart';
 import 'package:tatislam_app/core/constants/app_strings.dart';
+import 'package:tatislam_app/core/services/image_dimensions_service.dart';
 import 'package:tatislam_app/core/storage/storage_providers.dart';
 import 'package:tatislam_app/core/storage/media_storage_repository.dart';
 import 'package:tatislam_app/core/utils/responsive.dart';
@@ -46,6 +47,7 @@ class PublicationDetailScreen extends ConsumerStatefulWidget {
 
 class _PublicationDetailScreenState
     extends ConsumerState<PublicationDetailScreen> {
+  final ImageDimensionsService _dimensionsService = ImageDimensionsService();
 
   void _navigateBackSafely(BuildContext context) {
     try {
@@ -76,14 +78,63 @@ class _PublicationDetailScreenState
     ContentBlock block,
     MediaStorageRepository mediaStorage,
   ) {
-    return switch (block) {
+    final child = switch (block) {
       TextContentBlock() => TextContentWidget(block: block),
-      ImageContentBlock() =>
-        ImageContentWidget(block: block, mediaStorage: mediaStorage),
+      ImageContentBlock() => ImageContentWidget(
+          block: block,
+          mediaStorage: mediaStorage,
+          dimensionsService: _dimensionsService,
+        ),
       VideoContentBlock() => VideoContentWidget(block: block),
       AudioContentBlock() =>
         AudioContentWidget(block: block, mediaStorage: mediaStorage),
     };
+
+    // Photos and videos span the full card width (edge-to-edge). All other
+    // blocks keep the standard horizontal padding.
+    final isEdgeToEdge =
+        block is ImageContentBlock || block is VideoContentBlock;
+
+    return Padding(
+      padding: EdgeInsets.symmetric(
+        horizontal: isEdgeToEdge ? 0 : _detailPadding,
+      ),
+      child: child,
+    );
+  }
+
+  /// The detail screen's AppBar. Hidden in landscape so the media content
+  /// (photos/videos) uses the full available screen height.
+  PreferredSize? _buildAppBar(BuildContext context, String? publicationTitle) {
+    return PreferredSize(
+      preferredSize: const Size.fromHeight(48),
+      child: ClipRRect(
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+          child: AppBar(
+            backgroundColor: Colors.white.withValues(alpha: 0.22),
+            titleSpacing: 0,
+            leading: IconButton(
+              icon: const Icon(Icons.arrow_back),
+              onPressed: () => _navigateBackSafely(context),
+            ),
+            title: Text(
+              publicationTitle ?? '',
+              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                color: const Color(0xFFF8F7F2),
+                fontWeight: FontWeight.w600,
+              ),
+              overflow: TextOverflow.ellipsis,
+              maxLines: 1,
+            ),
+            actions: [
+              // Favorite button — reactive via provider
+              _FavoriteButton(publicationId: widget.publicationId),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -107,35 +158,7 @@ class _PublicationDetailScreenState
         AppBackground(imagePath: backgroundImage),
         Scaffold(
           backgroundColor: Colors.transparent,
-          appBar: PreferredSize(
-            preferredSize: const Size.fromHeight(48),
-            child: ClipRRect(
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-                child: AppBar(
-                  backgroundColor: Colors.white.withValues(alpha: 0.22),
-                  titleSpacing: 0,
-                  leading: IconButton(
-                    icon: const Icon(Icons.arrow_back),
-                    onPressed: () => _navigateBackSafely(context),
-                  ),
-                  title: Text(
-                    publicationTitle ?? '',
-                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                      color: const Color(0xFFF8F7F2),
-                      fontWeight: FontWeight.w600,
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                    maxLines: 1,
-                  ),
-                  actions: [
-                    // Favorite button — reactive via provider
-                    _FavoriteButton(publicationId: widget.publicationId),
-                  ],
-                ),
-              ),
-            ),
-          ),
+          appBar: _buildAppBar(context, publicationTitle),
           body: RefreshIndicator(
             onRefresh: () async {
               ref.invalidate(publicationDetailProvider(widget.publicationId));
@@ -196,58 +219,72 @@ class _PublicationDetailScreenState
                                 width: _detailGlassBorderWidth,
                               ),
                             ),
-                            padding: const EdgeInsets.all(_detailPadding),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  // Full title — always visible, not truncated
-                                  Text(
-                                    publication.publication.title,
-                                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                                      color: const Color(0xFFFEFEF7),
-                                      fontWeight: FontWeight.w600,
-                                    ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                // Title and date keep the card's horizontal
+                                // padding; media blocks span edge-to-edge.
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: _detailPadding,
                                   ),
-                                  const SizedBox(height: 8),
-                                  // Publication date
-                                  Text(
-                                    _formatDate(publication.publication.publishedAt),
-                                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                      color: Colors.white.withValues(alpha: 0.75),
-                                    ),
-                                  ),
-                                  const SizedBox(height: 20),
-                                  // Content blocks
-                                  ...publication.blocks.map(
-                                    (block) => _buildContentBlock(block, mediaStorage),
-                                  ),
-
-                                const SizedBox(height: 24),
-
-                                // Description
-                                if (publication.publication.description.isNotEmpty)
-                                  Column(
+                                  child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
-                                      Text(
-                                        'Тасвирлама',
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .titleMedium
-                                            ?.copyWith(
-                                              fontWeight: FontWeight.bold,
-                                              color: const Color(0xFF1A1A2E),
-                                            ),
+                                      // Full title — always visible, not truncated
+                                      SelectableText(
+                                        publication.publication.title,
+                                        style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                                          color: const Color(0xFFFEFEF7),
+                                          fontWeight: FontWeight.w600,
+                                        ),
                                       ),
                                       const SizedBox(height: 8),
+                                      // Publication date
                                       Text(
-                                        publication.publication.description,
-                                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                          color: const Color(0xFF2D2D44),
-                                          height: 1.6,
+                                        _formatDate(publication.publication.publishedAt),
+                                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                          color: Colors.white.withValues(alpha: 0.75),
                                         ),
                                       ),
                                     ],
+                                  ),
+                                ),
+                                const SizedBox(height: 20),
+                                // Content blocks
+                                ...publication.blocks.map(
+                                  (block) => _buildContentBlock(block, mediaStorage),
+                                ),
+                                const SizedBox(height: 24),
+                                // Description
+                                if (publication.publication.description.isNotEmpty)
+                                  Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: _detailPadding,
+                                    ),
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          'Тасвирлама',
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .titleMedium
+                                              ?.copyWith(
+                                                fontWeight: FontWeight.bold,
+                                                color: const Color(0xFF1A1A2E),
+                                              ),
+                                        ),
+                                        const SizedBox(height: 8),
+                                        SelectableText(
+                                          publication.publication.description,
+                                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                            color: const Color(0xFF2D2D44),
+                                            height: 1.6,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
                                   ),
                               ],
                             ),

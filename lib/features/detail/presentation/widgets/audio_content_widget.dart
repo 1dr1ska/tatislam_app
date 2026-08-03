@@ -421,7 +421,7 @@ class _AudioContentWidgetState extends ConsumerState<AudioContentWidget>
   }
 
   Widget _buildSeekBar(AudioPlayer audioPlayer) {
-    final duration = audioPlayer.duration ?? const Duration(seconds: 120);
+    final duration = audioPlayer.duration ?? Duration.zero;
     final durationSeconds = duration.inSeconds.toDouble();
 
     // Во время перетаскивания ползунок полностью управляется пальцем.

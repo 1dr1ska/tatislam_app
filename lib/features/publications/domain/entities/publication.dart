@@ -7,7 +7,6 @@ import 'package:equatable/equatable.dart';
 class Publication extends Equatable {
   final String id;
   final String title;
-  final String description;
 
   /// Icon identifier (e.g. 'book', 'audio', 'video') — maps to a local asset.
   final String? icon;
@@ -24,7 +23,6 @@ class Publication extends Equatable {
   const Publication({
     required this.id,
     required this.title,
-    required this.description,
     this.icon,
     required this.publishedAt,
     required this.createdAt,
@@ -36,7 +34,6 @@ class Publication extends Equatable {
 
   Publication copyWith({
     String? title,
-    String? description,
     String? icon,
     DateTime? publishedAt,
     DateTime? createdAt,
@@ -48,7 +45,6 @@ class Publication extends Equatable {
     return Publication(
       id: id,
       title: title ?? this.title,
-      description: description ?? this.description,
       icon: icon ?? this.icon,
       publishedAt: publishedAt ?? this.publishedAt,
       createdAt: createdAt ?? this.createdAt,
@@ -63,7 +59,6 @@ class Publication extends Equatable {
   List<Object?> get props => [
         id,
         title,
-        description,
         icon,
         publishedAt,
         createdAt,

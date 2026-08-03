@@ -255,37 +255,6 @@ class _PublicationDetailScreenState
                                 ...publication.blocks.map(
                                   (block) => _buildContentBlock(block, mediaStorage),
                                 ),
-                                const SizedBox(height: 24),
-                                // Description
-                                if (publication.publication.description.isNotEmpty)
-                                  Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: _detailPadding,
-                                    ),
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          'Тасвирлама',
-                                          style: Theme.of(context)
-                                              .textTheme
-                                              .titleMedium
-                                              ?.copyWith(
-                                                fontWeight: FontWeight.bold,
-                                                color: const Color(0xFF1A1A2E),
-                                              ),
-                                        ),
-                                        const SizedBox(height: 8),
-                                        SelectableText(
-                                          publication.publication.description,
-                                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                            color: const Color(0xFF2D2D44),
-                                            height: 1.6,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
                               ],
                             ),
                           ),

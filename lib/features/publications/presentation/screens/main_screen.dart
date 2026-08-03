@@ -11,7 +11,7 @@ import 'package:tatislam_app/features/publications/presentation/providers/public
 import 'package:tatislam_app/features/publications/presentation/widgets/app_background.dart';
 import 'package:tatislam_app/features/sections/data/section_providers.dart';
 import 'package:tatislam_app/features/sections/domain/entities/section.dart';
-import 'package:tatislam_app/features/catalog/presentation/providers/selected_section_provider.dart';
+import 'package:tatislam_app/features/sections/presentation/providers/selected_section_provider.dart';
 import 'package:tatislam_app/features/favorites/providers/favorites_provider.dart';
 import 'package:tatislam_app/core/constants/app_icons.dart';
 

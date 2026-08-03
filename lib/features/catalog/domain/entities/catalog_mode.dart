@@ -1,4 +1,0 @@
-enum CatalogMode {
-  all,
-  favorites,
-}

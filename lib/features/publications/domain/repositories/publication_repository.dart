@@ -11,8 +11,7 @@ import 'package:tatislam_app/features/publications/domain/entities/publication_d
 ///    ids) for the single publication being viewed or edited.
 abstract class PublicationRepository {
   /// [sectionId] filters to publications belonging to that section.
-  /// [searchQuery] matches against title/description (see SUPABASE_SETUP.md
-  /// §4 for the search strategy).
+  /// [searchQuery] matches against title.
   /// [type] filters by publication type ('audio', 'video', 'article', etc.).
   /// [includeAllStatuses] when true, includes all publications regardless of status (for admin access).
   Future<List<Publication>> getPublications({
@@ -36,7 +35,6 @@ abstract class PublicationRepository {
 
   Future<Publication> createPublication({
     required String title,
-    required String description,
     String? icon,
     required DateTime publishedAt,
     required String type,
@@ -47,7 +45,6 @@ abstract class PublicationRepository {
   Future<Publication> updatePublication({
     required String id,
     required String title,
-    required String description,
     String? icon,
     required DateTime publishedAt,
     required String type,

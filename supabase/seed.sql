@@ -19,7 +19,6 @@ on conflict (slug) do nothing;
 insert into publications (
   id, 
   title, 
-  description, 
   cover_image_path, 
   published_at, 
   created_at, 
@@ -30,7 +29,6 @@ insert into publications (
 ) values (
   '11111111-1111-1111-1111-111111111111',
   'Сәлам, дөньия!',
-  'Бу кушымтаның беренче мәкаләсе.',
   'covers/11111111-1111-1111-1111-111111111111.jpg',
   '2024-01-01 12:00:00+00',
   '2024-01-01 12:00:00+00',
@@ -57,7 +55,6 @@ insert into content_blocks (
 insert into publications (
   id, 
   title, 
-  description, 
   cover_image_path, 
   published_at, 
   created_at, 
@@ -68,7 +65,6 @@ insert into publications (
 ) values (
   '22222222-2222-2222-2222-222222222222',
   'Видео дәрес',
-  'Татар телендә үткәрелгән видео дәрес.',
   'covers/22222222-2222-2222-2222-222222222222.jpg',
   '2024-01-02 12:00:00+00',
   '2024-01-02 12:00:00+00',
@@ -82,7 +78,6 @@ insert into publications (
 insert into publications (
   id, 
   title, 
-  description, 
   cover_image_path, 
   published_at, 
   created_at, 
@@ -93,7 +88,6 @@ insert into publications (
 ) values (
   '33333333-3333-3333-3333-333333333333',
   'Аудио хикәя',
-  'Татар халык хикәясе.',
   'covers/33333333-3333-3333-3333-333333333333.jpg',
   '2024-01-03 12:00:00+00',
   '2024-01-03 12:00:00+00',
@@ -107,7 +101,6 @@ insert into publications (
 insert into publications (
   id, 
   title, 
-  description, 
   cover_image_path, 
   published_at, 
   created_at, 
@@ -118,7 +111,6 @@ insert into publications (
 ) values (
   '44444444-4444-4444-4444-444444444444',
   'Эшкәртелеш барынча',
-  'Бу мәкалә эшкәртелеш барынча.',
   'covers/44444444-4444-4444-4444-444444444444.jpg',
   '2025-01-01 12:00:00+00',
   '2024-01-04 12:00:00+00',
@@ -145,7 +137,6 @@ insert into content_blocks (
 insert into publications (
   id, 
   title, 
-  description, 
   cover_image_path, 
   published_at, 
   created_at, 
@@ -156,7 +147,6 @@ insert into publications (
 ) values (
   '55555555-5555-5555-5555-555555555555',
   'Истәлекле мәкалә',
-  'Бу мәкалә архивланган.',
   'covers/55555555-5555-5555-5555-555555555555.jpg',
   '2023-01-01 12:00:00+00',
   '2023-01-01 12:00:00+00',

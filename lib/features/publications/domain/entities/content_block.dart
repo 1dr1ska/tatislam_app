@@ -49,65 +49,36 @@ class TextContentBlock extends ContentBlock {
 }
 
 class ImageContentBlock extends ContentBlock {
-  /// Storage paths (e.g. `blocks/<publicationId>/images/<id>.jpg`) — never
-  /// public URLs. Resolved via [MediaStorageRepository.publicUrlFor].
-  /// 
-  /// For single images, this list contains one element. For galleries, it
-  /// contains multiple elements.
-  final List<String> imagePaths;
-  final List<String?> captions;
+  /// Storage path (e.g. `blocks/<publicationId>/images/<id>.jpg`) — never
+  /// a public URL. Resolved via [MediaStorageRepository.publicUrlFor].
+  final String imagePath;
 
-  /// For backward compatibility with existing single-image blocks
-  ImageContentBlock.single({
+  const ImageContentBlock({
     required super.id,
     required super.publicationId,
     required super.orderIndex,
-    required String imagePath,
-    String? caption,
-  })  : imagePaths = [imagePath],
-        captions = [caption];
-
-  /// For new multi-image blocks
-  /// 
-  /// Note: This constructor cannot be const because it uses List parameters.
-  /// For single images, use the const [single] constructor instead.
-  // ignore: prefer_const_constructors_in_immutables
-  ImageContentBlock.gallery({
-    required super.id,
-    required super.publicationId,
-    required super.orderIndex,
-    required this.imagePaths,
-    required this.captions,
-  }) : assert(imagePaths.length == captions.length);
-
-  /// For backward compatibility, get the first image path
-  String get imagePath => imagePaths.first;
-
-  /// For backward compatibility, get the first caption
-  String? get caption => captions.first;
+    required this.imagePath,
+  });
 
   ImageContentBlock copyWith({
-    List<String>? imagePaths,
-    List<String?>? captions,
+    String? imagePath,
     int? orderIndex,
   }) =>
-      ImageContentBlock.gallery(
+      ImageContentBlock(
         id: id,
         publicationId: publicationId,
         orderIndex: orderIndex ?? this.orderIndex,
-        imagePaths: imagePaths ?? this.imagePaths,
-        captions: captions ?? this.captions,
+        imagePath: imagePath ?? this.imagePath,
       );
 
   @override
-  List<Object?> get props => [...super.props, imagePaths, captions];
+  List<Object?> get props => [...super.props, imagePath];
 }
 
 class VideoContentBlock extends ContentBlock {
   /// Always an external URL — video is never uploaded to Storage.
   final String url;
   final VideoProviderType provider;
-  final String? caption;
 
   const VideoContentBlock({
     required super.id,
@@ -115,13 +86,11 @@ class VideoContentBlock extends ContentBlock {
     required super.orderIndex,
     required this.url,
     required this.provider,
-    this.caption,
   });
 
   VideoContentBlock copyWith({
     String? url,
     VideoProviderType? provider,
-    String? caption,
     int? orderIndex,
   }) =>
       VideoContentBlock(
@@ -130,11 +99,10 @@ class VideoContentBlock extends ContentBlock {
         orderIndex: orderIndex ?? this.orderIndex,
         url: url ?? this.url,
         provider: provider ?? this.provider,
-        caption: caption ?? this.caption,
       );
 
   @override
-  List<Object?> get props => [...super.props, url, provider, caption];
+  List<Object?> get props => [...super.props, url, provider];
 }
 
 class AudioContentBlock extends ContentBlock {
@@ -145,7 +113,6 @@ class AudioContentBlock extends ContentBlock {
 
   /// Set when [source] is [AudioSourceType.external] — a plain URL.
   final String? audioUrl;
-  final String? caption;
 
   const AudioContentBlock({
     required super.id,
@@ -154,14 +121,12 @@ class AudioContentBlock extends ContentBlock {
     required this.source,
     this.audioPath,
     this.audioUrl,
-    this.caption,
   });
 
   AudioContentBlock copyWith({
     AudioSourceType? source,
     String? audioPath,
     String? audioUrl,
-    String? caption,
     int? orderIndex,
   }) =>
       AudioContentBlock(
@@ -171,9 +136,8 @@ class AudioContentBlock extends ContentBlock {
         source: source ?? this.source,
         audioPath: audioPath ?? this.audioPath,
         audioUrl: audioUrl ?? this.audioUrl,
-        caption: caption ?? this.caption,
       );
 
   @override
-  List<Object?> get props => [...super.props, source, audioPath, audioUrl, caption];
+  List<Object?> get props => [...super.props, source, audioPath, audioUrl];
 }

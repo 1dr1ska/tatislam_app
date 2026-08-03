@@ -274,7 +274,7 @@ class _PublicationEditorScreenState
       if (block is ImageContentBlock) {
         final imagePath =
             await _uploadBlockImage(block.id, block.imagePath);
-        final updatedBlock = block.copyWith(imagePaths: [imagePath]);
+        final updatedBlock = block.copyWith(imagePath: imagePath);
         updatedBlocks.add(updatedBlock);
         _uploadedFileCount++;
         _updateSaveStep();
@@ -337,7 +337,7 @@ class _PublicationEditorScreenState
     _contentBlocks.removeWhere((block) {
       return switch (block) {
         TextContentBlock() => block.text.trim().isEmpty,
-        ImageContentBlock() => block.imagePaths.every((p) => p.isEmpty),
+        ImageContentBlock() => block.imagePath.isEmpty,
         VideoContentBlock() => block.url.trim().isEmpty,
         AudioContentBlock() =>
           (block.audioPath == null || block.audioPath!.trim().isEmpty) &&
@@ -392,7 +392,6 @@ class _PublicationEditorScreenState
         // Create new publication
         final publication = await repository.createPublication(
           title: title,
-          description: '',
           icon: _selectedIcon,
           type: 'article',
           publishedAt: _publishedAt ?? DateTime.now(),
@@ -438,7 +437,6 @@ class _PublicationEditorScreenState
         final publication = await repository.updatePublication(
           id: widget.publicationId!,
           title: title,
-          description: '',
           icon: _selectedIcon,
           publishedAt: _publishedAt ?? DateTime.now(),
           type: 'article',
@@ -1017,12 +1015,11 @@ class _PublicationEditorScreenState
           onPressed: () {
             setState(() {
               _contentBlocks.add(
-                ImageContentBlock.single(
+                ImageContentBlock(
                   id: _uuid.v4(),
                   publicationId: widget.publicationId ?? '',
                   orderIndex: _contentBlocks.length,
                   imagePath: '',
-                  caption: '',
                 ),
               );
             });
@@ -1042,7 +1039,6 @@ class _PublicationEditorScreenState
                   orderIndex: _contentBlocks.length,
                   url: '',
                   provider: VideoProviderType.rutube,
-                  caption: '',
                 ),
               );
             });
@@ -1062,7 +1058,6 @@ class _PublicationEditorScreenState
                   orderIndex: _contentBlocks.length,
                   source: AudioSourceType.upload,
                   audioPath: '',
-                  caption: '',
                 ),
               );
             });
@@ -1466,7 +1461,7 @@ class _PublicationEditorScreenState
                                       _selectedBlockImageFiles.remove(block.id);
                                       final idx = _contentBlocks.indexWhere((b) => b.id == block.id);
                                       if (idx != -1) {
-                                        _contentBlocks[idx] = block.copyWith(imagePaths: ['']);
+                                        _contentBlocks[idx] = block.copyWith(imagePath: '');
                                       }
                                     });
                                     _markUnsaved();

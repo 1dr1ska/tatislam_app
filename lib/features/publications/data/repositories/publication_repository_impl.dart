@@ -55,7 +55,6 @@ class PublicationRepositoryImpl implements PublicationRepository {
   @override
   Future<Publication> createPublication({
     required String title,
-    required String description,
     String? icon,
     required DateTime publishedAt,
     required String type,
@@ -66,7 +65,6 @@ class PublicationRepositoryImpl implements PublicationRepository {
     final model = PublicationModel(
       id: '',
       title: title,
-      description: description,
       icon: icon,
       publishedAt: publishedAt,
       createdAt: now,
@@ -83,7 +81,6 @@ class PublicationRepositoryImpl implements PublicationRepository {
   Future<Publication> updatePublication({
     required String id,
     required String title,
-    required String description,
     String? icon,
     required DateTime publishedAt,
     required String type,
@@ -95,7 +92,6 @@ class PublicationRepositoryImpl implements PublicationRepository {
     final model = PublicationModel(
       id: id,
       title: title,
-      description: description,
       icon: icon,
       publishedAt: publishedAt,
       createdAt: previous.publication.createdAt,

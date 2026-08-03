@@ -1,25 +1,20 @@
 import 'dart:typed_data';
 
-/// Результат оптимизации изображения.
-///
-/// Содержит обработанные или исходные байты, размеры до/после
-/// и флаг, выполнялась ли оптимизация.
+/// Result of a single image optimization attempt.
 class ImageOptimizationResult {
-  /// Байты изображения (исходные или оптимизированные).
+  /// The final bytes — either optimized or original.
   final Uint8List bytes;
 
-  /// Имя файла (может отличаться от исходного, если расширение
-  /// изменилось, например `.png` → `.jpg`).
+  /// The final file name (may differ if extension was changed to .jpg).
   final String fileName;
 
-  /// Размер исходного файла в байтах.
+  /// Size of the original image in bytes.
   final int originalSize;
 
-  /// Размер после обработки в байтах.
+  /// Size of the final image in bytes.
   final int finalSize;
 
-  /// `true`, если оптимизация реально выполнялась
-  /// (ресайз и/или пересохранение).
+  /// Whether any optimization was actually applied.
   final bool wasOptimized;
 
   const ImageOptimizationResult({
@@ -29,4 +24,10 @@ class ImageOptimizationResult {
     required this.finalSize,
     required this.wasOptimized,
   });
+
+  /// Percentage of space saved (0-100). Returns 0 if nothing was saved.
+  double get savingsPercent {
+    if (originalSize == 0) return 0;
+    return ((originalSize - finalSize) / originalSize * 100).clamp(0, 100);
+  }
 }

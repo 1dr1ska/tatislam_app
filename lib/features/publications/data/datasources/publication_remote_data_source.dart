@@ -45,7 +45,6 @@ class PublicationRemoteDataSource {
         final adminPublication = PublicationModel(
           id: 'admin_access',
           title: 'Доступ к админке',
-          description: 'Нажмите для авторизации или перехода в панель администратора',
           publishedAt: DateTime.now(),
           createdAt: DateTime.now(),
           updatedAt: DateTime.now(),
@@ -83,7 +82,7 @@ class PublicationRemoteDataSource {
         
         if (searchQuery != null && searchQuery.trim().isNotEmpty) {
           final escaped = searchQuery.trim().replaceAll(',', ' ');
-          query = query.or('title.ilike.%$escaped%,description.ilike.%$escaped%');
+          query = query.or('title.ilike.%$escaped%');
         }
         
         if (type != null && type.isNotEmpty) {
@@ -108,7 +107,7 @@ class PublicationRemoteDataSource {
         
         if (searchQuery != null && searchQuery.trim().isNotEmpty) {
           final escaped = searchQuery.trim().replaceAll(',', ' ');
-          query = query.or('title.ilike.%$escaped%,description.ilike.%$escaped%');
+          query = query.or('title.ilike.%$escaped%');
         }
         
         if (type != null && type.isNotEmpty) {

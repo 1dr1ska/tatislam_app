@@ -4,7 +4,6 @@ import 'package:tatislam_app/features/publications/domain/entities/publication.d
 class PublicationModel {
   final String id;
   final String title;
-  final String description;
   final String? icon;
   final DateTime publishedAt;
   final DateTime createdAt;
@@ -16,7 +15,6 @@ class PublicationModel {
   const PublicationModel({
     required this.id,
     required this.title,
-    required this.description,
     this.icon,
     required this.publishedAt,
     required this.createdAt,
@@ -30,7 +28,6 @@ class PublicationModel {
     return PublicationModel(
       id: json['id'] as String? ?? '',
       title: json['title'] as String? ?? '',
-      description: json['description'] as String? ?? '',
       icon: json['icon'] as String?,
       publishedAt: json['published_at'] != null 
           ? (DateTime.parse(json['published_at'] as String).toLocal())
@@ -49,7 +46,6 @@ class PublicationModel {
 
   Map<String, dynamic> toInsertJson() => {
         'title': title,
-        'description': description,
         'published_at': publishedAt.toUtc().toIso8601String(),
         'type': type,
         'primary_section_id': primarySectionId,
@@ -60,7 +56,6 @@ class PublicationModel {
   Publication toEntity() => Publication(
         id: id,
         title: title,
-        description: description,
         icon: icon,
         publishedAt: publishedAt,
         createdAt: createdAt,

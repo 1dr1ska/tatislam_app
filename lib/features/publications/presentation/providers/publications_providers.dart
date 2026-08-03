@@ -2,7 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 import 'package:tatislam_app/features/publications/domain/entities/publication.dart';
 import 'package:tatislam_app/features/publications/data/publication_providers.dart';
-import 'package:tatislam_app/features/catalog/presentation/providers/selected_section_provider.dart';
+import 'package:tatislam_app/features/sections/presentation/providers/selected_section_provider.dart';
 import 'package:tatislam_app/features/favorites/providers/favorites_provider.dart';
 
 /// Current search query text (updated immediately on every keystroke).

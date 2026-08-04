@@ -9,7 +9,8 @@ class ResponsiveBreakpoints {
   static bool isMobilePortrait(BuildContext context) {
     final size = MediaQuery.of(context).size;
     final width = size.shortestSide;
-    return width < _mobileMax && MediaQuery.of(context).orientation == Orientation.portrait;
+    return width < _mobileMax &&
+        MediaQuery.of(context).orientation == Orientation.portrait;
   }
 
   /// Phone in landscape or compact foldable landscape.

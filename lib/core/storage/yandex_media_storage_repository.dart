@@ -1,6 +1,6 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
-import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
 import 'package:mime/mime.dart' as mime;
@@ -45,13 +45,15 @@ class YandexMediaStorageRepository implements MediaStorageRepository {
   }
 
   @override
-  Future<String> upload(String path, Uint8List bytes, {String? contentType}) async {
+  Future<String> upload(
+    String path,
+    Uint8List bytes, {
+    String? contentType,
+  }) async {
     try {
       final folder = _pathToFolder(path);
       final mimeType = contentType ?? _mimeFromExtension(path);
       final filename = path.split('/').last;
-
-      debugPrint('YandexMediaStorageRepository.upload: path=$path, folder=$folder, mimeType=$mimeType, filename=$filename');
 
       final session = _client.auth.currentSession;
       if (session == null) {
@@ -63,7 +65,8 @@ class YandexMediaStorageRepository implements MediaStorageRepository {
         'SUPABASE_URL',
         defaultValue: 'https://vboffcgpkdruvqgdfpbp.supabase.co',
       );
-      final functionUrl = '$projectUrl/functions/v1/upload-media?folder=$folder';
+      final functionUrl =
+          '$projectUrl/functions/v1/upload-media?folder=$folder';
 
       final request = http.MultipartRequest('POST', Uri.parse(functionUrl));
       request.headers['apikey'] = accessToken;
@@ -73,31 +76,28 @@ class YandexMediaStorageRepository implements MediaStorageRepository {
         mediaParts.isNotEmpty ? mediaParts[0] : 'application',
         mediaParts.length > 1 ? mediaParts[1] : 'octet-stream',
       );
-      request.files.add(http.MultipartFile.fromBytes(
-        'file',
-        bytes,
-        filename: filename,
-        contentType: mediaType,
-      ));
-
-      debugPrint('YandexMediaStorageRepository.upload: sending request to $functionUrl');
+      request.files.add(
+        http.MultipartFile.fromBytes(
+          'file',
+          bytes,
+          filename: filename,
+          contentType: mediaType,
+        ),
+      );
 
       final streamedResponse = await request.send();
       final response = await http.Response.fromStream(streamedResponse);
 
-      debugPrint('YandexMediaStorageRepository.upload: response status=${response.statusCode}');
-      debugPrint('YandexMediaStorageRepository.upload: response body=${response.body}');
-
       if (response.statusCode != 201) {
         final body = jsonDecode(response.body) as Map<String, dynamic>;
         throw app.StorageException(
-          body['error'] as String? ?? 'Failed to upload file (${response.statusCode})',
+          body['error'] as String? ??
+              'Failed to upload file (${response.statusCode})',
         );
       }
 
       final data = jsonDecode(response.body) as Map<String, dynamic>;
       final key = data['key'] as String;
-      debugPrint('YandexMediaStorageRepository.upload: success, key=$key');
       return key;
     } catch (e) {
       if (e is app.StorageException) rethrow;
@@ -114,11 +114,7 @@ class YandexMediaStorageRepository implements MediaStorageRepository {
     // for that field (e.g. no cover image was set).
     final nonEmptyPaths = paths.where((p) => p.isNotEmpty).toList();
 
-    debugPrint('YandexMediaStorageRepository.delete: input paths=$paths');
-    debugPrint('YandexMediaStorageRepository.delete: non-empty paths=$nonEmptyPaths');
-
     if (nonEmptyPaths.isEmpty) {
-      debugPrint('YandexMediaStorageRepository.delete: all paths were empty, skipping');
       return;
     }
 
@@ -137,7 +133,6 @@ class YandexMediaStorageRepository implements MediaStorageRepository {
     for (final key in nonEmptyPaths) {
       try {
         final body = {'key': key};
-        debugPrint('YandexMediaStorageRepository.delete: sending request body=$body');
 
         final request = http.Request('POST', Uri.parse(deleteUrl));
         request.headers['apikey'] = accessToken;
@@ -148,13 +143,11 @@ class YandexMediaStorageRepository implements MediaStorageRepository {
         final streamedResponse = await request.send();
         final response = await http.Response.fromStream(streamedResponse);
 
-        debugPrint('YandexMediaStorageRepository.delete: response status=${response.statusCode}');
-        debugPrint('YandexMediaStorageRepository.delete: response body=${response.body}');
-
         if (response.statusCode != 200) {
           final body = jsonDecode(response.body) as Map<String, dynamic>;
           throw app.StorageException(
-            body['error'] as String? ?? 'Failed to delete file (${response.statusCode})',
+            body['error'] as String? ??
+                'Failed to delete file (${response.statusCode})',
           );
         }
       } catch (e) {

@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:tatislam_app/core/storage/media_storage_repository.dart';
 import 'package:tatislam_app/features/publications/data/datasources/publication_remote_data_source.dart';
 import 'package:tatislam_app/features/publications/data/models/publication_model.dart';
@@ -42,9 +41,7 @@ class PublicationRepositoryImpl implements PublicationRepository {
 
   @override
   Future<PublicationDetail> getPublicationDetail(String id) async {
-    debugPrint('PublicationRepositoryImpl.getPublicationDetail: called with id="$id"');
     final row = await _remote.getPublicationDetail(id);
-    debugPrint('PublicationRepositoryImpl.getPublicationDetail: got row, publication.id="${row.publication.id}"');
     return PublicationDetail(
       publication: row.publication.toEntity(),
       blocks: row.blocks,
@@ -108,19 +105,21 @@ class PublicationRepositoryImpl implements PublicationRepository {
   Future<void> deletePublication(String id) async {
     final detail = await _remote.getPublicationDetail(id);
     await _remote.deletePublication(id);
-    await _storage.delete([
-      ..._storagePathsIn(detail.blocks),
-    ]);
+    await _storage.delete([..._storagePathsIn(detail.blocks)]);
   }
 
   @override
-  Future<void> replaceBlocks(String publicationId, List<ContentBlock> blocks) async {
+  Future<void> replaceBlocks(
+    String publicationId,
+    List<ContentBlock> blocks,
+  ) async {
     final previous = await _remote.getPublicationDetail(publicationId);
     await _remote.replaceBlocks(publicationId, blocks);
 
     final keptPaths = _storagePathsIn(blocks).toSet();
-    final removedPaths =
-        _storagePathsIn(previous.blocks).where((path) => !keptPaths.contains(path)).toList();
+    final removedPaths = _storagePathsIn(
+      previous.blocks,
+    ).where((path) => !keptPaths.contains(path)).toList();
     if (removedPaths.isNotEmpty) {
       await _storage.delete(removedPaths);
     }
@@ -138,7 +137,10 @@ class PublicationRepositoryImpl implements PublicationRepository {
       switch (block) {
         case ImageContentBlock(imagePath: final path):
           return [path];
-        case AudioContentBlock(source: AudioSourceType.upload, audioPath: final path?):
+        case AudioContentBlock(
+          source: AudioSourceType.upload,
+          audioPath: final path?,
+        ):
           return [path];
         default:
           return const <String>[];

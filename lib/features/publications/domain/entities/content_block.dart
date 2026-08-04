@@ -37,7 +37,8 @@ class TextContentBlock extends ContentBlock {
     required this.text,
   });
 
-  TextContentBlock copyWith({String? text, int? orderIndex}) => TextContentBlock(
+  TextContentBlock copyWith({String? text, int? orderIndex}) =>
+      TextContentBlock(
         id: id,
         publicationId: publicationId,
         orderIndex: orderIndex ?? this.orderIndex,
@@ -60,10 +61,7 @@ class ImageContentBlock extends ContentBlock {
     required this.imagePath,
   });
 
-  ImageContentBlock copyWith({
-    String? imagePath,
-    int? orderIndex,
-  }) =>
+  ImageContentBlock copyWith({String? imagePath, int? orderIndex}) =>
       ImageContentBlock(
         id: id,
         publicationId: publicationId,
@@ -92,14 +90,13 @@ class VideoContentBlock extends ContentBlock {
     String? url,
     VideoProviderType? provider,
     int? orderIndex,
-  }) =>
-      VideoContentBlock(
-        id: id,
-        publicationId: publicationId,
-        orderIndex: orderIndex ?? this.orderIndex,
-        url: url ?? this.url,
-        provider: provider ?? this.provider,
-      );
+  }) => VideoContentBlock(
+    id: id,
+    publicationId: publicationId,
+    orderIndex: orderIndex ?? this.orderIndex,
+    url: url ?? this.url,
+    provider: provider ?? this.provider,
+  );
 
   @override
   List<Object?> get props => [...super.props, url, provider];
@@ -128,15 +125,14 @@ class AudioContentBlock extends ContentBlock {
     String? audioPath,
     String? audioUrl,
     int? orderIndex,
-  }) =>
-      AudioContentBlock(
-        id: id,
-        publicationId: publicationId,
-        orderIndex: orderIndex ?? this.orderIndex,
-        source: source ?? this.source,
-        audioPath: audioPath ?? this.audioPath,
-        audioUrl: audioUrl ?? this.audioUrl,
-      );
+  }) => AudioContentBlock(
+    id: id,
+    publicationId: publicationId,
+    orderIndex: orderIndex ?? this.orderIndex,
+    source: source ?? this.source,
+    audioPath: audioPath ?? this.audioPath,
+    audioUrl: audioUrl ?? this.audioUrl,
+  );
 
   @override
   List<Object?> get props => [...super.props, source, audioPath, audioUrl];

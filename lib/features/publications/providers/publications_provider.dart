@@ -3,12 +3,16 @@ import 'package:tatislam_app/features/publications/data/publication_providers.da
 import 'package:tatislam_app/features/publications/domain/entities/publication_detail.dart';
 
 /// Provider for getting publication detail — network-only.
-final publicationDetailProvider = FutureProvider.family<PublicationDetail?, String>((ref, publicationId) async {
-  try {
-    final repository = ref.watch(publicationRepositoryProvider);
-    final detail = await repository.getPublicationDetail(publicationId);
-    return detail;
-  } catch (_) {
-    return null;
-  }
-});
+final publicationDetailProvider =
+    FutureProvider.family<PublicationDetail?, String>((
+      ref,
+      publicationId,
+    ) async {
+      try {
+        final repository = ref.watch(publicationRepositoryProvider);
+        final detail = await repository.getPublicationDetail(publicationId);
+        return detail;
+      } catch (_) {
+        return null;
+      }
+    });

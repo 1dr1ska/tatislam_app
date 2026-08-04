@@ -9,7 +9,10 @@ final favoritesProvider = FutureProvider<List<Publication>>((ref) async {
 });
 
 /// Provider for checking if a publication is favorite
-final favoritesIsFavoriteProvider = Provider.family<bool, String>((ref, publicationId) {
+final favoritesIsFavoriteProvider = Provider.family<bool, String>((
+  ref,
+  publicationId,
+) {
   final asyncValue = ref.watch(favoritesProvider);
 
   return asyncValue.when(
@@ -30,9 +33,10 @@ final refreshFavoritesProvider = Provider<Future<void> Function()>((ref) {
 });
 
 /// Provider for toggling favorite status
-final toggleFavoriteProvider = Provider<Future<bool> Function(String publicationId)>((ref) {
-  return (publicationId) async {
-    final repository = ref.watch(favoritesRepositoryProvider);
-    return await repository.toggleFavorite(publicationId);
-  };
-});
+final toggleFavoriteProvider =
+    Provider<Future<bool> Function(String publicationId)>((ref) {
+      return (publicationId) async {
+        final repository = ref.watch(favoritesRepositoryProvider);
+        return await repository.toggleFavorite(publicationId);
+      };
+    });

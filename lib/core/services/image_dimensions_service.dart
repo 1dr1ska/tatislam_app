@@ -29,19 +29,18 @@ class ImageDimensionsService {
     final inFlight = _inflight[key];
     if (inFlight != null) return inFlight;
 
-    final future = _doResolve(provider, timeout).then((size) {
-      if (size != null) _cache[key] = size;
-      return size;
-    }).whenComplete(() => _inflight.remove(key));
+    final future = _doResolve(provider, timeout)
+        .then((size) {
+          if (size != null) _cache[key] = size;
+          return size;
+        })
+        .whenComplete(() => _inflight.remove(key));
 
     _inflight[key] = future;
     return future;
   }
 
-  Future<Size?> _doResolve(
-    ImageProvider provider,
-    Duration timeout,
-  ) async {
+  Future<Size?> _doResolve(ImageProvider provider, Duration timeout) async {
     final completer = Completer<Size?>();
     late final ImageStream stream;
     late final ImageStreamListener listener;
@@ -54,10 +53,7 @@ class ImageDimensionsService {
       (ImageInfo info, bool synchronousCall) {
         if (!completer.isCompleted) {
           completer.complete(
-            Size(
-              info.image.width.toDouble(),
-              info.image.height.toDouble(),
-            ),
+            Size(info.image.width.toDouble(), info.image.height.toDouble()),
           );
         }
         // The decoded image is no longer needed — only its dimensions were.
@@ -74,10 +70,7 @@ class ImageDimensionsService {
     stream.addListener(listener);
 
     // Safety net: never block the UI forever if the image cannot be loaded.
-    await Future.any([
-      completer.future,
-      Future<void>.delayed(timeout),
-    ]);
+    await Future.any([completer.future, Future<void>.delayed(timeout)]);
     if (!completer.isCompleted) {
       completer.complete(null);
       cleanup();

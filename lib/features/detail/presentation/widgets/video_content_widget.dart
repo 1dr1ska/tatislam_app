@@ -171,18 +171,29 @@ class _VideoContentWidgetState extends ConsumerState<VideoContentWidget> {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Icon(Icons.play_circle_fill, size: 56, color: Color(0xFFD4A843)),
+                    const Icon(
+                      Icons.play_circle_fill,
+                      size: 56,
+                      color: Color(0xFFD4A843),
+                    ),
                     const SizedBox(height: 12),
                     const Text(
                       'Видео на Rutube',
-                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFFD4A843)),
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFFD4A843),
+                      ),
                     ),
                     const SizedBox(height: 8),
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       child: Text(
                         widget.block.url,
-                        style: const TextStyle(fontSize: 11, color: Color(0xFF2D2D44)),
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: Color(0xFF2D2D44),
+                        ),
                         textAlign: TextAlign.center,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
@@ -219,11 +230,19 @@ class _VideoContentWidgetState extends ConsumerState<VideoContentWidget> {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Icon(Icons.play_circle_fill, size: 56, color: Color(0xFFD4A843)),
+                    const Icon(
+                      Icons.play_circle_fill,
+                      size: 56,
+                      color: Color(0xFFD4A843),
+                    ),
                     const SizedBox(height: 12),
                     const Text(
                       'Видео',
-                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFFD4A843)),
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFFD4A843),
+                      ),
                     ),
                     const SizedBox(height: 12),
                     ElevatedButton(
@@ -255,7 +274,9 @@ class _VideoContentWidgetState extends ConsumerState<VideoContentWidget> {
               const SizedBox(height: 16),
               Text(
                 'Видео недоступно',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.grey),
+                style: Theme.of(
+                  context,
+                ).textTheme.titleMedium?.copyWith(color: Colors.grey),
               ),
             ],
           ),
@@ -280,9 +301,9 @@ class _VideoContentWidgetState extends ConsumerState<VideoContentWidget> {
       }
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Ошибка при открытии URL: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Ошибка при открытии URL: $e')));
       }
     }
   }

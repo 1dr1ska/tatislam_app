@@ -10,10 +10,12 @@ class SectionsManagementScreen extends ConsumerStatefulWidget {
   const SectionsManagementScreen({super.key});
 
   @override
-  ConsumerState<SectionsManagementScreen> createState() => _SectionsManagementScreenState();
+  ConsumerState<SectionsManagementScreen> createState() =>
+      _SectionsManagementScreenState();
 }
 
-class _SectionsManagementScreenState extends ConsumerState<SectionsManagementScreen> {
+class _SectionsManagementScreenState
+    extends ConsumerState<SectionsManagementScreen> {
   late Future<List<Section>> _sectionsFuture;
 
   @override
@@ -34,7 +36,9 @@ class _SectionsManagementScreenState extends ConsumerState<SectionsManagementScr
   }
 
   Future<void> _renameSection(Section section) async {
-    final result = await context.push<bool>('/admin/sections/${section.id}/edit');
+    final result = await context.push<bool>(
+      '/admin/sections/${section.id}/edit',
+    );
     if (result == true && mounted) {
       _refreshSections();
     }
@@ -45,7 +49,7 @@ class _SectionsManagementScreenState extends ConsumerState<SectionsManagementScr
       final repository = ref.read(sectionRepositoryProvider);
       await repository.setVisibility(section.id, isVisible);
       await _refreshSections();
-      
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Раздел ${isVisible ? 'показан' : 'скрыт'}')),
@@ -76,11 +80,11 @@ class _SectionsManagementScreenState extends ConsumerState<SectionsManagementScr
         final repository = ref.read(sectionRepositoryProvider);
         await repository.deleteSection(section.id);
         await _refreshSections();
-        
+
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Раздел удален')),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('Раздел удален')));
         }
       } catch (e) {
         if (mounted) {
@@ -96,7 +100,9 @@ class _SectionsManagementScreenState extends ConsumerState<SectionsManagementScr
   Future<bool> _checkSectionHasPublications(String sectionId) async {
     try {
       final repository = ref.read(publicationRepositoryProvider);
-      final publications = await repository.getPublications(includeAllStatuses: true);
+      final publications = await repository.getPublications(
+        includeAllStatuses: true,
+      );
       return publications.any((pub) => pub.primarySectionId == sectionId);
     } catch (_) {
       // If we can't check (e.g. network error), assume safe to proceed
@@ -132,25 +138,28 @@ class _SectionsManagementScreenState extends ConsumerState<SectionsManagementScr
 
   Future<bool> _showDeleteConfirmationDialog(String sectionName) async {
     return await showDialog<bool>(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('Удалить раздел'),
-          content: Text('Вы уверены, что хотите удалить раздел "$sectionName"?'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Отмена'),
-            ),
-            ElevatedButton(
-              onPressed: () => Navigator.pop(context, true),
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-              child: const Text('Удалить'),
-            ),
-          ],
-        );
-      },
-    ) ?? false;
+          context: context,
+          builder: (context) {
+            return AlertDialog(
+              title: const Text('Удалить раздел'),
+              content: Text(
+                'Вы уверены, что хотите удалить раздел "$sectionName"?',
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context, false),
+                  child: const Text('Отмена'),
+                ),
+                ElevatedButton(
+                  onPressed: () => Navigator.pop(context, true),
+                  style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                  child: const Text('Удалить'),
+                ),
+              ],
+            );
+          },
+        ) ??
+        false;
   }
 
   Future<void> _moveSectionUp(Section section) async {
@@ -158,11 +167,11 @@ class _SectionsManagementScreenState extends ConsumerState<SectionsManagementScr
       final repository = ref.read(sectionRepositoryProvider);
       await repository.moveSectionUp(section);
       await _refreshSections();
-      
+
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Раздел перемещен вверх')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Раздел перемещен вверх')));
       }
     } catch (e) {
       if (mounted) {
@@ -178,11 +187,11 @@ class _SectionsManagementScreenState extends ConsumerState<SectionsManagementScr
       final repository = ref.read(sectionRepositoryProvider);
       await repository.moveSectionDown(section);
       await _refreshSections();
-      
+
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Раздел перемещен вниз')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Раздел перемещен вниз')));
       }
     } catch (e) {
       if (mounted) {
@@ -229,7 +238,8 @@ class _SectionsManagementScreenState extends ConsumerState<SectionsManagementScr
                 SizedBox(height: 16),
                 Text('Разделы не найдены'),
                 SizedBox(height: 8),
-                Text('Нажмите + для создания нового раздела',
+                Text(
+                  'Нажмите + для создания нового раздела',
                   style: TextStyle(color: AppColors.textLight, fontSize: 13),
                 ),
               ],
@@ -238,7 +248,7 @@ class _SectionsManagementScreenState extends ConsumerState<SectionsManagementScr
         }
 
         final sections = snapshot.data!;
-        
+
         return RefreshIndicator(
           onRefresh: _refreshSections,
           child: ListView.builder(
@@ -282,7 +292,9 @@ class _SectionsManagementScreenState extends ConsumerState<SectionsManagementScr
                   height: 28,
                   child: IconButton(
                     icon: const Icon(Icons.keyboard_arrow_down, size: 18),
-                    onPressed: index < totalSections - 1 ? () => _moveSectionDown(section) : null,
+                    onPressed: index < totalSections - 1
+                        ? () => _moveSectionDown(section)
+                        : null,
                     padding: EdgeInsets.zero,
                     splashRadius: 14,
                   ),
@@ -337,7 +349,11 @@ class _SectionsManagementScreenState extends ConsumerState<SectionsManagementScr
               width: 36,
               height: 36,
               child: IconButton(
-                icon: const Icon(Icons.delete_outline, size: 18, color: Colors.red),
+                icon: const Icon(
+                  Icons.delete_outline,
+                  size: 18,
+                  color: Colors.red,
+                ),
                 onPressed: () => _deleteSection(section),
                 padding: EdgeInsets.zero,
                 splashRadius: 18,

@@ -42,6 +42,8 @@ final mainPublicationsProvider = FutureProvider<List<Publication>>((ref) async {
 
 /// Filtered publications — kept for API compatibility, simply returns
 /// [mainPublicationsProvider] since offline filter is removed.
-final filteredPublicationsProvider = Provider<AsyncValue<List<Publication>>>((ref) {
+final filteredPublicationsProvider = Provider<AsyncValue<List<Publication>>>((
+  ref,
+) {
   return ref.watch(mainPublicationsProvider);
 });

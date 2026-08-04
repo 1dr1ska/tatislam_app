@@ -11,10 +11,12 @@ class PublicationsListScreen extends ConsumerStatefulWidget {
   const PublicationsListScreen({super.key});
 
   @override
-  ConsumerState<PublicationsListScreen> createState() => _PublicationsListScreenState();
+  ConsumerState<PublicationsListScreen> createState() =>
+      _PublicationsListScreenState();
 }
 
-class _PublicationsListScreenState extends ConsumerState<PublicationsListScreen> {
+class _PublicationsListScreenState
+    extends ConsumerState<PublicationsListScreen> {
   late Future<List<Publication>> _publicationsFuture;
   String _searchQuery = '';
   final String _sortBy = 'publishedAt';
@@ -39,7 +41,10 @@ class _PublicationsListScreenState extends ConsumerState<PublicationsListScreen>
   Future<List<Publication>> _loadPublications() async {
     final repository = ref.read(publicationRepositoryProvider);
     if (_searchQuery.trim().isNotEmpty) {
-      return repository.getPublications(searchQuery: _searchQuery.trim(), includeAllStatuses: true);
+      return repository.getPublications(
+        searchQuery: _searchQuery.trim(),
+        includeAllStatuses: true,
+      );
     }
     return repository.getPublications(includeAllStatuses: true);
   }
@@ -75,7 +80,10 @@ class _PublicationsListScreenState extends ConsumerState<PublicationsListScreen>
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10),
               ),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 10,
+              ),
               filled: true,
               fillColor: Colors.white,
             ),
@@ -114,7 +122,11 @@ class _PublicationsListScreenState extends ConsumerState<PublicationsListScreen>
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.article_outlined, size: 64, color: AppColors.articleColor),
+                      Icon(
+                        Icons.article_outlined,
+                        size: 64,
+                        color: AppColors.articleColor,
+                      ),
                       SizedBox(height: 16),
                       Text('Публикации не найдены'),
                     ],
@@ -186,12 +198,13 @@ class _PublicationsListScreenState extends ConsumerState<PublicationsListScreen>
                           width: 40,
                           height: 40,
                           fit: BoxFit.contain,
-                          errorBuilder: (context, error, stackTrace) =>
-                              Icon(typeInfo.icon,
-                                  color: typeInfo.color, size: 36),
+                          errorBuilder: (context, error, stackTrace) => Icon(
+                            typeInfo.icon,
+                            color: typeInfo.color,
+                            size: 36,
+                          ),
                         )
-                      : Icon(typeInfo.icon,
-                          color: typeInfo.color, size: 36),
+                      : Icon(typeInfo.icon, color: typeInfo.color, size: 36),
                   const SizedBox(width: 12),
                   // Title
                   Expanded(
@@ -209,7 +222,9 @@ class _PublicationsListScreenState extends ConsumerState<PublicationsListScreen>
                   PopupMenuButton<String>(
                     onSelected: (value) {
                       if (value == 'edit') {
-                        context.push('/admin/publications/${publication.id}/edit');
+                        context.push(
+                          '/admin/publications/${publication.id}/edit',
+                        );
                       } else if (value == 'delete') {
                         _confirmDelete(context, publication);
                       }
@@ -224,7 +239,11 @@ class _PublicationsListScreenState extends ConsumerState<PublicationsListScreen>
                         child: Text('Удалить'),
                       ),
                     ],
-                    icon: const Icon(Icons.more_vert, size: 18, color: AppColors.textSecondary),
+                    icon: const Icon(
+                      Icons.more_vert,
+                      size: 18,
+                      color: AppColors.textSecondary,
+                    ),
                     padding: EdgeInsets.zero,
                   ),
                 ],
@@ -235,7 +254,10 @@ class _PublicationsListScreenState extends ConsumerState<PublicationsListScreen>
                 children: [
                   // Status badge
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 2,
+                    ),
                     decoration: BoxDecoration(
                       color: statusInfo.color.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(4),
@@ -243,7 +265,11 @@ class _PublicationsListScreenState extends ConsumerState<PublicationsListScreen>
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(statusInfo.icon, size: 10, color: statusInfo.color),
+                        Icon(
+                          statusInfo.icon,
+                          size: 10,
+                          color: statusInfo.color,
+                        ),
                         const SizedBox(width: 3),
                         Text(
                           statusInfo.label,
@@ -292,7 +318,11 @@ class _PublicationsListScreenState extends ConsumerState<PublicationsListScreen>
       case 'draft':
         return _StatusInfo(Icons.edit_note, Colors.grey, 'Черновик');
       case 'published':
-        return _StatusInfo(Icons.check_circle, AppColors.islamGreen, 'Опубликовано');
+        return _StatusInfo(
+          Icons.check_circle,
+          AppColors.islamGreen,
+          'Опубликовано',
+        );
       default:
         return _StatusInfo(Icons.edit_note, Colors.grey, status);
     }
@@ -326,22 +356,25 @@ class _PublicationsListScreenState extends ConsumerState<PublicationsListScreen>
     );
   }
 
-  Future<void> _deletePublication(BuildContext context, Publication publication) async {
+  Future<void> _deletePublication(
+    BuildContext context,
+    Publication publication,
+  ) async {
     try {
       final repository = ref.read(publicationRepositoryProvider);
       await repository.deletePublication(publication.id);
       _refreshPublications();
-      
+
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Публикация удалена')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Публикация удалена')));
       }
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Ошибка удаления: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Ошибка удаления: $e')));
       }
     }
   }

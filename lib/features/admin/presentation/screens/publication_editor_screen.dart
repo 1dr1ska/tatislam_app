@@ -168,9 +168,7 @@ class _PublicationEditorScreenState
   }
 
   Future<void> _pickBlockAudio(String blockId) async {
-    final result = await FilePicker.platform.pickFiles(
-      type: FileType.audio,
-    );
+    final result = await FilePicker.platform.pickFiles(type: FileType.audio);
 
     if (result != null && result.files.single.path != null) {
       setState(() {
@@ -181,7 +179,9 @@ class _PublicationEditorScreenState
   }
 
   Future<String> _uploadBlockImage(
-      String blockId, String currentImagePath) async {
+    String blockId,
+    String currentImagePath,
+  ) async {
     final selectedImageFile = _selectedBlockImageFiles[blockId];
 
     if (selectedImageFile == null) {
@@ -203,8 +203,10 @@ class _PublicationEditorScreenState
       final extension = result.fileName.split('.').last;
 
       final path = StoragePaths.blockImage(
-          widget.publicationId ?? _uuid.v4(), extension,
-          blockId: blockId);
+        widget.publicationId ?? _uuid.v4(),
+        extension,
+        blockId: blockId,
+      );
 
       final s3Key = await storageRepository.upload(path, bytes);
 
@@ -223,7 +225,9 @@ class _PublicationEditorScreenState
   }
 
   Future<String> _uploadBlockAudio(
-      String blockId, String currentAudioPath) async {
+    String blockId,
+    String currentAudioPath,
+  ) async {
     final selectedAudioFile = _selectedBlockAudioFiles[blockId];
 
     if (selectedAudioFile == null) {
@@ -234,8 +238,10 @@ class _PublicationEditorScreenState
       final storageRepository = ref.read(mediaStorageRepositoryProvider);
       final extension = selectedAudioFile.path.split('.').last;
       final path = StoragePaths.blockAudio(
-          widget.publicationId ?? _uuid.v4(), extension,
-          blockId: blockId);
+        widget.publicationId ?? _uuid.v4(),
+        extension,
+        blockId: blockId,
+      );
 
       final bytes = await selectedAudioFile.readAsBytes();
       final s3Key = await storageRepository.upload(path, bytes);
@@ -255,7 +261,8 @@ class _PublicationEditorScreenState
   }
 
   Future<List<ContentBlock>> _updateBlocksWithImagePaths(
-      String publicationId) async {
+    String publicationId,
+  ) async {
     final updatedBlocks = <ContentBlock>[];
 
     _totalFileCount = 0;
@@ -272,15 +279,16 @@ class _PublicationEditorScreenState
 
     for (final block in _contentBlocks) {
       if (block is ImageContentBlock) {
-        final imagePath =
-            await _uploadBlockImage(block.id, block.imagePath);
+        final imagePath = await _uploadBlockImage(block.id, block.imagePath);
         final updatedBlock = block.copyWith(imagePath: imagePath);
         updatedBlocks.add(updatedBlock);
         _uploadedFileCount++;
         _updateSaveStep();
       } else if (block is AudioContentBlock) {
-        final audioPath =
-            await _uploadBlockAudio(block.id, block.audioPath ?? '');
+        final audioPath = await _uploadBlockAudio(
+          block.id,
+          block.audioPath ?? '',
+        );
         final updatedBlock = block.copyWith(audioPath: audioPath);
         updatedBlocks.add(updatedBlock);
         _uploadedFileCount++;
@@ -324,7 +332,9 @@ class _PublicationEditorScreenState
   /// Auto-fills date when first publishing if no date is set.
   /// Does NOT modify already-published publications.
   void _ensureDateOnPublish() {
-    if (_status == 'published' && _publishedAt == null && _initialStatus != 'published') {
+    if (_status == 'published' &&
+        _publishedAt == null &&
+        _initialStatus != 'published') {
       final now = DateTime.now();
       _publishedAt = now;
       _dateController.text = _formatDate(now);
@@ -341,7 +351,7 @@ class _PublicationEditorScreenState
         VideoContentBlock() => block.url.trim().isEmpty,
         AudioContentBlock() =>
           (block.audioPath == null || block.audioPath!.trim().isEmpty) &&
-          (block.audioUrl == null || block.audioUrl!.trim().isEmpty),
+              (block.audioUrl == null || block.audioUrl!.trim().isEmpty),
       };
     });
   }
@@ -367,9 +377,9 @@ class _PublicationEditorScreenState
       setState(() {
         _sectionValidationAttempted = true;
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Выберите основной раздел')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Выберите основной раздел')));
       return;
     }
 
@@ -403,15 +413,16 @@ class _PublicationEditorScreenState
           _currentSaveStep = _SaveStep.uploadingFiles;
         });
 
-        final updatedBlocks =
-            await _updateBlocksWithImagePaths(publication.id);
+        final updatedBlocks = await _updateBlocksWithImagePaths(publication.id);
 
         setState(() {
           _currentSaveStep = _SaveStep.savingSections;
         });
 
         await repository.setSections(
-            publication.id, _selectedSectionIds.toList());
+          publication.id,
+          _selectedSectionIds.toList(),
+        );
 
         setState(() {
           _currentSaveStep = _SaveStep.savingBlocks;
@@ -448,22 +459,22 @@ class _PublicationEditorScreenState
           _currentSaveStep = _SaveStep.uploadingFiles;
         });
 
-        final updatedBlocks =
-            await _updateBlocksWithImagePaths(publication.id);
+        final updatedBlocks = await _updateBlocksWithImagePaths(publication.id);
 
         setState(() {
           _currentSaveStep = _SaveStep.savingSections;
         });
 
         await repository.setSections(
-            widget.publicationId!, _selectedSectionIds.toList());
+          widget.publicationId!,
+          _selectedSectionIds.toList(),
+        );
 
         setState(() {
           _currentSaveStep = _SaveStep.savingBlocks;
         });
 
-        await repository.replaceBlocks(
-            widget.publicationId!, updatedBlocks);
+        await repository.replaceBlocks(widget.publicationId!, updatedBlocks);
 
         setState(() {
           _hasUnsavedChanges = false;
@@ -485,9 +496,9 @@ class _PublicationEditorScreenState
         _currentSaveStep = _SaveStep.error;
       });
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Ошибка сохранения: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Ошибка сохранения: $e')));
       }
     } finally {
       setState(() {
@@ -592,7 +603,9 @@ class _PublicationEditorScreenState
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Несохранённые изменения'),
-        content: const Text('У вас есть несохранённые изменения. Что вы хотите сделать?'),
+        content: const Text(
+          'У вас есть несохранённые изменения. Что вы хотите сделать?',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, 'cancel'),
@@ -651,7 +664,10 @@ class _PublicationEditorScreenState
             onPressed: _onBackPressed,
           ),
           title: Text(
-              widget.publicationId == null ? 'Новая публикация' : 'Редактировать публикацию'),
+            widget.publicationId == null
+                ? 'Новая публикация'
+                : 'Редактировать публикацию',
+          ),
           actions: [
             IconButton(
               icon: const Icon(Icons.save),
@@ -711,59 +727,79 @@ class _PublicationEditorScreenState
                                     if (snapshot.connectionState ==
                                         ConnectionState.waiting) {
                                       return const Padding(
-                                        padding: EdgeInsets.symmetric(vertical: 8),
+                                        padding: EdgeInsets.symmetric(
+                                          vertical: 8,
+                                        ),
                                         child: LinearProgressIndicator(),
                                       );
                                     }
 
                                     if (snapshot.hasError) {
                                       return Text(
-                                          'Ошибка загрузки разделов: ${snapshot.error}');
+                                        'Ошибка загрузки разделов: ${snapshot.error}',
+                                      );
                                     }
 
                                     if (!snapshot.hasData ||
                                         snapshot.data!.isEmpty) {
                                       return const Text(
-                                          'Нет доступных разделов');
+                                        'Нет доступных разделов',
+                                      );
                                     }
 
                                     final sections = snapshot.data!;
                                     return Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
                                         const Text(
                                           'Основной раздел (обязательно)',
                                           style: TextStyle(
-                                              fontSize: 14,
-                                              fontWeight: FontWeight.bold),
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.bold,
+                                          ),
                                         ),
                                         const SizedBox(height: 4),
                                         ...sections.map((section) {
-                                          final isPrimary = _primarySectionId == section.id;
+                                          final isPrimary =
+                                              _primarySectionId == section.id;
                                           return ListTile(
-                                            title: Text(section.name, style: const TextStyle(fontSize: 14)),
+                                            title: Text(
+                                              section.name,
+                                              style: const TextStyle(
+                                                fontSize: 14,
+                                              ),
+                                            ),
                                             leading: Icon(
                                               isPrimary
                                                   ? Icons.radio_button_checked
                                                   : Icons.radio_button_off,
-                                              color: isPrimary ? Colors.blue : AppColors.textLight,
+                                              color: isPrimary
+                                                  ? Colors.blue
+                                                  : AppColors.textLight,
                                               size: 20,
                                             ),
                                             onTap: () {
                                               setState(() {
                                                 _primarySectionId = section.id;
-                                                _selectedSectionIds.add(section.id);
-                                                _sectionValidationAttempted = false;
+                                                _selectedSectionIds.add(
+                                                  section.id,
+                                                );
+                                                _sectionValidationAttempted =
+                                                    false;
                                               });
                                               _markUnsaved();
                                             },
                                             contentPadding: EdgeInsets.zero,
                                             dense: true,
-                                            visualDensity: VisualDensity.compact,
+                                            visualDensity:
+                                                VisualDensity.compact,
                                           );
                                         }),
                                         if (_sectionValidationAttempted &&
-                                            (_primarySectionId == null || _primarySectionId!.isEmpty)) ...[
+                                            (_primarySectionId == null ||
+                                                _primarySectionId!
+                                                    .isEmpty)) ...[
                                           const SizedBox(height: 4),
                                           Text(
                                             'Выберите основной раздел',
@@ -785,40 +821,52 @@ class _PublicationEditorScreenState
                                     if (snapshot.connectionState ==
                                         ConnectionState.waiting) {
                                       return const Padding(
-                                        padding: EdgeInsets.symmetric(vertical: 8),
+                                        padding: EdgeInsets.symmetric(
+                                          vertical: 8,
+                                        ),
                                         child: LinearProgressIndicator(),
                                       );
                                     }
 
                                     if (snapshot.hasError) {
                                       return Text(
-                                          'Ошибка загрузки разделов: ${snapshot.error}');
+                                        'Ошибка загрузки разделов: ${snapshot.error}',
+                                      );
                                     }
 
                                     if (!snapshot.hasData ||
                                         snapshot.data!.isEmpty) {
                                       return const Text(
-                                          'Нет доступных разделов');
+                                        'Нет доступных разделов',
+                                      );
                                     }
 
                                     final sections = snapshot.data!;
                                     return Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
                                         const Text(
                                           'Дополнительные разделы',
                                           style: TextStyle(
-                                              fontSize: 14,
-                                              fontWeight: FontWeight.bold),
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.bold,
+                                          ),
                                         ),
                                         const SizedBox(height: 8),
                                         Wrap(
                                           spacing: 6.0,
                                           runSpacing: 6.0,
                                           children: sections.map((section) {
-                                            final isPrimary = section.id == _primarySectionId;
+                                            final isPrimary =
+                                                section.id == _primarySectionId;
                                             return FilterChip(
-                                              label: Text(section.name, style: const TextStyle(fontSize: 12)),
+                                              label: Text(
+                                                section.name,
+                                                style: const TextStyle(
+                                                  fontSize: 12,
+                                                ),
+                                              ),
                                               selected: _selectedSectionIds
                                                   .contains(section.id),
                                               onSelected: isPrimary
@@ -830,7 +878,9 @@ class _PublicationEditorScreenState
                                                               .add(section.id);
                                                         } else {
                                                           _selectedSectionIds
-                                                              .remove(section.id);
+                                                              .remove(
+                                                                section.id,
+                                                              );
                                                         }
                                                       });
                                                       _markUnsaved();
@@ -851,21 +901,27 @@ class _PublicationEditorScreenState
                                   ),
                                   items: const [
                                     DropdownMenuItem(
-                                        value: 'draft',
-                                        child: Text('Черновик')),
+                                      value: 'draft',
+                                      child: Text('Черновик'),
+                                    ),
                                     DropdownMenuItem(
-                                        value: 'published',
-                                        child: Text('Опубликовано')),
+                                      value: 'published',
+                                      child: Text('Опубликовано'),
+                                    ),
                                   ],
                                   onChanged: (value) {
                                     if (value != null) {
                                       setState(() {
                                         _status = value;
                                         // Auto-set date when first publishing
-                                        if (value == 'published' && _publishedAt == null && _initialStatus != 'published') {
+                                        if (value == 'published' &&
+                                            _publishedAt == null &&
+                                            _initialStatus != 'published') {
                                           final now = DateTime.now();
                                           _publishedAt = now;
-                                          _dateController.text = _formatDate(now);
+                                          _dateController.text = _formatDate(
+                                            now,
+                                          );
                                         }
                                       });
                                       _markUnsaved();
@@ -873,7 +929,8 @@ class _PublicationEditorScreenState
                                   },
                                 ),
                                 // Date field — hidden for new drafts, shown for published or when editing
-                                if (_status == 'published' || widget.publicationId != null) ...[
+                                if (_status == 'published' ||
+                                    widget.publicationId != null) ...[
                                   const SizedBox(height: 12),
                                   TextFormField(
                                     controller: _dateController,
@@ -917,13 +974,17 @@ class _PublicationEditorScreenState
                                     itemBuilder: (context, index) {
                                       final block = _contentBlocks[index];
                                       return _buildContentBlockWidget(
-                                          block, index);
+                                        block,
+                                        index,
+                                      );
                                     },
                                   ),
                                 const SizedBox(height: 8),
                                 const Divider(),
                                 Padding(
-                                  padding: const EdgeInsets.symmetric(vertical: 2),
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 2,
+                                  ),
                                   child: Text(
                                     'Добавить блок',
                                     style: TextStyle(
@@ -1084,7 +1145,8 @@ class _PublicationEditorScreenState
   }
 
   Widget _buildIconSelector() {
-    final showError = _iconValidationAttempted &&
+    final showError =
+        _iconValidationAttempted &&
         (_selectedIcon == null || _selectedIcon!.isEmpty);
 
     return Column(
@@ -1140,10 +1202,7 @@ class _PublicationEditorScreenState
           const SizedBox(height: 4),
           Text(
             'Выберите иконку',
-            style: TextStyle(
-              fontSize: 12,
-              color: Colors.red[700],
-            ),
+            style: TextStyle(fontSize: 12, color: Colors.red[700]),
           ),
         ],
       ],
@@ -1158,8 +1217,8 @@ class _PublicationEditorScreenState
       color: _currentSaveStep == _SaveStep.error
           ? Colors.red.shade50
           : _currentSaveStep == _SaveStep.done
-              ? Colors.green.shade50
-              : Colors.blue.shade50,
+          ? Colors.green.shade50
+          : Colors.blue.shade50,
       child: Row(
         children: [
           if (_currentSaveStep == _SaveStep.done)
@@ -1181,8 +1240,8 @@ class _PublicationEditorScreenState
                 color: _currentSaveStep == _SaveStep.error
                     ? Colors.red.shade800
                     : _currentSaveStep == _SaveStep.done
-                        ? Colors.green.shade800
-                        : Colors.blue.shade800,
+                    ? Colors.green.shade800
+                    : Colors.blue.shade800,
               ),
             ),
           ),
@@ -1232,7 +1291,9 @@ class _PublicationEditorScreenState
                 child: Icon(
                   Icons.keyboard_arrow_up,
                   size: 18,
-                  color: index > 0 ? AppColors.textSecondary : Colors.grey.shade300,
+                  color: index > 0
+                      ? AppColors.textSecondary
+                      : Colors.grey.shade300,
                 ),
               ),
             ),
@@ -1244,11 +1305,15 @@ class _PublicationEditorScreenState
               color: Colors.transparent,
               child: InkWell(
                 borderRadius: BorderRadius.circular(4),
-                onTap: index < _contentBlocks.length - 1 ? () => _moveBlockDown(index) : null,
+                onTap: index < _contentBlocks.length - 1
+                    ? () => _moveBlockDown(index)
+                    : null,
                 child: Icon(
                   Icons.keyboard_arrow_down,
                   size: 18,
-                  color: index < _contentBlocks.length - 1 ? AppColors.textSecondary : Colors.grey.shade300,
+                  color: index < _contentBlocks.length - 1
+                      ? AppColors.textSecondary
+                      : Colors.grey.shade300,
                 ),
               ),
             ),
@@ -1259,10 +1324,7 @@ class _PublicationEditorScreenState
           Expanded(
             child: Text(
               title,
-              style: const TextStyle(
-                fontWeight: FontWeight.w600,
-                fontSize: 13,
-              ),
+              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
               overflow: TextOverflow.ellipsis,
             ),
           ),
@@ -1272,7 +1334,9 @@ class _PublicationEditorScreenState
             height: 32,
             child: IconButton(
               icon: Icon(
-                isCollapsed ? Icons.keyboard_arrow_down : Icons.keyboard_arrow_up,
+                isCollapsed
+                    ? Icons.keyboard_arrow_down
+                    : Icons.keyboard_arrow_up,
                 size: 18,
                 color: AppColors.textSecondary,
               ),
@@ -1286,7 +1350,11 @@ class _PublicationEditorScreenState
             width: 32,
             height: 32,
             child: IconButton(
-              icon: const Icon(Icons.delete_outline, size: 18, color: Colors.red),
+              icon: const Icon(
+                Icons.delete_outline,
+                size: 18,
+                color: Colors.red,
+              ),
               onPressed: () => _removeBlock(index),
               padding: EdgeInsets.zero,
               splashRadius: 16,
@@ -1332,7 +1400,10 @@ class _PublicationEditorScreenState
                 decoration: const InputDecoration(
                   hintText: 'Введите текст...',
                   border: OutlineInputBorder(),
-                  contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  contentPadding: EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
                 ),
                 maxLines: 5,
                 minLines: 2,
@@ -1400,23 +1471,39 @@ class _PublicationEditorScreenState
                             child: ClipRRect(
                               borderRadius: BorderRadius.circular(6),
                               child: Container(
-                                constraints: const BoxConstraints(maxHeight: 200),
+                                constraints: const BoxConstraints(
+                                  maxHeight: 200,
+                                ),
                                 width: double.infinity,
                                 color: Colors.grey.shade100,
                                 child: hasLocalFile
                                     ? Image.file(
                                         localFile!,
                                         fit: BoxFit.contain,
-                                        errorBuilder: (context, error, stackTrace) =>
-                                            const Center(child: Icon(Icons.broken_image, size: 32)),
+                                        errorBuilder:
+                                            (context, error, stackTrace) =>
+                                                const Center(
+                                                  child: Icon(
+                                                    Icons.broken_image,
+                                                    size: 32,
+                                                  ),
+                                                ),
                                       )
                                     : Image.network(
                                         ref
-                                            .read(mediaStorageRepositoryProvider)
+                                            .read(
+                                              mediaStorageRepositoryProvider,
+                                            )
                                             .publicUrlFor(block.imagePath),
                                         fit: BoxFit.contain,
-                                        errorBuilder: (context, error, stackTrace) =>
-                                            const Center(child: Icon(Icons.broken_image, size: 32)),
+                                        errorBuilder:
+                                            (context, error, stackTrace) =>
+                                                const Center(
+                                                  child: Icon(
+                                                    Icons.broken_image,
+                                                    size: 32,
+                                                  ),
+                                                ),
                                       ),
                               ),
                             ),
@@ -1425,7 +1512,11 @@ class _PublicationEditorScreenState
                           Padding(
                             padding: const EdgeInsets.symmetric(vertical: 24),
                             child: Center(
-                              child: Icon(Icons.add_photo_alternate_outlined, size: 40, color: Colors.grey.shade400),
+                              child: Icon(
+                                Icons.add_photo_alternate_outlined,
+                                size: 40,
+                                color: Colors.grey.shade400,
+                              ),
                             ),
                           ),
                         // Select / Replace / Remove buttons
@@ -1449,31 +1540,51 @@ class _PublicationEditorScreenState
                                   style: const TextStyle(fontSize: 12),
                                 ),
                                 style: TextButton.styleFrom(
-                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 4,
+                                  ),
+                                  tapTargetSize:
+                                      MaterialTapTargetSize.shrinkWrap,
                                 ),
                               ),
-                              if (hasLocalFile || block.imagePath.isNotEmpty) ...[
+                              if (hasLocalFile ||
+                                  block.imagePath.isNotEmpty) ...[
                                 const SizedBox(width: 8),
                                 TextButton.icon(
                                   onPressed: () {
                                     setState(() {
                                       _selectedBlockImageFiles.remove(block.id);
-                                      final idx = _contentBlocks.indexWhere((b) => b.id == block.id);
+                                      final idx = _contentBlocks.indexWhere(
+                                        (b) => b.id == block.id,
+                                      );
                                       if (idx != -1) {
-                                        _contentBlocks[idx] = block.copyWith(imagePath: '');
+                                        _contentBlocks[idx] = block.copyWith(
+                                          imagePath: '',
+                                        );
                                       }
                                     });
                                     _markUnsaved();
                                   },
-                                  icon: const Icon(Icons.delete_outline, size: 16, color: Colors.red),
+                                  icon: const Icon(
+                                    Icons.delete_outline,
+                                    size: 16,
+                                    color: Colors.red,
+                                  ),
                                   label: const Text(
                                     'Удалить',
-                                    style: TextStyle(fontSize: 12, color: Colors.red),
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.red,
+                                    ),
                                   ),
                                   style: TextButton.styleFrom(
-                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 4,
+                                    ),
+                                    tapTargetSize:
+                                        MaterialTapTargetSize.shrinkWrap,
                                   ),
                                 ),
                               ],
@@ -1529,7 +1640,10 @@ class _PublicationEditorScreenState
                     decoration: const InputDecoration(
                       labelText: 'URL видео',
                       border: OutlineInputBorder(),
-                      contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      contentPadding: EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 10,
+                      ),
                     ),
                     onChanged: (value) {
                       setState(() {
@@ -1544,7 +1658,10 @@ class _PublicationEditorScreenState
                     decoration: const InputDecoration(
                       labelText: 'Платформа',
                       border: OutlineInputBorder(),
-                      contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      contentPadding: EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 10,
+                      ),
                     ),
                     items: const [
                       DropdownMenuItem(
@@ -1559,8 +1676,9 @@ class _PublicationEditorScreenState
                     onChanged: (value) {
                       if (value != null) {
                         setState(() {
-                          _contentBlocks[index] =
-                              block.copyWith(provider: value);
+                          _contentBlocks[index] = block.copyWith(
+                            provider: value,
+                          );
                         });
                         _markUnsaved();
                       }
@@ -1621,32 +1739,54 @@ class _PublicationEditorScreenState
                         if (selectedAudioFile != null) ...[
                           Row(
                             children: [
-                              const Icon(Icons.audiotrack, size: 20, color: Colors.orange),
+                              const Icon(
+                                Icons.audiotrack,
+                                size: 20,
+                                color: Colors.orange,
+                              ),
                               const SizedBox(width: 8),
                               Expanded(
                                 child: Text(
                                   selectedAudioFile.path.split('/').last,
-                                  style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 12),
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w500,
+                                    fontSize: 12,
+                                  ),
                                   overflow: TextOverflow.ellipsis,
                                 ),
                               ),
-                              const Icon(Icons.check_circle, color: Colors.green, size: 18),
+                              const Icon(
+                                Icons.check_circle,
+                                color: Colors.green,
+                                size: 18,
+                              ),
                             ],
                           ),
                           const SizedBox(height: 8),
                         ] else if (block.audioPath?.isNotEmpty ?? false) ...[
                           Row(
                             children: [
-                              const Icon(Icons.audiotrack, size: 20, color: Colors.orange),
+                              const Icon(
+                                Icons.audiotrack,
+                                size: 20,
+                                color: Colors.orange,
+                              ),
                               const SizedBox(width: 8),
                               Expanded(
                                 child: Text(
                                   block.audioPath!.split('/').last,
-                                  style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 12),
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w500,
+                                    fontSize: 12,
+                                  ),
                                   overflow: TextOverflow.ellipsis,
                                 ),
                               ),
-                              const Icon(Icons.check_circle, color: Colors.green, size: 18),
+                              const Icon(
+                                Icons.check_circle,
+                                color: Colors.green,
+                                size: 18,
+                              ),
                             ],
                           ),
                           const SizedBox(height: 8),
@@ -1658,34 +1798,57 @@ class _PublicationEditorScreenState
                               onPressed: () => _pickBlockAudio(block.id),
                               icon: const Icon(Icons.upload_file, size: 16),
                               label: Text(
-                                selectedAudioFile != null || (block.audioPath?.isNotEmpty ?? false)
+                                selectedAudioFile != null ||
+                                        (block.audioPath?.isNotEmpty ?? false)
                                     ? 'Заменить'
                                     : 'Выбрать файл',
                                 style: const TextStyle(fontSize: 12),
                               ),
                               style: TextButton.styleFrom(
-                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 4,
+                                ),
                                 tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                               ),
                             ),
-                            if (selectedAudioFile != null || (block.audioPath?.isNotEmpty ?? false)) ...[
+                            if (selectedAudioFile != null ||
+                                (block.audioPath?.isNotEmpty ?? false)) ...[
                               const SizedBox(width: 8),
                               TextButton.icon(
                                 onPressed: () {
                                   setState(() {
                                     _selectedBlockAudioFiles.remove(block.id);
-                                    final idx = _contentBlocks.indexWhere((b) => b.id == block.id);
+                                    final idx = _contentBlocks.indexWhere(
+                                      (b) => b.id == block.id,
+                                    );
                                     if (idx != -1) {
-                                      _contentBlocks[idx] = block.copyWith(audioPath: '');
+                                      _contentBlocks[idx] = block.copyWith(
+                                        audioPath: '',
+                                      );
                                     }
                                   });
                                   _markUnsaved();
                                 },
-                                icon: const Icon(Icons.delete_outline, size: 16, color: Colors.red),
-                                label: const Text('Удалить', style: TextStyle(fontSize: 12, color: Colors.red)),
+                                icon: const Icon(
+                                  Icons.delete_outline,
+                                  size: 16,
+                                  color: Colors.red,
+                                ),
+                                label: const Text(
+                                  'Удалить',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.red,
+                                  ),
+                                ),
                                 style: TextButton.styleFrom(
-                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 4,
+                                  ),
+                                  tapTargetSize:
+                                      MaterialTapTargetSize.shrinkWrap,
                                 ),
                               ),
                             ],

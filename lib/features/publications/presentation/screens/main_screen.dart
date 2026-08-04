@@ -112,9 +112,14 @@ class _MainScreenState extends ConsumerState<MainScreen> {
               preferredSize: const Size.fromHeight(kToolbarHeight),
               child: ClipRRect(
                 child: BackdropFilter(
-                  filter: ImageFilter.blur(sigmaX: _glassBlur, sigmaY: _glassBlur),
+                  filter: ImageFilter.blur(
+                    sigmaX: _glassBlur,
+                    sigmaY: _glassBlur,
+                  ),
                   child: AppBar(
-                    backgroundColor: Colors.white.withValues(alpha: _glassOpacity),
+                    backgroundColor: Colors.white.withValues(
+                      alpha: _glassOpacity,
+                    ),
                     titleSpacing: 0,
                     title: Row(
                       crossAxisAlignment: CrossAxisAlignment.center,
@@ -131,7 +136,9 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                               height: 36,
                               decoration: _glassBox(),
                               child: ClipRRect(
-                                borderRadius: BorderRadius.circular(_glassRadius - 1),
+                                borderRadius: BorderRadius.circular(
+                                  _glassRadius - 1,
+                                ),
                                 child: Image.asset(
                                   'assets/images/app_icon.png',
                                   fit: BoxFit.cover,
@@ -148,13 +155,23 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                             padding: const EdgeInsets.symmetric(horizontal: 4),
                             child: Container(
                               decoration: BoxDecoration(
-                                color: Colors.white.withValues(alpha: _glassOpacity),
-                                borderRadius: BorderRadius.circular(_glassRadius),
+                                color: Colors.white.withValues(
+                                  alpha: _glassOpacity,
+                                ),
+                                borderRadius: BorderRadius.circular(
+                                  _glassRadius,
+                                ),
                                 border: Border.all(
                                   color: _isSearchFocused
-                                      ? const Color(0xFFD4A843).withValues(alpha: 0.6)
-                                      : _glassBorderColor.withValues(alpha: _glassBorderOpacity),
-                                  width: _isSearchFocused ? 1.2 : _glassBorderWidth,
+                                      ? const Color(
+                                          0xFFD4A843,
+                                        ).withValues(alpha: 0.6)
+                                      : _glassBorderColor.withValues(
+                                          alpha: _glassBorderOpacity,
+                                        ),
+                                  width: _isSearchFocused
+                                      ? 1.2
+                                      : _glassBorderWidth,
                                 ),
                               ),
                               child: TextField(
@@ -162,25 +179,36 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                                 focusNode: _searchFocusNode,
                                 decoration: InputDecoration(
                                   hintText: 'Эзләү...',
-                                  hintStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                    color: Colors.white.withValues(alpha: 0.85),
-                                  ),
+                                  hintStyle: Theme.of(context)
+                                      .textTheme
+                                      .bodyMedium
+                                      ?.copyWith(
+                                        color: Colors.white.withValues(
+                                          alpha: 0.85,
+                                        ),
+                                      ),
                                   border: InputBorder.none,
                                   enabledBorder: InputBorder.none,
                                   focusedBorder: InputBorder.none,
                                   filled: false,
                                   fillColor: Colors.transparent,
-                                  contentPadding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                                  contentPadding: const EdgeInsets.symmetric(
+                                    vertical: 8,
+                                    horizontal: 12,
+                                  ),
                                   suffixIcon: _searchController.text.isNotEmpty
                                       ? IconButton(
-                                          icon: const Icon(Icons.clear, size: 18, color: Colors.white70),
+                                          icon: const Icon(
+                                            Icons.clear,
+                                            size: 18,
+                                            color: Colors.white70,
+                                          ),
                                           onPressed: _clearSearch,
                                         )
                                       : null,
                                 ),
-                                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                  color: const Color(0xFFF8F7F2),
-                                ),
+                                style: Theme.of(context).textTheme.bodyMedium
+                                    ?.copyWith(color: const Color(0xFFF8F7F2)),
                               ),
                             ),
                           ),
@@ -197,11 +225,17 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                           decoration: _glassBox(),
                           child: IconButton(
                             icon: Icon(
-                              showFavoritesOnly ? Icons.star : Icons.star_border,
-                              color: showFavoritesOnly ? Colors.amber : Colors.white.withValues(alpha: 0.85),
+                              showFavoritesOnly
+                                  ? Icons.star
+                                  : Icons.star_border,
+                              color: showFavoritesOnly
+                                  ? Colors.amber
+                                  : Colors.white.withValues(alpha: 0.85),
                               size: 20,
                             ),
-                            tooltip: showFavoritesOnly ? 'Барлык язмалар' : 'Сайланганнар',
+                            tooltip: showFavoritesOnly
+                                ? 'Барлык язмалар'
+                                : 'Сайланганнар',
                             onPressed: () {
                               ref.read(toggleFavoritesFilterProvider)();
                             },
@@ -258,8 +292,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     );
   }
 
-  Widget _buildSectionFilters(
-      WidgetRef ref, List<Section> sections) {
+  Widget _buildSectionFilters(WidgetRef ref, List<Section> sections) {
     final selectedSection = ref.watch(selectedSectionProvider);
     final textScale = ref.watch(textScaleProvider).scale;
     final scale = ResponsiveBreakpoints.glassScale(context);
@@ -288,19 +321,22 @@ class _MainScreenState extends ConsumerState<MainScreen> {
             horizontalPadding: chipHoriPad,
           ),
           const SizedBox(width: 8),
-          ...sections.map((section) => Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: _buildFilterChip(
-              label: section.name,
-              selected: selectedSection?.id == section.id,
-              onSelected: (selected) {
-                ref.read(selectedSectionProvider.notifier).state =
-                    selected ? section : null;
-              },
-              height: chipH,
-              horizontalPadding: chipHoriPad,
+          ...sections.map(
+            (section) => Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: _buildFilterChip(
+                label: section.name,
+                selected: selectedSection?.id == section.id,
+                onSelected: (selected) {
+                  ref.read(selectedSectionProvider.notifier).state = selected
+                      ? section
+                      : null;
+                },
+                height: chipH,
+                horizontalPadding: chipHoriPad,
+              ),
             ),
-          )),
+          ),
         ],
       ),
     );
@@ -323,7 +359,10 @@ class _MainScreenState extends ConsumerState<MainScreen> {
           child: BackdropFilter(
             filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
             child: Container(
-              padding: EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: 0),
+              padding: EdgeInsets.symmetric(
+                horizontal: horizontalPadding,
+                vertical: 0,
+              ),
               height: height,
               alignment: Alignment.center,
               decoration: BoxDecoration(
@@ -411,10 +450,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
           padding: const EdgeInsets.all(16),
           itemBuilder: (context, index) {
             final publication = publications[index];
-            return _PublicationCard(
-              publication: publication,
-              index: index,
-            );
+            return _PublicationCard(publication: publication, index: index);
           },
         );
       },
@@ -425,11 +461,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(
-                Icons.error_outline,
-                size: 64,
-                color: AppColors.error,
-              ),
+              const Icon(Icons.error_outline, size: 64, color: AppColors.error),
               const SizedBox(height: 16),
               Text(
                 hasLocalSections
@@ -456,10 +488,7 @@ class _PublicationCard extends ConsumerWidget {
   final Publication publication;
   final int index;
 
-  const _PublicationCard({
-    required this.publication,
-    required this.index,
-  });
+  const _PublicationCard({required this.publication, required this.index});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -484,13 +513,9 @@ class _PublicationCard extends ConsumerWidget {
       },
       child: _TapScale(
         onTap: () {
-          if (publication.type == 'admin') {
-            GoRouter.of(context).go('/login');
-          } else {
-            GoRouter.of(context).push(
-              '/publication/${publication.id}?source=catalog',
-            );
-          }
+          GoRouter.of(
+            context,
+          ).push('/publication/${publication.id}?source=catalog');
         },
         child: ClipRRect(
           borderRadius: BorderRadius.circular(12),
@@ -540,9 +565,7 @@ class _PublicationCard extends ConsumerWidget {
                           publication.title,
                           maxLines: 3,
                           overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context)
-                              .textTheme
-                              .titleMedium
+                          style: Theme.of(context).textTheme.titleMedium
                               ?.copyWith(
                                 color: const Color(0xFFFEFEF7),
                                 fontWeight: FontWeight.w500,
@@ -550,23 +573,20 @@ class _PublicationCard extends ConsumerWidget {
                         ),
                         SizedBox(height: titleDateSpacing),
                         Row(
-                          mainAxisAlignment:
-                              MainAxisAlignment.spaceBetween,
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Text(
                               formatRelativeDate(publication.publishedAt),
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .bodySmall
+                              style: Theme.of(context).textTheme.bodySmall
                                   ?.copyWith(
-                                    color:
-                                        Colors.white.withValues(alpha: 0.85),
+                                    color: Colors.white.withValues(alpha: 0.85),
                                   ),
                             ),
                             GestureDetector(
                               onTap: () async {
-                                final toggleFavorite =
-                                    ref.read(toggleFavoriteProvider);
+                                final toggleFavorite = ref.read(
+                                  toggleFavoriteProvider,
+                                );
                                 await toggleFavorite(publication.id);
                                 Future.microtask(() {
                                   ref.invalidate(favoritesProvider);
@@ -574,9 +594,7 @@ class _PublicationCard extends ConsumerWidget {
                                 });
                               },
                               child: Icon(
-                                isFavorite
-                                    ? Icons.star
-                                    : Icons.star_border,
+                                isFavorite ? Icons.star : Icons.star_border,
                                 color: isFavorite
                                     ? Colors.amber
                                     : Colors.white.withValues(alpha: 0.70),
@@ -609,7 +627,8 @@ class _TapScale extends StatefulWidget {
   State<_TapScale> createState() => _TapScaleState();
 }
 
-class _TapScaleState extends State<_TapScale> with SingleTickerProviderStateMixin {
+class _TapScaleState extends State<_TapScale>
+    with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _scale;
 
@@ -620,9 +639,10 @@ class _TapScaleState extends State<_TapScale> with SingleTickerProviderStateMixi
       duration: const Duration(milliseconds: 100),
       vsync: this,
     );
-    _scale = Tween(begin: 1.0, end: 0.98).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
-    );
+    _scale = Tween(
+      begin: 1.0,
+      end: 0.98,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
   }
 
   @override
@@ -640,10 +660,8 @@ class _TapScaleState extends State<_TapScale> with SingleTickerProviderStateMixi
       onTapCancel: () => _controller.reverse(),
       child: AnimatedBuilder(
         animation: _scale,
-        builder: (context, child) => Transform.scale(
-          scale: _scale.value,
-          child: child,
-        ),
+        builder: (context, child) =>
+            Transform.scale(scale: _scale.value, child: child),
         child: widget.child,
       ),
     );

@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' hide StorageException;
 import 'package:tatislam_app/core/constants/supabase_constants.dart';
 import 'package:tatislam_app/core/error/exceptions.dart';
@@ -33,97 +32,74 @@ class PublicationRemoteDataSource {
     String? type,
     int limit = 20,
     int offset = 0,
-    bool includeAllStatuses = false, // New parameter to include all statuses for admin
+    bool includeAllStatuses =
+        false, // New parameter to include all statuses for admin
   }) async {
     try {
-      debugPrint('PublicationRemoteDataSource: Starting to fetch publications from Supabase');
-      debugPrint('PublicationRemoteDataSource: sectionId=$sectionId, searchQuery=$searchQuery, type=$type, limit=$limit, offset=$offset, includeAllStatuses=$includeAllStatuses');
-      
-      // Check for special admin access keyword
-      if (searchQuery != null && searchQuery.trim().toLowerCase() == 'admin') {
-        // Return special admin publication
-        final adminPublication = PublicationModel(
-          id: 'admin_access',
-          title: 'Доступ к админке',
-          publishedAt: DateTime.now(),
-          createdAt: DateTime.now(),
-          updatedAt: DateTime.now(),
-          type: 'admin',
-          status: 'published',
-          primarySectionId: '',
-        );
-        return [adminPublication];
-      }
-      
       // If filtering by section, first get publication IDs for that section
       if (sectionId != null) {
         final sectionPublications = await _client
             .from(SupabaseTables.publicationSections)
             .select('publication_id')
             .eq('section_id', sectionId);
-        
+
         final publicationIds = sectionPublications
             .map((row) => row['publication_id'] as String)
             .toList();
-        
+
         if (publicationIds.isEmpty) {
           return [];
         }
-        
+
         var query = _client
             .from(SupabaseTables.publications)
             .select()
             .inFilter('id', publicationIds);
-        
+
         // Only filter by status if not including all statuses (for admin access)
         if (!includeAllStatuses) {
           query = query.eq('status', 'published');
         }
-        
+
         if (searchQuery != null && searchQuery.trim().isNotEmpty) {
           final escaped = searchQuery.trim().replaceAll(',', ' ');
           query = query.or('title.ilike.%$escaped%');
         }
-        
+
         if (type != null && type.isNotEmpty) {
           query = query.eq('type', type);
         }
-        
+
         final response = await query
             .order('published_at', ascending: false)
             .range(offset, offset + limit - 1);
-            
-        debugPrint('PublicationRemoteDataSource: Finished fetching publications from Supabase, count: ${response.length}');
-        
+
         return response.map((row) => PublicationModel.fromJson(row)).toList();
       } else {
         // No section filter, use regular query
         var query = _client.from(SupabaseTables.publications).select();
-        
+
         // Only filter by status if not including all statuses (for admin access)
         if (!includeAllStatuses) {
           query = query.eq('status', 'published');
         }
-        
+
         if (searchQuery != null && searchQuery.trim().isNotEmpty) {
           final escaped = searchQuery.trim().replaceAll(',', ' ');
           query = query.or('title.ilike.%$escaped%');
         }
-        
+
         if (type != null && type.isNotEmpty) {
           query = query.eq('type', type);
         }
-        
+
         final response = await query
             .order('published_at', ascending: false)
             .range(offset, offset + limit - 1);
-            
-        debugPrint('PublicationRemoteDataSource: Finished fetching publications from Supabase, count: ${response.length}');
-        
+
         return response.map((row) => PublicationModel.fromJson(row)).toList();
       }
     } catch (e) {
-      debugPrint('PublicationRemoteDataSource: Error fetching publications: $e');
       throw ServerException('Failed to load publications: $e');
     }
   }
@@ -143,14 +119,13 @@ class PublicationRemoteDataSource {
   }
 
   Future<PublicationDetailRow> getPublicationDetail(String id) async {
-    debugPrint('PublicationRemoteDataSource.getPublicationDetail: called with id="$id"');
     try {
-      debugPrint('PublicationRemoteDataSource.getPublicationDetail: querying publications table with eq("id", "$id")');
-      final publicationRow =
-          await _client.from(SupabaseTables.publications).select().eq('id', id).maybeSingle();
-      debugPrint('PublicationRemoteDataSource.getPublicationDetail: publicationRow=$publicationRow');
+      final publicationRow = await _client
+          .from(SupabaseTables.publications)
+          .select()
+          .eq('id', id)
+          .maybeSingle();
       if (publicationRow == null) {
-        debugPrint('PublicationRemoteDataSource.getPublicationDetail: NOT FOUND for id="$id"');
         throw NotFoundException('Publication "$id" not found');
       }
 
@@ -167,8 +142,12 @@ class PublicationRemoteDataSource {
 
       return PublicationDetailRow(
         publication: PublicationModel.fromJson(publicationRow),
-        blocks: blockRows.map((row) => ContentBlockModel.fromJson(row)).toList(),
-        sectionIds: sectionRows.map((row) => row['section_id'] as String).toList(),
+        blocks: blockRows
+            .map((row) => ContentBlockModel.fromJson(row))
+            .toList(),
+        sectionIds: sectionRows
+            .map((row) => row['section_id'] as String)
+            .toList(),
       );
     } on NotFoundException {
       rethrow;
@@ -190,7 +169,10 @@ class PublicationRemoteDataSource {
     }
   }
 
-  Future<PublicationModel> updatePublication(String id, PublicationModel model) async {
+  Future<PublicationModel> updatePublication(
+    String id,
+    PublicationModel model,
+  ) async {
     try {
       final row = await _client
           .from(SupabaseTables.publications)
@@ -215,7 +197,10 @@ class PublicationRemoteDataSource {
   /// Full replace: delete every existing block for [publicationId], then
   /// insert [blocks] as given. Nothing else references `content_blocks.id`,
   /// so this is safe and far simpler than diffing individual block edits.
-  Future<void> replaceBlocks(String publicationId, List<ContentBlock> blocks) async {
+  Future<void> replaceBlocks(
+    String publicationId,
+    List<ContentBlock> blocks,
+  ) async {
     try {
       await _client
           .from(SupabaseTables.contentBlocks)
@@ -233,7 +218,10 @@ class PublicationRemoteDataSource {
     }
   }
 
-  Future<void> setSections(String publicationId, List<String> sectionIds) async {
+  Future<void> setSections(
+    String publicationId,
+    List<String> sectionIds,
+  ) async {
     try {
       await _client
           .from(SupabaseTables.publicationSections)
@@ -243,7 +231,12 @@ class PublicationRemoteDataSource {
       if (sectionIds.isEmpty) return;
 
       final rows = sectionIds
-          .map((sectionId) => {'publication_id': publicationId, 'section_id': sectionId})
+          .map(
+            (sectionId) => {
+              'publication_id': publicationId,
+              'section_id': sectionId,
+            },
+          )
           .toList();
       await _client.from(SupabaseTables.publicationSections).insert(rows);
     } catch (e) {

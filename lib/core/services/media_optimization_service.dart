@@ -76,10 +76,12 @@ class MediaOptimizationService {
     final newWidth = (image.width * scale).round();
     final newHeight = (image.height * scale).round();
 
-    final resized = img.copyResize(image,
-        width: newWidth,
-        height: newHeight,
-        interpolation: img.Interpolation.cubic);
+    final resized = img.copyResize(
+      image,
+      width: newWidth,
+      height: newHeight,
+      interpolation: img.Interpolation.cubic,
+    );
 
     // 5. Сохраняем как JPEG с качеством 90
     final optimizedBytes = img.encodeJpg(resized, quality: _jpegQuality);

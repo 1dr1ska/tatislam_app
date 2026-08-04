@@ -13,7 +13,7 @@ import 'package:tatislam_app/features/detail/presentation/screens/publication_de
 import 'package:tatislam_app/features/publications/presentation/screens/main_screen.dart';
 
 /// App router configuration using go_router.
-/// 
+///
 /// Navigation structure:
 /// - `/` — MainScreen (single entry point: search + filters + publications grid)
 /// - `/about` — About screen (opened from logo tap)
@@ -58,7 +58,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             // Wait for the future to resolve before deciding
             return userAsync.when(
               data: (user) => (user?.isAdmin ?? false) ? null : '/login',
-              loading: () => null, // Don't redirect yet — wait for Supabase to restore session
+              loading: () =>
+                  null, // Don't redirect yet — wait for Supabase to restore session
               error: (error, stackTrace) => '/login',
             );
           } catch (e) {
@@ -99,10 +100,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/',
         name: 'main',
-        builder: (context, state) => const Material(
-          color: Color(0xFF1A1A2E),
-          child: MainScreen(),
-        ),
+        builder: (context, state) =>
+            const Material(color: Color(0xFF1A1A2E), child: MainScreen()),
       ),
       // About screen
       GoRoute(
@@ -130,7 +129,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           final catalogMode = state.uri.queryParameters['mode'];
           return CustomTransitionPage(
             key: state.pageKey,
-            opaque: false, // ← CRITICAL: prevents white background during transition
+            opaque:
+                false, // ← CRITICAL: prevents white background during transition
             transitionDuration: const Duration(milliseconds: 200),
             reverseTransitionDuration: const Duration(milliseconds: 150),
             child: PublicationDetailScreen(
@@ -139,12 +139,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               selectedSectionId: selectedSectionId,
               catalogMode: catalogMode,
             ),
-            transitionsBuilder: (context, animation, secondaryAnimation, child) {
-              return FadeTransition(
-                opacity: animation,
-                child: child,
-              );
-            },
+            transitionsBuilder:
+                (context, animation, secondaryAnimation, child) {
+                  return FadeTransition(opacity: animation, child: child);
+                },
           );
         },
       ),

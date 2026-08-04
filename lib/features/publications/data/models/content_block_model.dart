@@ -31,38 +31,38 @@ class ContentBlockModel {
 
     return switch (type) {
       _typeText => TextContentBlock(
-          id: id,
-          publicationId: publicationId,
-          orderIndex: orderIndex,
-          text: data['text'] as String? ?? '',
-        ),
+        id: id,
+        publicationId: publicationId,
+        orderIndex: orderIndex,
+        text: data['text'] as String? ?? '',
+      ),
       _typeImage => ImageContentBlock(
-          id: id,
-          publicationId: publicationId,
-          orderIndex: orderIndex,
-          imagePath: data['path'] as String? ?? '',
-        ),
+        id: id,
+        publicationId: publicationId,
+        orderIndex: orderIndex,
+        imagePath: data['path'] as String? ?? '',
+      ),
       _typeVideo => VideoContentBlock(
-          id: id,
-          publicationId: publicationId,
-          orderIndex: orderIndex,
-          url: data['url'] as String? ?? '',
-          provider: VideoProviderType.values.firstWhere(
-            (v) => v.name == data['provider'],
-            orElse: () => VideoProviderType.rutube,
-          ),
+        id: id,
+        publicationId: publicationId,
+        orderIndex: orderIndex,
+        url: data['url'] as String? ?? '',
+        provider: VideoProviderType.values.firstWhere(
+          (v) => v.name == data['provider'],
+          orElse: () => VideoProviderType.rutube,
         ),
+      ),
       _typeAudio => AudioContentBlock(
-          id: id,
-          publicationId: publicationId,
-          orderIndex: orderIndex,
-          source: AudioSourceType.values.firstWhere(
-            (v) => v.name == data['source'],
-            orElse: () => AudioSourceType.upload,
-          ),
-          audioPath: data['audio_path'] as String?,
-          audioUrl: data['audio_url'] as String?,
+        id: id,
+        publicationId: publicationId,
+        orderIndex: orderIndex,
+        source: AudioSourceType.values.firstWhere(
+          (v) => v.name == data['source'],
+          orElse: () => AudioSourceType.upload,
         ),
+        audioPath: data['audio_path'] as String?,
+        audioUrl: data['audio_url'] as String?,
+      ),
       _ => throw ArgumentError('Unknown content block type: $type'),
     };
   }
@@ -72,8 +72,10 @@ class ContentBlockModel {
     return switch (block) {
       TextContentBlock(text: final text) => {'text': text},
       ImageContentBlock(imagePath: final path) => {'path': path},
-      VideoContentBlock(url: final url, provider: final provider) =>
-        {'url': url, 'provider': provider.name},
+      VideoContentBlock(url: final url, provider: final provider) => {
+        'url': url,
+        'provider': provider.name,
+      },
       AudioContentBlock(
         source: final source,
         audioPath: final audioPath,
@@ -92,7 +94,9 @@ class ContentBlockModel {
   /// The `id` column is omitted so the DB auto-generates a UUID. The caller
   /// can upsert existing blocks (kept id) alongside new ones (fresh uuid).
   static Map<String, dynamic> toInsertJson(
-      ContentBlock block, String publicationId) {
+    ContentBlock block,
+    String publicationId,
+  ) {
     return {
       'publication_id': publicationId,
       'type': _typeOf(block),

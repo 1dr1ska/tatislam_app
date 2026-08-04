@@ -51,9 +51,9 @@ class _AboutScreenState extends ConsumerState<AboutScreen> {
 
     if (!launched) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(AppStrings.errorLoading)),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(AppStrings.errorLoading)));
       }
     }
   }
@@ -91,16 +91,15 @@ class _AboutScreenState extends ConsumerState<AboutScreen> {
               ),
             ),
           ),
-          body: SafeArea(
-            child: _buildBody(context, isAdmin),
-          ),
+          body: SafeArea(child: _buildBody(context, isAdmin)),
         ),
       ],
     );
   }
 
   Widget _buildBody(BuildContext context, bool isAdmin) {
-    final isLandscape = ResponsiveBreakpoints.isCompactLandscape(context) ||
+    final isLandscape =
+        ResponsiveBreakpoints.isCompactLandscape(context) ||
         ResponsiveBreakpoints.isTablet(context);
 
     if (isLandscape) {
@@ -114,7 +113,10 @@ class _AboutScreenState extends ConsumerState<AboutScreen> {
     final textScale = ref.watch(textScaleProvider);
     final scale = textScale.scale;
     // Increase vertical spacing when text is larger
-    final spacing = (_sectionSpacing * (1.0 + (scale - 1.0) * 0.5)).clamp(_sectionSpacing, 32.0);
+    final spacing = (_sectionSpacing * (1.0 + (scale - 1.0) * 0.5)).clamp(
+      _sectionSpacing,
+      32.0,
+    );
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Column(
@@ -143,7 +145,10 @@ class _AboutScreenState extends ConsumerState<AboutScreen> {
     final textScale = ref.watch(textScaleProvider);
     final scale = textScale.scale;
     // Increase vertical spacing when text is larger
-    final spacing = (_sectionSpacing * (1.0 + (scale - 1.0) * 0.5)).clamp(_sectionSpacing, 32.0);
+    final spacing = (_sectionSpacing * (1.0 + (scale - 1.0) * 0.5)).clamp(
+      _sectionSpacing,
+      32.0,
+    );
     return Center(
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 1100),
@@ -162,11 +167,7 @@ class _AboutScreenState extends ConsumerState<AboutScreen> {
                     flex: 1,
                     child: Padding(
                       padding: const EdgeInsets.only(top: 32),
-                      child: Column(
-                        children: [
-                          _buildLogoSection(isAdmin),
-                        ],
-                      ),
+                      child: Column(children: [_buildLogoSection(isAdmin)]),
                     ),
                   ),
                   const SizedBox(width: 24),
@@ -276,21 +277,39 @@ class _AboutScreenState extends ConsumerState<AboutScreen> {
         const SizedBox(height: 12),
         Row(
           children: [
-            Expanded(child: _buildFeatureCard(icon: Icons.headphones, label: 'Аудио')),
+            Expanded(
+              child: _buildFeatureCard(icon: Icons.headphones, label: 'Аудио'),
+            ),
             const SizedBox(width: 10),
-            Expanded(child: _buildFeatureCard(icon: Icons.play_circle_filled, label: 'Видео')),
+            Expanded(
+              child: _buildFeatureCard(
+                icon: Icons.play_circle_filled,
+                label: 'Видео',
+              ),
+            ),
             const SizedBox(width: 10),
-            Expanded(child: _buildFeatureCard(icon: Icons.article, label: 'Мәкаләләр')),
+            Expanded(
+              child: _buildFeatureCard(icon: Icons.article, label: 'Мәкаләләр'),
+            ),
           ],
         ),
         const SizedBox(height: 10),
         Row(
           children: [
-            Expanded(child: _buildFeatureCard(icon: Icons.search, label: 'Эзләү')),
+            Expanded(
+              child: _buildFeatureCard(icon: Icons.search, label: 'Эзләү'),
+            ),
             const SizedBox(width: 10),
-            Expanded(child: _buildFeatureCard(icon: Icons.star, label: 'Сайланганнар')),
+            Expanded(
+              child: _buildFeatureCard(icon: Icons.star, label: 'Сайланганнар'),
+            ),
             const SizedBox(width: 10),
-            Expanded(child: _buildFeatureCard(icon: Icons.filter_alt, label: 'Фильтрлар')),
+            Expanded(
+              child: _buildFeatureCard(
+                icon: Icons.filter_alt,
+                label: 'Фильтрлар',
+              ),
+            ),
           ],
         ),
       ],
@@ -311,19 +330,68 @@ class _AboutScreenState extends ConsumerState<AboutScreen> {
           ),
         ),
         const SizedBox(height: 12),
-        _buildLinkCard(item: const _LinkItem(icon: Icons.language, title: 'Безнең сайт', subtitle: 'tatislam.com', url: 'https://tatislam.com')),
+        _buildLinkCard(
+          item: const _LinkItem(
+            icon: Icons.language,
+            title: 'Безнең сайт',
+            subtitle: 'tatislam.com',
+            url: 'https://tatislam.com',
+          ),
+        ),
         const SizedBox(height: 10),
-        _buildLinkCard(item: const _LinkItem(icon: Icons.play_circle_filled, title: 'YouTube каналы', subtitle: 'youtube.com/channel/UCyoQBRnx-UU2gBPPFjU1hIw', url: 'https://www.youtube.com/channel/UCyoQBRnx-UU2gBPPFjU1hIw')),
+        _buildLinkCard(
+          item: const _LinkItem(
+            icon: Icons.play_circle_filled,
+            title: 'YouTube каналы',
+            subtitle: 'youtube.com/channel/UCyoQBRnx-UU2gBPPFjU1hIw',
+            url: 'https://www.youtube.com/channel/UCyoQBRnx-UU2gBPPFjU1hIw',
+          ),
+        ),
         const SizedBox(height: 10),
-        _buildLinkCard(item: const _LinkItem(icon: Icons.ondemand_video, title: 'RuTube каналы', subtitle: 'rutube.ru/channel/38324482', url: 'https://rutube.ru/channel/38324482')),
+        _buildLinkCard(
+          item: const _LinkItem(
+            icon: Icons.ondemand_video,
+            title: 'RuTube каналы',
+            subtitle: 'rutube.ru/channel/38324482',
+            url: 'https://rutube.ru/channel/38324482',
+          ),
+        ),
         const SizedBox(height: 10),
-        _buildLinkCard(item: const _LinkItem(icon: Icons.people_alt, title: 'ВКонтакте', subtitle: 'vk.com/tat_islam_com', url: 'https://vk.com/tat_islam_com')),
+        _buildLinkCard(
+          item: const _LinkItem(
+            icon: Icons.people_alt,
+            title: 'ВКонтакте',
+            subtitle: 'vk.com/tat_islam_com',
+            url: 'https://vk.com/tat_islam_com',
+          ),
+        ),
         const SizedBox(height: 10),
-        _buildLinkCard(item: const _LinkItem(icon: Icons.chat, title: 'Бип', subtitle: 'bip.ai/join/tatislam', url: 'https://bip.ai/join/tatislam')),
+        _buildLinkCard(
+          item: const _LinkItem(
+            icon: Icons.chat,
+            title: 'Бип',
+            subtitle: 'bip.ai/join/tatislam',
+            url: 'https://bip.ai/join/tatislam',
+          ),
+        ),
         const SizedBox(height: 10),
-        _buildLinkCard(item: const _LinkItem(icon: Icons.forum, title: 'Макс', subtitle: 'max.ru/join/W0hU3jNSKOSno', url: 'https://max.ru/join/W0hU3jNSKOSno')),
+        _buildLinkCard(
+          item: const _LinkItem(
+            icon: Icons.forum,
+            title: 'Макс',
+            subtitle: 'max.ru/join/W0hU3jNSKOSno',
+            url: 'https://max.ru/join/W0hU3jNSKOSno',
+          ),
+        ),
         const SizedBox(height: 10),
-        _buildLinkCard(item: const _LinkItem(icon: Icons.telegram, title: 'Telegram каналы', subtitle: 't.me/tatislam', url: 'https://t.me/tatislam')),
+        _buildLinkCard(
+          item: const _LinkItem(
+            icon: Icons.telegram,
+            title: 'Telegram каналы',
+            subtitle: 't.me/tatislam',
+            url: 'https://t.me/tatislam',
+          ),
+        ),
       ],
     );
   }
@@ -342,7 +410,15 @@ class _AboutScreenState extends ConsumerState<AboutScreen> {
           ),
         ),
         const SizedBox(height: 12),
-        _buildLinkCard(item: const _LinkItem(icon: Icons.email, title: 'Email', subtitle: 'faizr@inbox.ru', url: 'faizr@inbox.ru', isEmail: true)),
+        _buildLinkCard(
+          item: const _LinkItem(
+            icon: Icons.email,
+            title: 'Email',
+            subtitle: 'faizr@inbox.ru',
+            url: 'faizr@inbox.ru',
+            isEmail: true,
+          ),
+        ),
       ],
     );
   }
@@ -363,7 +439,10 @@ class _AboutScreenState extends ConsumerState<AboutScreen> {
   /// Builds a generic glassmorphism container.
   Widget _buildGlassCard({required Widget child}) {
     final scale = ref.watch(textScaleProvider).scale;
-    final padding = (_cardPadding * (1.0 + (scale - 1.0) * 0.5)).clamp(_cardPadding, 24.0);
+    final padding = (_cardPadding * (1.0 + (scale - 1.0) * 0.5)).clamp(
+      _cardPadding,
+      24.0,
+    );
     return ClipRRect(
       borderRadius: BorderRadius.circular(_glassRadius),
       child: BackdropFilter(
@@ -420,7 +499,8 @@ class _AboutScreenState extends ConsumerState<AboutScreen> {
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 8),
                   child: GestureDetector(
-                    onTap: () => ref.read(textScaleProvider.notifier).setScale(level),
+                    onTap: () =>
+                        ref.read(textScaleProvider.notifier).setScale(level),
                     child: Row(
                       children: [
                         Container(
@@ -452,7 +532,9 @@ class _AboutScreenState extends ConsumerState<AboutScreen> {
                         Text(
                           level.displayName,
                           style: TextStyle(
-                            color: const Color(0xFF1A1A2E).withValues(alpha: 0.85),
+                            color: const Color(
+                              0xFF1A1A2E,
+                            ).withValues(alpha: 0.85),
                             fontSize: (14 * scale).roundToDouble(),
                           ),
                         ),
@@ -469,10 +551,7 @@ class _AboutScreenState extends ConsumerState<AboutScreen> {
   }
 
   /// Builds a small feature card with a gold icon and label.
-  Widget _buildFeatureCard({
-    required IconData icon,
-    required String label,
-  }) {
+  Widget _buildFeatureCard({required IconData icon, required String label}) {
     final scale = ref.watch(textScaleProvider).scale;
     final vPadding = (14 * (1.0 + (scale - 1.0) * 0.5)).clamp(14.0, 20.0);
     return ClipRRect(
@@ -515,10 +594,8 @@ class _AboutScreenState extends ConsumerState<AboutScreen> {
     final scale = ref.watch(textScaleProvider).scale;
     final vPadding = (12 * (1.0 + (scale - 1.0) * 0.5)).clamp(12.0, 18.0);
     return GestureDetector(
-      onTap: () => _launchUrl(
-        context,
-        item.isEmail ? 'mailto:${item.url}' : item.url,
-      ),
+      onTap: () =>
+          _launchUrl(context, item.isEmail ? 'mailto:${item.url}' : item.url),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(12),
         child: BackdropFilter(

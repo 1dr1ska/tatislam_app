@@ -4,10 +4,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 class ImageViewerScreen extends StatelessWidget {
   final String imageUrl;
 
-  const ImageViewerScreen({
-    super.key,
-    required this.imageUrl,
-  });
+  const ImageViewerScreen({super.key, required this.imageUrl});
 
   @override
   Widget build(BuildContext context) {
@@ -25,7 +22,8 @@ class ImageViewerScreen extends StatelessWidget {
                 child: CachedNetworkImage(
                   imageUrl: imageUrl,
                   fit: BoxFit.contain,
-                  placeholder: (context, url) => const CircularProgressIndicator(),
+                  placeholder: (context, url) =>
+                      const CircularProgressIndicator(),
                   errorWidget: (context, url, error) => const Icon(
                     Icons.broken_image,
                     color: Colors.white,
@@ -34,21 +32,16 @@ class ImageViewerScreen extends StatelessWidget {
                 ),
               ),
             ),
-            
+
             // Close button
             Positioned(
               top: 16,
               right: 16,
               child: IconButton(
-                icon: const Icon(
-                  Icons.close,
-                  color: Colors.white,
-                  size: 32,
-                ),
+                icon: const Icon(Icons.close, color: Colors.white, size: 32),
                 onPressed: () => Navigator.of(context).pop(),
               ),
             ),
-            
           ],
         ),
       ),

@@ -18,11 +18,20 @@ class StoragePaths {
   static String cover(String publicationId, String extension) =>
       'covers/$publicationId.${_clean(extension)}';
 
-  static String blockImage(String publicationId, String extension, {String? blockId}) =>
+  static String blockImage(
+    String publicationId,
+    String extension, {
+    String? blockId,
+  }) =>
       'blocks/$publicationId/images/${blockId ?? _uuid.v4()}.${_clean(extension)}';
 
-  static String blockAudio(String publicationId, String extension, {String? blockId}) =>
+  static String blockAudio(
+    String publicationId,
+    String extension, {
+    String? blockId,
+  }) =>
       'blocks/$publicationId/audio/${blockId ?? _uuid.v4()}.${_clean(extension)}';
 
-  static String _clean(String extension) => extension.replaceFirst('.', '').toLowerCase();
+  static String _clean(String extension) =>
+      extension.replaceFirst('.', '').toLowerCase();
 }

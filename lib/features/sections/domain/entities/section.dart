@@ -45,5 +45,14 @@ class Section extends Equatable {
   }
 
   @override
-  List<Object?> get props => [id, name, slug, isVisible, sortOrder, createdAt, updatedAt, backgroundImage];
+  List<Object?> get props => [
+    id,
+    name,
+    slug,
+    isVisible,
+    sortOrder,
+    createdAt,
+    updatedAt,
+    backgroundImage,
+  ];
 }

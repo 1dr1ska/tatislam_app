@@ -9,7 +9,8 @@ class AdminDashboardScreen extends ConsumerStatefulWidget {
   const AdminDashboardScreen({super.key});
 
   @override
-  ConsumerState<AdminDashboardScreen> createState() => _AdminDashboardScreenState();
+  ConsumerState<AdminDashboardScreen> createState() =>
+      _AdminDashboardScreenState();
 }
 
 class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
@@ -37,9 +38,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
             context.go('/');
           },
         ),
-        title: Text(
-          _selectedIndex == 0 ? 'Публикации' : 'Разделы',
-        ),
+        title: Text(_selectedIndex == 0 ? 'Публикации' : 'Разделы'),
         actions: [
           if (_selectedIndex == 0)
             IconButton(
@@ -51,9 +50,11 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
           if (_selectedIndex == 1)
             IconButton(
               icon: const Icon(Icons.add),
-              onPressed: _selectedIndex == 1 ? () {
-                context.push('/admin/sections/new');
-              } : null,
+              onPressed: _selectedIndex == 1
+                  ? () {
+                      context.push('/admin/sections/new');
+                    }
+                  : null,
             ),
           if (_selectedIndex == 1)
             IconButton(

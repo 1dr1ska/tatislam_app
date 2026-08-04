@@ -12,7 +12,8 @@ class SectionEditorScreen extends ConsumerStatefulWidget {
   const SectionEditorScreen({super.key, this.sectionId});
 
   @override
-  ConsumerState<SectionEditorScreen> createState() => _SectionEditorScreenState();
+  ConsumerState<SectionEditorScreen> createState() =>
+      _SectionEditorScreenState();
 }
 
 class _SectionEditorScreenState extends ConsumerState<SectionEditorScreen> {
@@ -43,7 +44,9 @@ class _SectionEditorScreenState extends ConsumerState<SectionEditorScreen> {
     try {
       final repository = ref.read(sectionRepositoryProvider);
       final sections = await repository.getSections(includeHidden: true);
-      final section = sections.where((s) => s.id == widget.sectionId).firstOrNull;
+      final section = sections
+          .where((s) => s.id == widget.sectionId)
+          .firstOrNull;
       if (section != null) {
         _nameController.text = section.name;
         _isVisible = section.isVisible;
@@ -51,9 +54,9 @@ class _SectionEditorScreenState extends ConsumerState<SectionEditorScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Ошибка загрузки раздела: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Ошибка загрузки раздела: $e')));
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -63,9 +66,9 @@ class _SectionEditorScreenState extends ConsumerState<SectionEditorScreen> {
   Future<void> _save() async {
     final name = _nameController.text.trim();
     if (name.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Введите название раздела')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Введите название раздела')));
       return;
     }
 
@@ -80,18 +83,21 @@ class _SectionEditorScreenState extends ConsumerState<SectionEditorScreen> {
         if (_isVisible != null) {
           await repository.setVisibility(widget.sectionId!, _isVisible!);
         }
-        await repository.setBackgroundImage(widget.sectionId!, _backgroundImage);
+        await repository.setBackgroundImage(
+          widget.sectionId!,
+          _backgroundImage,
+        );
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Раздел сохранён')),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('Раздел сохранён')));
         }
       } else {
         await repository.createSection(name);
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Раздел создан')),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text('Раздел создан')));
         }
       }
 
@@ -101,9 +107,9 @@ class _SectionEditorScreenState extends ConsumerState<SectionEditorScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Ошибка сохранения: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Ошибка сохранения: $e')));
       }
     } finally {
       if (mounted) setState(() => _isSaving = false);
@@ -152,7 +158,9 @@ class _SectionEditorScreenState extends ConsumerState<SectionEditorScreen> {
                     const SizedBox(height: 24),
                     SwitchListTile(
                       title: const Text('Отображать раздел'),
-                      subtitle: const Text('Если выключено, раздел будет скрыт из каталога'),
+                      subtitle: const Text(
+                        'Если выключено, раздел будет скрыт из каталога',
+                      ),
                       value: _isVisible ?? true,
                       onChanged: (value) {
                         setState(() => _isVisible = value);

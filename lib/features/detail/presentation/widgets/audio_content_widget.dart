@@ -43,8 +43,7 @@ class AudioContentWidget extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<AudioContentWidget> createState() =>
-      _AudioContentWidgetState();
+  ConsumerState<AudioContentWidget> createState() => _AudioContentWidgetState();
 }
 
 class _AudioContentWidgetState extends ConsumerState<AudioContentWidget>
@@ -70,8 +69,10 @@ class _AudioContentWidgetState extends ConsumerState<AudioContentWidget>
 
       // Показываем сохранённую позицию сразу, до первого build,
       // чтобы ползунок не появлялся в 0:00 и не прыгал вперёд.
-      _savedSeconds =
-          LocalStorageService.settingsBox.get(_positionKey!, defaultValue: 0);
+      _savedSeconds = LocalStorageService.settingsBox.get(
+        _positionKey!,
+        defaultValue: 0,
+      );
       if (_savedSeconds is int && _savedSeconds! > 0) {
         _displayPosition = Duration(seconds: _savedSeconds!);
       }
@@ -129,8 +130,10 @@ class _AudioContentWidgetState extends ConsumerState<AudioContentWidget>
 
     try {
       if (_displayPosition.inSeconds > 0) {
-        LocalStorageService.settingsBox
-            .put(_positionKey!, _displayPosition.inSeconds);
+        LocalStorageService.settingsBox.put(
+          _positionKey!,
+          _displayPosition.inSeconds,
+        );
       }
     } catch (e) {
       debugPrint('Error saving audio position: $e');
@@ -205,7 +208,8 @@ class _AudioContentWidgetState extends ConsumerState<AudioContentWidget>
       return _buildUnavailable(context);
     }
 
-    final isLandscape = ResponsiveBreakpoints.isCompactLandscape(context) ||
+    final isLandscape =
+        ResponsiveBreakpoints.isCompactLandscape(context) ||
         ResponsiveBreakpoints.isTablet(context);
 
     return Padding(
@@ -275,7 +279,8 @@ class _AudioContentWidgetState extends ConsumerState<AudioContentWidget>
                     }
                     if (isCompleted) {
                       await audioPlayer.seek(Duration.zero);
-                    } else if (_savedSeconds != null && _savedSeconds! > 0 &&
+                    } else if (_savedSeconds != null &&
+                        _savedSeconds! > 0 &&
                         audioPlayer.position.inSeconds < 1) {
                       // Плеер на 0, но есть сохранённая позиция — seek
                       await audioPlayer.seek(Duration(seconds: _savedSeconds!));
@@ -308,8 +313,8 @@ class _AudioContentWidgetState extends ConsumerState<AudioContentWidget>
                   isCompleted
                       ? Icons.replay
                       : isPlaying
-                          ? Icons.pause
-                          : Icons.play_arrow,
+                      ? Icons.pause
+                      : Icons.play_arrow,
                   color: _goldAccentDark,
                   size: 40,
                 ),
@@ -358,7 +363,8 @@ class _AudioContentWidgetState extends ConsumerState<AudioContentWidget>
                     }
                     if (isCompleted) {
                       await audioPlayer.seek(Duration.zero);
-                    } else if (_savedSeconds != null && _savedSeconds! > 0 &&
+                    } else if (_savedSeconds != null &&
+                        _savedSeconds! > 0 &&
                         audioPlayer.position.inSeconds < 1) {
                       // Плеер на 0, но есть сохранённая позиция — seek
                       await audioPlayer.seek(Duration(seconds: _savedSeconds!));
@@ -391,8 +397,8 @@ class _AudioContentWidgetState extends ConsumerState<AudioContentWidget>
                   isCompleted
                       ? Icons.replay
                       : isPlaying
-                          ? Icons.pause
-                          : Icons.play_arrow,
+                      ? Icons.pause
+                      : Icons.play_arrow,
                   color: _goldAccentDark,
                   size: 44,
                 ),
@@ -409,9 +415,7 @@ class _AudioContentWidgetState extends ConsumerState<AudioContentWidget>
               const SizedBox(height: 8),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  _buildSpeedSelector(audioPlayer),
-                ],
+                children: [_buildSpeedSelector(audioPlayer)],
               ),
             ],
           ),
@@ -437,13 +441,11 @@ class _AudioContentWidgetState extends ConsumerState<AudioContentWidget>
         SliderTheme(
           data: SliderThemeData(
             activeTrackColor: _goldAccent,
-            inactiveTrackColor:
-                Colors.white.withValues(alpha: 0.15),
+            inactiveTrackColor: Colors.white.withValues(alpha: 0.15),
             thumbColor: _goldAccent,
             overlayColor: _goldAccent.withValues(alpha: 0.15),
             trackHeight: 5,
-            thumbShape:
-                const RoundSliderThumbShape(enabledThumbRadius: 10),
+            thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 10),
           ),
           child: Slider(
             value: positionSeconds > durationSeconds
@@ -508,8 +510,7 @@ class _AudioContentWidgetState extends ConsumerState<AudioContentWidget>
             audioPlayer.setSpeed(speed);
           },
           child: Container(
-            padding: const EdgeInsets.symmetric(
-                horizontal: 16, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             decoration: BoxDecoration(
               color: isSelected
                   ? _goldAccent.withValues(alpha: 0.30)
@@ -528,8 +529,7 @@ class _AudioContentWidgetState extends ConsumerState<AudioContentWidget>
                 color: isSelected
                     ? _goldAccentDark
                     : Colors.white.withValues(alpha: 0.90),
-                fontWeight:
-                    isSelected ? FontWeight.bold : FontWeight.w500,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
                 fontSize: 14,
               ),
             ),
@@ -571,10 +571,9 @@ class _AudioContentWidgetState extends ConsumerState<AudioContentWidget>
                   const SizedBox(height: 12),
                   Text(
                     'Аудио недоступно',
-                    style: Theme.of(context)
-                        .textTheme
-                        .titleMedium
-                        ?.copyWith(color: Colors.grey),
+                    style: Theme.of(
+                      context,
+                    ).textTheme.titleMedium?.copyWith(color: Colors.grey),
                   ),
                 ],
               ),

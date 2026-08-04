@@ -85,13 +85,13 @@ class SectionRepositoryImpl implements SectionRepository {
   @override
   Future<void> reorderSections(List<String> orderedIds) =>
       _remote.reorderSections(orderedIds);
-  
+
   @override
   Future<Section?> moveSectionUp(Section section) async {
     final model = await _remote.moveSectionUp(section.id, section.sortOrder);
     return model?.toEntity();
   }
-  
+
   @override
   Future<Section?> moveSectionDown(Section section) async {
     final model = await _remote.moveSectionDown(section.id, section.sortOrder);

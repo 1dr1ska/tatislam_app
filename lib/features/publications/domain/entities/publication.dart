@@ -57,14 +57,14 @@ class Publication extends Equatable {
 
   @override
   List<Object?> get props => [
-        id,
-        title,
-        icon,
-        publishedAt,
-        createdAt,
-        updatedAt,
-        type,
-        status,
-        primarySectionId,
-      ];
+    id,
+    title,
+    icon,
+    publishedAt,
+    createdAt,
+    updatedAt,
+    type,
+    status,
+    primarySectionId,
+  ];
 }

@@ -39,9 +39,9 @@ class TextScaleNotifier extends Notifier<TextScaleLevel> {
         // Migrate old enum names (standard→compact, large→normal, etc.)
         // to preserve existing user choices after rename.
         return switch (stored) {
-          'standard' => TextScaleLevel.compact,   // old 1.0 → compact 1.0
-          'large' => TextScaleLevel.normal,       // old 1.15 → normal 1.15
-          'extraLarge' => TextScaleLevel.large,   // old 1.3 → large 1.3
+          'standard' => TextScaleLevel.compact, // old 1.0 → compact 1.0
+          'large' => TextScaleLevel.normal, // old 1.15 → normal 1.15
+          'extraLarge' => TextScaleLevel.large, // old 1.3 → large 1.3
           'maximum' => TextScaleLevel.extraLarge, // old 1.5 → extraLarge 1.5
           _ => TextScaleLevel.values.firstWhere(
             (level) => level.name == stored,

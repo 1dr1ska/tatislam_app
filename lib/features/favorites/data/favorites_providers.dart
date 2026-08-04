@@ -5,9 +5,12 @@ import 'package:tatislam_app/features/favorites/domain/repositories/favorites_re
 import 'package:tatislam_app/features/publications/data/publication_providers.dart';
 import 'package:tatislam_app/features/publications/domain/entities/publication.dart';
 
-export 'package:tatislam_app/features/publications/data/publication_providers.dart' show getPublicationsByIdsProvider;
+export 'package:tatislam_app/features/publications/data/publication_providers.dart'
+    show getPublicationsByIdsProvider;
 
-final favoritesLocalDataSourceProvider = Provider<FavoritesLocalDataSource>((ref) {
+final favoritesLocalDataSourceProvider = Provider<FavoritesLocalDataSource>((
+  ref,
+) {
   return FavoritesLocalDataSource();
 });
 
@@ -16,26 +19,25 @@ final favoritesRepositoryProvider = Provider<FavoritesRepository>((ref) {
 });
 
 /// Provider for getting favorite publications
-final getFavoritesProvider = Provider<Future<List<Publication>> Function()>(
-  (ref) {
-    return () async {
-      final repository = ref.watch(favoritesRepositoryProvider);
-      final favoriteIds = await repository.getFavoriteIds();
-      
-      if (favoriteIds.isEmpty) return [];
-      
-      final getPublicationsByIds = ref.watch(getPublicationsByIdsProvider);
-      return await getPublicationsByIds(favoriteIds);
-    };
-  },
-);
+final getFavoritesProvider = Provider<Future<List<Publication>> Function()>((
+  ref,
+) {
+  return () async {
+    final repository = ref.watch(favoritesRepositoryProvider);
+    final favoriteIds = await repository.getFavoriteIds();
+
+    if (favoriteIds.isEmpty) return [];
+
+    final getPublicationsByIds = ref.watch(getPublicationsByIdsProvider);
+    return await getPublicationsByIds(favoriteIds);
+  };
+});
 
 /// Provider for removing a favorite
-final removeFavoriteProvider = Provider<Future<void> Function(String publicationId)>(
-  (ref) {
-    return (publicationId) async {
-      final repository = ref.watch(favoritesRepositoryProvider);
-      await repository.removeFavorite(publicationId);
-    };
-  },
-);
+final removeFavoriteProvider =
+    Provider<Future<void> Function(String publicationId)>((ref) {
+      return (publicationId) async {
+        final repository = ref.watch(favoritesRepositoryProvider);
+        await repository.removeFavorite(publicationId);
+      };
+    });

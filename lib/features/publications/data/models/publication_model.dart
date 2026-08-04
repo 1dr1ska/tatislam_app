@@ -29,13 +29,13 @@ class PublicationModel {
       id: json['id'] as String? ?? '',
       title: json['title'] as String? ?? '',
       icon: json['icon'] as String?,
-      publishedAt: json['published_at'] != null 
+      publishedAt: json['published_at'] != null
           ? (DateTime.parse(json['published_at'] as String).toLocal())
           : DateTime.now(),
-      createdAt: json['created_at'] != null 
+      createdAt: json['created_at'] != null
           ? (DateTime.parse(json['created_at'] as String).toLocal())
           : DateTime.now(),
-      updatedAt: json['updated_at'] != null 
+      updatedAt: json['updated_at'] != null
           ? (DateTime.parse(json['updated_at'] as String).toLocal())
           : DateTime.now(),
       type: json['type'] as String? ?? 'article',
@@ -45,23 +45,23 @@ class PublicationModel {
   }
 
   Map<String, dynamic> toInsertJson() => {
-        'title': title,
-        'published_at': publishedAt.toUtc().toIso8601String(),
-        'type': type,
-        'primary_section_id': primarySectionId,
-        if (icon != null) 'icon': icon,
-        if (status != null) 'status': status,
-      };
+    'title': title,
+    'published_at': publishedAt.toUtc().toIso8601String(),
+    'type': type,
+    'primary_section_id': primarySectionId,
+    if (icon != null) 'icon': icon,
+    if (status != null) 'status': status,
+  };
 
   Publication toEntity() => Publication(
-        id: id,
-        title: title,
-        icon: icon,
-        publishedAt: publishedAt,
-        createdAt: createdAt,
-        updatedAt: updatedAt,
-        type: type,
-        status: status,
-        primarySectionId: primarySectionId,
-      );
+    id: id,
+    title: title,
+    icon: icon,
+    publishedAt: publishedAt,
+    createdAt: createdAt,
+    updatedAt: updatedAt,
+    type: type,
+    status: status,
+    primarySectionId: primarySectionId,
+  );
 }

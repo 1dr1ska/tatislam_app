@@ -70,13 +70,15 @@ class _PublicationDetailScreenState
     final child = switch (block) {
       TextContentBlock() => TextContentWidget(block: block),
       ImageContentBlock() => ImageContentWidget(
-          block: block,
-          mediaStorage: mediaStorage,
-          dimensionsService: _dimensionsService,
-        ),
+        block: block,
+        mediaStorage: mediaStorage,
+        dimensionsService: _dimensionsService,
+      ),
       VideoContentBlock() => VideoContentWidget(block: block),
-      AudioContentBlock() =>
-        AudioContentWidget(block: block, mediaStorage: mediaStorage),
+      AudioContentBlock() => AudioContentWidget(
+        block: block,
+        mediaStorage: mediaStorage,
+      ),
     };
 
     // Photos and videos span the full card width (edge-to-edge). All other
@@ -128,8 +130,9 @@ class _PublicationDetailScreenState
 
   @override
   Widget build(BuildContext context) {
-    final asyncPublication =
-        ref.watch(publicationDetailProvider(widget.publicationId));
+    final asyncPublication = ref.watch(
+      publicationDetailProvider(widget.publicationId),
+    );
     final mediaStorage = ref.watch(mediaStorageRepositoryProvider);
 
     String? backgroundImage;
@@ -137,9 +140,9 @@ class _PublicationDetailScreenState
     if (asyncPublication is AsyncData && asyncPublication.value != null) {
       final publication = asyncPublication.value!.publication;
       publicationTitle = publication.title;
-      backgroundImage = ref.watch(
-        sectionByIdProvider(publication.primarySectionId),
-      )?.backgroundImage;
+      backgroundImage = ref
+          .watch(sectionByIdProvider(publication.primarySectionId))
+          ?.backgroundImage;
     }
 
     return Stack(
@@ -151,7 +154,9 @@ class _PublicationDetailScreenState
           body: RefreshIndicator(
             onRefresh: () async {
               ref.invalidate(publicationDetailProvider(widget.publicationId));
-              await ref.read(publicationDetailProvider(widget.publicationId).future);
+              await ref.read(
+                publicationDetailProvider(widget.publicationId).future,
+              );
             },
             child: asyncPublication.when(
               data: (publication) {
@@ -159,10 +164,17 @@ class _PublicationDetailScreenState
                   return _buildNullState(context);
                 }
 
-                final isWide = ResponsiveBreakpoints.isTablet(context) || ResponsiveBreakpoints.isCompactLandscape(context);
+                final isWide =
+                    ResponsiveBreakpoints.isTablet(context) ||
+                    ResponsiveBreakpoints.isCompactLandscape(context);
                 final horizontalPadding = isWide ? 32.0 : 16.0;
 
-                return _buildContent(context, publication, mediaStorage, horizontalPadding);
+                return _buildContent(
+                  context,
+                  publication,
+                  mediaStorage,
+                  horizontalPadding,
+                );
               },
               loading: () => const Center(child: CircularProgressIndicator()),
               error: (error, stackTrace) => _buildErrorState(context),
@@ -206,7 +218,9 @@ class _PublicationDetailScreenState
               Text(AppStrings.errorLoading),
               const SizedBox(height: 16),
               ElevatedButton(
-                onPressed: () => ref.invalidate(publicationDetailProvider(widget.publicationId)),
+                onPressed: () => ref.invalidate(
+                  publicationDetailProvider(widget.publicationId),
+                ),
                 child: Text(AppStrings.retry),
               ),
             ],
@@ -224,7 +238,10 @@ class _PublicationDetailScreenState
   ) {
     return SingleChildScrollView(
       physics: const AlwaysScrollableScrollPhysics(),
-      padding: EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: 24),
+      padding: EdgeInsets.symmetric(
+        horizontal: horizontalPadding,
+        vertical: 24,
+      ),
       child: Align(
         alignment: Alignment.topCenter,
         child: ConstrainedBox(
@@ -245,7 +262,9 @@ class _PublicationDetailScreenState
                   color: Colors.white.withValues(alpha: _detailGlassOpacity),
                   borderRadius: BorderRadius.circular(_detailGlassRadius),
                   border: Border.all(
-                    color: Colors.white.withValues(alpha: _detailGlassBorderOpacity),
+                    color: Colors.white.withValues(
+                      alpha: _detailGlassBorderOpacity,
+                    ),
                     width: _detailGlassBorderWidth,
                   ),
                 ),
@@ -264,18 +283,22 @@ class _PublicationDetailScreenState
                           // Full title — always visible, not truncated
                           SelectableText(
                             publication.publication.title,
-                            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                              color: const Color(0xFFFEFEF7),
-                              fontWeight: FontWeight.w600,
-                            ),
+                            style: Theme.of(context).textTheme.headlineSmall
+                                ?.copyWith(
+                                  color: const Color(0xFFFEFEF7),
+                                  fontWeight: FontWeight.w600,
+                                ),
                           ),
                           const SizedBox(height: 8),
                           // Publication date
                           Text(
-                            formatRelativeDate(publication.publication.publishedAt),
-                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: Colors.white.withValues(alpha: 0.75),
+                            formatRelativeDate(
+                              publication.publication.publishedAt,
                             ),
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(
+                                  color: Colors.white.withValues(alpha: 0.75),
+                                ),
                           ),
                         ],
                       ),

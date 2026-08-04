@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 const String defaultBackgroundPath = 'assets/images/backgrounds/building.png';
 
 /// Full-screen background widget that displays a section background image.
-/// 
+///
 /// [imagePath] — path to the asset image. If null, [defaultBackgroundPath] is used.
 /// The image is rendered with [BoxFit.cover] to fill the entire screen.
 class AppBackground extends StatelessWidget {

@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:tatislam_app/core/services/supabase_service.dart';
 import 'package:tatislam_app/features/sections/data/datasources/section_local_data_source.dart';
@@ -7,7 +6,9 @@ import 'package:tatislam_app/features/sections/data/repositories/section_reposit
 import 'package:tatislam_app/features/sections/domain/repositories/section_repository.dart';
 import 'package:tatislam_app/features/sections/domain/entities/section.dart';
 
-final sectionRemoteDataSourceProvider = Provider<SectionRemoteDataSource>((ref) {
+final sectionRemoteDataSourceProvider = Provider<SectionRemoteDataSource>((
+  ref,
+) {
   return SectionRemoteDataSource(SupabaseService.client);
 });
 
@@ -49,7 +50,6 @@ class SectionsNotifier extends Notifier<List<Section>> {
       final fresh = await repo.refreshSections();
       state = fresh;
     } catch (e) {
-      debugPrint('SectionsNotifier: background sync failed: $e');
       // Keep showing cached data — network error is non-fatal.
     }
   }
@@ -61,7 +61,6 @@ class SectionsNotifier extends Notifier<List<Section>> {
       final fresh = await repo.refreshSections();
       state = fresh;
     } catch (e) {
-      debugPrint('SectionsNotifier: refresh failed: $e');
       rethrow;
     }
   }

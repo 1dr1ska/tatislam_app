@@ -2,10 +2,7 @@ import 'package:flutter/services.dart';
 
 /// Tracks the current system UI state so that [SystemChrome] is only called
 /// when the state actually changes (idempotent).
-enum SystemUiState {
-  edgeToEdge,
-  immersive,
-}
+enum SystemUiState { edgeToEdge, immersive }
 
 /// Centralised controller for system UI mode transitions.
 ///

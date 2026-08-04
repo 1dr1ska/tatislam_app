@@ -1,5 +1,6 @@
 /// App-wide string constants
 library;
+
 import 'package:flutter/material.dart';
 import 'package:tatislam_app/core/constants/app_colors.dart';
 
@@ -8,11 +9,11 @@ class AppStrings {
 
   // App Info
   static const String appName = 'ТАТИСЛАМ';
-  
+
   // Colored app name parts
   static const String tatPart = 'ТАТ';
   static const String islamPart = 'ИСЛАМ';
-  
+
   // Rich text for colored app name
   static TextSpan getColoredAppName() {
     return TextSpan(
@@ -34,6 +35,7 @@ class AppStrings {
       ],
     );
   }
+
   static const String appVersion = '1.0.0';
   static const String appDescription =
       'Бу каналда Раил Фәйзрахмановның татар телендәге вәгазьләре һәм мәкаләләре урын алган канал.';
@@ -64,7 +66,7 @@ class AppStrings {
   static const String removeFromFavorites = 'Сайланганнардан бетерү';
   static const String publishedAt = 'Опубликовано: ';
   static const String views = 'Просмотров';
-  
+
   // Home Screen Mode Labels
   static const String feedMode = 'Лента';
   static const String cardsMode = 'Карточки';

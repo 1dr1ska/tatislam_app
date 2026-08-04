@@ -10,13 +10,16 @@ class FavoritesRepositoryImpl implements FavoritesRepository {
   Future<List<String>> getFavoriteIds() async => _local.getFavoriteIds();
 
   @override
-  Future<bool> isFavorite(String publicationId) async => _local.isFavorite(publicationId);
+  Future<bool> isFavorite(String publicationId) async =>
+      _local.isFavorite(publicationId);
 
   @override
-  Future<void> addFavorite(String publicationId) => _local.addFavorite(publicationId);
+  Future<void> addFavorite(String publicationId) =>
+      _local.addFavorite(publicationId);
 
   @override
-  Future<void> removeFavorite(String publicationId) => _local.removeFavorite(publicationId);
+  Future<void> removeFavorite(String publicationId) =>
+      _local.removeFavorite(publicationId);
 
   @override
   Future<bool> toggleFavorite(String publicationId) async {

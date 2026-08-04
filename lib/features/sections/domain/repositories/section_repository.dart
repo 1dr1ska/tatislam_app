@@ -21,11 +21,11 @@ abstract class SectionRepository {
   /// Persists a full reorder. [orderedIds] must contain every section id
   /// exactly once, in the desired display order.
   Future<void> reorderSections(List<String> orderedIds);
-  
+
   /// Moves a section up one position in the sort order.
   /// Returns the updated section, or null if the section cannot be moved up.
   Future<Section?> moveSectionUp(Section section);
-  
+
   /// Moves a section down one position in the sort order.
   /// Returns the updated section, or null if the section cannot be moved down.
   Future<Section?> moveSectionDown(Section section);

@@ -34,7 +34,7 @@ const List<BackgroundOption> backgroundOptions = [
 ];
 
 /// A selector widget with previews for choosing a background image.
-/// 
+///
 /// [value] — the currently selected asset path, or null for none.
 /// [onChanged] — called when a new option is selected (null means no background).
 class BackgroundSelector extends StatelessWidget {
@@ -54,10 +54,7 @@ class BackgroundSelector extends StatelessWidget {
       children: [
         const Text(
           'Фоновое изображение',
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w500,
-          ),
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
         ),
         const SizedBox(height: 8),
         // "None" option
@@ -99,7 +96,9 @@ class BackgroundSelector extends StatelessWidget {
               : Colors.grey.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: selected ? AppColors.primary : Colors.grey.withValues(alpha: 0.3),
+            color: selected
+                ? AppColors.primary
+                : Colors.grey.withValues(alpha: 0.3),
             width: selected ? 2 : 1,
           ),
         ),
@@ -119,8 +118,8 @@ class BackgroundSelector extends StatelessWidget {
                         fit: BoxFit.cover,
                         errorBuilder: (context, error, stackTrace) =>
                             const Center(
-                          child: Icon(Icons.image_not_supported, size: 24),
-                        ),
+                              child: Icon(Icons.image_not_supported, size: 24),
+                            ),
                       )
                     : const Center(
                         child: Icon(Icons.do_not_disturb_alt, size: 24),

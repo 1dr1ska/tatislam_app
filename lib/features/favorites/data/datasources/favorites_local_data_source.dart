@@ -9,7 +9,9 @@ class FavoritesLocalDataSource {
 
   bool isFavorite(String publicationId) => _box.containsKey(publicationId);
 
-  Future<void> addFavorite(String publicationId) => _box.put(publicationId, true);
+  Future<void> addFavorite(String publicationId) =>
+      _box.put(publicationId, true);
 
-  Future<void> removeFavorite(String publicationId) => _box.delete(publicationId);
+  Future<void> removeFavorite(String publicationId) =>
+      _box.delete(publicationId);
 }

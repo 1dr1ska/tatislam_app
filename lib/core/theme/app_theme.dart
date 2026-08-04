@@ -125,10 +125,7 @@ class AppTheme {
         brightness: Brightness.light,
         primary: AppColors.gold,
         secondary: AppColors.gold,
-      ).copyWith(
-        primary: AppColors.gold,
-        secondary: AppColors.gold,
-      ),
+      ).copyWith(primary: AppColors.gold, secondary: AppColors.gold),
       primaryColor: AppColors.gold,
       scaffoldBackgroundColor: AppColors.background,
 
@@ -138,18 +135,14 @@ class AppTheme {
         foregroundColor: Colors.white,
         elevation: 0,
         centerTitle: true,
-        titleTextStyle: textTheme.titleLarge?.copyWith(
-          color: Colors.white,
-        ),
+        titleTextStyle: textTheme.titleLarge?.copyWith(color: Colors.white),
       ),
 
       // ── Card ──
       cardTheme: CardThemeData(
         color: AppColors.cardBackground,
         elevation: 2,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
 
       // ── Elevated Button ──
@@ -181,7 +174,10 @@ class AppTheme {
           borderRadius: BorderRadius.circular(12),
           borderSide: const BorderSide(color: AppColors.gold, width: 2),
         ),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 14,
+        ),
       ),
 
       // ── Text Selection ──
@@ -229,9 +225,7 @@ class AppTheme {
       chipTheme: ChipThemeData(
         labelStyle: textTheme.labelMedium,
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       ),
 
       // ── Tab Bar ──

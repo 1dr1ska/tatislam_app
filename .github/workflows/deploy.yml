@@ -2,25 +2,18 @@ name: Deploy Flutter Web to Yandex Object Storage
 
 on:
   push:
-    branches:
-      - main
+    branches: [main]
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
 
-    permissions:
-      contents: read
-
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup Flutter
-        uses: subosito/flutter-action@v2
+      - uses: subosito/flutter-action@v2
         with:
           channel: stable
-          cache: true
 
       - name: Install dependencies
         run: flutter pub get
@@ -28,15 +21,20 @@ jobs:
       - name: Build Flutter Web
         run: flutter build web --release
 
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.YANDEX_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.YANDEX_SECRET_ACCESS_KEY }}
-          aws-region: ru-central1
+      - name: Install AWS CLI
+        run: |
+          curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+          unzip -q awscliv2.zip
+          sudo ./aws/install
+
+      - name: Configure AWS CLI
+        run: |
+          aws configure set aws_access_key_id ${{ secrets.YC_ACCESS_KEY }}
+          aws configure set aws_secret_access_key ${{ secrets.YC_SECRET_KEY }}
+          aws configure set default.region ru-central1
 
       - name: Upload to Yandex Object Storage
         run: |
-          aws s3 sync build/web s3://${{ secrets.YANDEX_BUCKET }} \
-            --endpoint-url=https://storage.yandexcloud.net \
-            --delete
+          aws s3 sync build/web s3://tatislam-web \
+            --delete \
+            --endpoint-url=https://storage.yandexcloud.net

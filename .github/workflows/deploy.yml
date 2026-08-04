@@ -21,12 +21,6 @@ jobs:
       - name: Build Flutter Web
         run: flutter build web --release
 
-      - name: Install AWS CLI
-        run: |
-          curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
-          unzip -q awscliv2.zip
-          sudo ./aws/install
-
       - name: Configure AWS CLI
         run: |
           aws configure set aws_access_key_id ${{ secrets.YC_ACCESS_KEY }}

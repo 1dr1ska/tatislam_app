@@ -1,51 +1,43 @@
 name: Deploy Flutter Web to Yandex Object Storage
 
 on:
-
   push:
-
-    branches: [main]
+    branches:
+      - main
 
 jobs:
-
   deploy:
-
     runs-on: ubuntu-latest
 
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-      - uses: actions/checkout@v4
-
-      - uses: subosito/flutter-action@v2
-
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
         with:
-
           channel: stable
 
       - name: Install dependencies
-
         run: flutter pub get
 
       - name: Build Flutter Web
-
         run: flutter build web --release
 
       - name: Configure AWS CLI
-
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.YANDEX_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.YANDEX_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: ru-central1
         run: |
-
-          aws configure set aws_access_key_id "${{ secrets.YANDEX_ACCESS_KEY_ID }}"
-
-          aws configure set aws_secret_access_key "${{ secrets.YANDEX_SECRET_ACCESS_KEY }}"
-
-          aws configure set default.region ru-central1
+          aws configure list
 
       - name: Upload to Yandex Object Storage
-
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.YANDEX_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.YANDEX_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: ru-central1
         run: |
-
           aws s3 sync build/web s3://${{ secrets.YANDEX_BUCKET }} \
-
             --delete \
-
             --endpoint-url=https://storage.yandexcloud.net

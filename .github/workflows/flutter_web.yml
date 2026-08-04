@@ -1,12 +1,15 @@
-name: Build Flutter Web
+name: Deploy Flutter Web to Cloudflare Pages
 
 on:
   push:
     branches: [main]
 
 jobs:
-  build:
+  deploy:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      deployments: write
     steps:
       - uses: actions/checkout@v4
 
@@ -17,7 +20,8 @@ jobs:
       - run: flutter pub get
       - run: flutter build web --release
 
-      - uses: actions/upload-artifact@v4
+      - uses: cloudflare/wrangler-action@v3
         with:
-          name: build-web
-          path: build/web
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy build/web --project-name=tatislam-app --branch main

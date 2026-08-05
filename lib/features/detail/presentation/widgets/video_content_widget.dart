@@ -1,6 +1,10 @@
+import 'dart:ui_web' as ui_web;
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:web/web.dart' as web;
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:tatislam_app/core/widgets/glass_container.dart';
 import 'package:tatislam_app/features/detail/domain/services/video_url_parser_service.dart';
@@ -33,6 +37,9 @@ class _VideoContentWidgetState extends ConsumerState<VideoContentWidget> {
   String? _lastYoutubeId;
   String? _lastRutubeId;
 
+  /// Unique view ID for the HtmlElementView (web only).
+  String? _rutubeViewId;
+
   @override
   void initState() {
     super.initState();
@@ -47,6 +54,7 @@ class _VideoContentWidgetState extends ConsumerState<VideoContentWidget> {
       _rutubeController = null;
       _lastYoutubeId = null;
       _lastRutubeId = null;
+      _rutubeViewId = null;
       _initControllers();
     }
   }
@@ -63,9 +71,33 @@ class _VideoContentWidgetState extends ConsumerState<VideoContentWidget> {
   void _ensureRutubeController(String videoId) {
     if (_rutubeController == null || _lastRutubeId != videoId) {
       _lastRutubeId = videoId;
-      _rutubeController = _buildController(
-        'https://rutube.ru/play/embed/$videoId',
-      );
+
+      if (kIsWeb) {
+        // On Flutter Web, use HtmlElementView with a direct iframe.
+        // webview_flutter_web uses an iframe internally, but RuTube blocks
+        // embedding via X-Frame-Options. A direct HtmlElementView approach
+        // gives us more control and avoids WebViewPlatform issues.
+        _rutubeViewId = 'rutube_${videoId}_${DateTime.now().millisecondsSinceEpoch}';
+        ui_web.platformViewRegistry.registerViewFactory(
+          _rutubeViewId!,
+          (int viewId) {
+            final htmlIFrame = web.document.createElement('iframe')
+                as web.HTMLIFrameElement;
+            htmlIFrame.src = 'https://rutube.ru/play/embed/$videoId';
+            htmlIFrame.style.width = '100%';
+            htmlIFrame.style.height = '100%';
+            htmlIFrame.style.border = 'none';
+            htmlIFrame.allow = 'autoplay; encrypted-media';
+            htmlIFrame.allowFullscreen = true;
+            return htmlIFrame;
+          },
+        );
+      } else {
+        // On mobile (Android/iOS), use WebViewWidget.
+        _rutubeController = _buildController(
+          'https://rutube.ru/play/embed/$videoId',
+        );
+      }
     }
   }
 
@@ -102,6 +134,7 @@ class _VideoContentWidgetState extends ConsumerState<VideoContentWidget> {
   void dispose() {
     _youtubeController = null;
     _rutubeController = null;
+    _rutubeViewId = null;
     super.dispose();
   }
 
@@ -118,8 +151,14 @@ class _VideoContentWidgetState extends ConsumerState<VideoContentWidget> {
       }
     } else if (widget.block.provider == VideoProviderType.rutube) {
       final videoId = widget.urlParser.extractRutubeId(widget.block.url);
-      if (videoId != null && _rutubeController != null) {
-        return _buildEmbeddedVideo(controller: _rutubeController!);
+      if (videoId != null) {
+        if (kIsWeb && _rutubeViewId != null) {
+          // Flutter Web: render the HtmlElementView with the iframe.
+          return _buildRutubeWebView();
+        } else if (_rutubeController != null) {
+          // Mobile: render the WebViewWidget.
+          return _buildEmbeddedVideo(controller: _rutubeController!);
+        }
       }
       return _buildRutubeFallback();
     } else {
@@ -144,6 +183,26 @@ class _VideoContentWidgetState extends ConsumerState<VideoContentWidget> {
           child: AspectRatio(
             aspectRatio: 16 / 9,
             child: WebViewWidget(controller: controller),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Renders RuTube on Flutter Web using a direct HtmlElementView with iframe.
+  Widget _buildRutubeWebView() {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: GlassContainer(
+        opacity: _glassOpacity,
+        borderRadius: _glassRadius,
+        child: ClipRRect(
+          borderRadius: const BorderRadius.vertical(
+            top: Radius.circular(_glassRadius),
+          ),
+          child: AspectRatio(
+            aspectRatio: 16 / 9,
+            child: HtmlElementView(viewType: _rutubeViewId!),
           ),
         ),
       ),

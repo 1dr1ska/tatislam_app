@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:tatislam_app/core/constants/app_colors.dart';
+import 'package:tatislam_app/core/constants/app_localizations.dart';
 import 'package:tatislam_app/features/admin/presentation/widgets/background_selector.dart';
 import 'package:tatislam_app/features/sections/data/section_providers.dart';
 
@@ -56,7 +57,7 @@ class _SectionEditorScreenState extends ConsumerState<SectionEditorScreen> {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Ошибка загрузки раздела: $e')));
+        ).showSnackBar(SnackBar(content: Text('${AppLocalizations.of(ref).sectionLoadErrorT}$e')));
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -68,7 +69,7 @@ class _SectionEditorScreenState extends ConsumerState<SectionEditorScreen> {
     if (name.isEmpty) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('Введите название раздела')));
+      ).showSnackBar(SnackBar(content: Text(AppLocalizations.of(ref).enterSectionName)));
       return;
     }
 
@@ -90,14 +91,14 @@ class _SectionEditorScreenState extends ConsumerState<SectionEditorScreen> {
         if (mounted) {
           ScaffoldMessenger.of(
             context,
-          ).showSnackBar(const SnackBar(content: Text('Раздел сохранён')));
+          ).showSnackBar(SnackBar(content: Text(AppLocalizations.of(ref).sectionSaved)));
         }
       } else {
         await repository.createSection(name);
         if (mounted) {
           ScaffoldMessenger.of(
             context,
-          ).showSnackBar(const SnackBar(content: Text('Раздел создан')));
+          ).showSnackBar(SnackBar(content: Text(AppLocalizations.of(ref).sectionCreated)));
         }
       }
 
@@ -109,7 +110,7 @@ class _SectionEditorScreenState extends ConsumerState<SectionEditorScreen> {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Ошибка сохранения: $e')));
+        ).showSnackBar(SnackBar(content: Text('${AppLocalizations.of(ref).saveError}: $e')));
       }
     } finally {
       if (mounted) setState(() => _isSaving = false);
@@ -121,7 +122,7 @@ class _SectionEditorScreenState extends ConsumerState<SectionEditorScreen> {
     return Scaffold(
       appBar: AppBar(
         backgroundColor: AppColors.secondary,
-        title: Text(_isEditing ? 'Редактировать раздел' : 'Создать раздел'),
+        title: Text(_isEditing ? AppLocalizations.of(ref).editSectionTitle : AppLocalizations.of(ref).createSectionTitle),
         actions: [
           TextButton(
             onPressed: _isSaving ? null : _save,
@@ -131,7 +132,7 @@ class _SectionEditorScreenState extends ConsumerState<SectionEditorScreen> {
                     height: 20,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
-                : const Text('Сохранить'),
+                : Text(AppLocalizations.of(ref).saveAction),
           ),
         ],
       ),
@@ -145,9 +146,9 @@ class _SectionEditorScreenState extends ConsumerState<SectionEditorScreen> {
                 children: [
                   TextField(
                     controller: _nameController,
-                    decoration: const InputDecoration(
-                      labelText: 'Название раздела',
-                      border: OutlineInputBorder(),
+                    decoration: InputDecoration(
+                      labelText: AppLocalizations.of(ref).sectionName,
+                      border: const OutlineInputBorder(),
                       counterText: '',
                     ),
                     autofocus: !_isEditing,
@@ -157,10 +158,8 @@ class _SectionEditorScreenState extends ConsumerState<SectionEditorScreen> {
                   if (_isEditing) ...[
                     const SizedBox(height: 24),
                     SwitchListTile(
-                      title: const Text('Отображать раздел'),
-                      subtitle: const Text(
-                        'Если выключено, раздел будет скрыт из каталога',
-                      ),
+                      title: Text(AppLocalizations.of(ref).showSection),
+                      subtitle: Text(AppLocalizations.of(ref).sectionHiddenInfo),
                       value: _isVisible ?? true,
                       onChanged: (value) {
                         setState(() => _isVisible = value);

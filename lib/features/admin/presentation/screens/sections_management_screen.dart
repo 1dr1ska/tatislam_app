@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:tatislam_app/core/constants/app_colors.dart';
+import 'package:tatislam_app/core/constants/app_localizations.dart';
 import 'package:tatislam_app/features/sections/data/section_providers.dart';
 import 'package:tatislam_app/features/sections/domain/entities/section.dart';
 import 'package:tatislam_app/features/publications/data/publication_providers.dart';
@@ -51,14 +52,16 @@ class _SectionsManagementScreenState
       await _refreshSections();
 
       if (mounted) {
+        final t = AppLocalizations.of(ref);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Раздел ${isVisible ? 'показан' : 'скрыт'}')),
+          SnackBar(content: Text(t.sectionVisibilityChanged(isVisible))),
         );
       }
     } catch (e) {
       if (mounted) {
+        final t = AppLocalizations.of(ref);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Ошибка изменения видимости: $e')),
+          SnackBar(content: Text('${t.sectionVisibilityError}$e')),
         );
       }
     }
@@ -84,12 +87,13 @@ class _SectionsManagementScreenState
         if (mounted) {
           ScaffoldMessenger.of(
             context,
-          ).showSnackBar(const SnackBar(content: Text('Раздел удален')));
+          ).showSnackBar(SnackBar(content: Text(AppLocalizations.of(ref).sectionDeleted)));
         }
       } catch (e) {
         if (mounted) {
+          final t = AppLocalizations.of(ref);
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Ошибка удаления раздела: $e')),
+            SnackBar(content: Text('${t.sectionDeleteError}$e')),
           );
         }
       }
@@ -115,21 +119,18 @@ class _SectionsManagementScreenState
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Row(
+        title: Row(
           children: [
-            Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 24),
-            SizedBox(width: 8),
-            Expanded(child: Text('Нельзя удалить')),
+            const Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 24),
+            const SizedBox(width: 8),
+            Expanded(child: Text(AppLocalizations.of(ref).cannotDeleteSection)),
           ],
         ),
-        content: Text(
-          'Раздел "$sectionName" содержит публикации.\n\n'
-          'Сначала переместите публикации в другой раздел или удалите их.',
-        ),
+        content: Text(AppLocalizations.of(ref).sectionHasPublications(sectionName)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Понятно'),
+            child: Text(AppLocalizations.of(ref).gotIt),
           ),
         ],
       ),
@@ -141,19 +142,17 @@ class _SectionsManagementScreenState
           context: context,
           builder: (context) {
             return AlertDialog(
-              title: const Text('Удалить раздел'),
-              content: Text(
-                'Вы уверены, что хотите удалить раздел "$sectionName"?',
-              ),
+              title: Text(AppLocalizations.of(ref).deleteSectionTitle),
+              content: Text(AppLocalizations.of(ref).sectionDeleteConfirmation(sectionName)),
               actions: [
                 TextButton(
                   onPressed: () => Navigator.pop(context, false),
-                  child: const Text('Отмена'),
+                  child: Text(AppLocalizations.of(ref).cancelAction),
                 ),
                 ElevatedButton(
                   onPressed: () => Navigator.pop(context, true),
                   style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-                  child: const Text('Удалить'),
+                  child: Text(AppLocalizations.of(ref).deleteAction),
                 ),
               ],
             );
@@ -171,12 +170,13 @@ class _SectionsManagementScreenState
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(const SnackBar(content: Text('Раздел перемещен вверх')));
+        ).showSnackBar(SnackBar(content: Text(AppLocalizations.of(ref).sectionMovedUp)));
       }
     } catch (e) {
       if (mounted) {
+        final t = AppLocalizations.of(ref);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Ошибка перемещения раздела вверх: $e')),
+          SnackBar(content: Text('${t.sectionMoveUpError}$e')),
         );
       }
     }
@@ -191,12 +191,13 @@ class _SectionsManagementScreenState
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(const SnackBar(content: Text('Раздел перемещен вниз')));
+        ).showSnackBar(SnackBar(content: Text(AppLocalizations.of(ref).sectionMovedDown)));
       }
     } catch (e) {
       if (mounted) {
+        final t = AppLocalizations.of(ref);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Ошибка перемещения раздела вниз: $e')),
+          SnackBar(content: Text('${t.sectionMoveDownError}$e')),
         );
       }
     }
@@ -218,11 +219,11 @@ class _SectionsManagementScreenState
               children: [
                 const Icon(Icons.error, size: 64, color: Colors.red),
                 const SizedBox(height: 16),
-                Text('Ошибка загрузки разделов: ${snapshot.error}'),
+                Text(AppLocalizations.of(ref).sectionLoadError('${snapshot.error}')),
                 const SizedBox(height: 16),
                 ElevatedButton(
                   onPressed: _refreshSections,
-                  child: const Text('Повторить'),
+                  child: Text(AppLocalizations.of(ref).retry),
                 ),
               ],
             ),
@@ -230,17 +231,18 @@ class _SectionsManagementScreenState
         }
 
         if (!snapshot.hasData || snapshot.data!.isEmpty) {
-          return const Center(
+          final t = AppLocalizations.of(ref);
+          return Center(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.category_outlined, size: 64, color: Colors.grey),
-                SizedBox(height: 16),
-                Text('Разделы не найдены'),
-                SizedBox(height: 8),
+                const Icon(Icons.category_outlined, size: 64, color: Colors.grey),
+                const SizedBox(height: 16),
+                Text(t.noSections),
+                const SizedBox(height: 8),
                 Text(
-                  'Нажмите + для создания нового раздела',
-                  style: TextStyle(color: AppColors.textLight, fontSize: 13),
+                  t.createFirstSection,
+                  style: const TextStyle(color: AppColors.textLight, fontSize: 13),
                 ),
               ],
             ),
@@ -318,7 +320,7 @@ class _SectionsManagementScreenState
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    'Порядок: ${section.sortOrder}',
+                    AppLocalizations.of(ref).orderLabel(section.sortOrder),
                     style: const TextStyle(
                       fontSize: 11,
                       color: AppColors.textLight,

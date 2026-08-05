@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:tatislam_app/core/providers/locale_provider.dart';
 import 'package:tatislam_app/core/services/local_storage_service.dart';
 
 /// Four text size levels with their respective scale factors.
@@ -13,13 +14,13 @@ enum TextScaleLevel {
   /// The multiplier applied to base font sizes.
   final double scale;
 
-  /// Display name in Tatar.
-  String get displayName {
+  /// Display name localized for the given locale.
+  String displayName(AppLocale locale) {
     return switch (this) {
       TextScaleLevel.compact => 'Компактный',
       TextScaleLevel.normal => 'Обычный',
-      TextScaleLevel.large => 'Крупный',
-      TextScaleLevel.extraLarge => 'Очень крупный',
+      TextScaleLevel.large => locale == AppLocale.tatar ? 'Зур' : 'Крупный',
+      TextScaleLevel.extraLarge => locale == AppLocale.tatar ? 'Бик зур' : 'Очень крупный',
     };
   }
 }

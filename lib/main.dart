@@ -3,6 +3,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:tatislam_app/core/navigation/app_router.dart';
+import 'package:tatislam_app/core/providers/locale_provider.dart';
 import 'package:tatislam_app/core/providers/text_scale_provider.dart';
 import 'package:tatislam_app/core/services/local_storage_service.dart';
 import 'package:tatislam_app/core/theme/app_theme.dart';
@@ -30,6 +31,7 @@ class MyApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final router = ref.watch(appRouterProvider);
     final textScale = ref.watch(textScaleProvider);
+    final appLocale = ref.watch(localeProvider);
     return SystemUiListener(
       child: MaterialApp.router(
         title: 'TatIslam',
@@ -45,7 +47,7 @@ class MyApp extends ConsumerWidget {
           Locale('tt', 'RU'),
           Locale('en', 'US'),
         ],
-        locale: const Locale('ru', 'RU'),
+        locale: appLocale.locale,
       ),
     );
   }

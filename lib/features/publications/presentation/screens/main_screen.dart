@@ -2,7 +2,7 @@ import 'dart:ui' show ImageFilter;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:tatislam_app/core/constants/app_strings.dart';
+import 'package:tatislam_app/core/constants/app_localizations.dart';
 import 'package:tatislam_app/core/constants/app_colors.dart';
 import 'package:tatislam_app/core/providers/text_scale_provider.dart';
 import 'package:tatislam_app/core/utils/date_format.dart';
@@ -178,7 +178,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                                 controller: _searchController,
                                 focusNode: _searchFocusNode,
                                 decoration: InputDecoration(
-                                  hintText: 'Эзләү...',
+                                  hintText: AppLocalizations.of(ref).searchHint,
                                   hintStyle: Theme.of(context)
                                       .textTheme
                                       .bodyMedium
@@ -234,8 +234,8 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                               size: 20,
                             ),
                             tooltip: showFavoritesOnly
-                                ? 'Барлык язмалар'
-                                : 'Сайланганнар',
+                                ? AppLocalizations.of(ref).showAll
+                                : AppLocalizations.of(ref).showFavorites,
                             onPressed: () {
                               ref.read(toggleFavoritesFilterProvider)();
                             },
@@ -312,7 +312,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
         scrollDirection: Axis.horizontal,
         children: [
           _buildFilterChip(
-            label: 'Барлык бүлекләр',
+            label: AppLocalizations.of(ref).allSections,
             selected: selectedSection == null,
             onSelected: (selected) {
               ref.read(selectedSectionProvider.notifier).state = null;
@@ -413,7 +413,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                   ),
                   const SizedBox(height: 16),
                   Text(
-                    'Язмалар табылмады',
+                    AppLocalizations.of(ref).noPublicationsFound,
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
                 ],
@@ -465,15 +465,15 @@ class _MainScreenState extends ConsumerState<MainScreen> {
               const SizedBox(height: 16),
               Text(
                 hasLocalSections
-                    ? AppStrings.errorLoading
-                    : AppStrings.needInternetForFirstLoad,
+                    ? AppLocalizations.of(ref).errorLoading
+                    : AppLocalizations.of(ref).needInternetForFirstLoad,
                 textAlign: TextAlign.center,
               ),
               if (hasLocalSections) ...[
                 const SizedBox(height: 16),
                 ElevatedButton(
                   onPressed: () => ref.invalidate(mainPublicationsProvider),
-                  child: Text(AppStrings.retry),
+                  child: Text(AppLocalizations.of(ref).retry),
                 ),
               ],
             ],

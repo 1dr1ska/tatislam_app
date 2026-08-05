@@ -3,7 +3,8 @@ import 'dart:ui' show ImageFilter;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:tatislam_app/core/constants/app_strings.dart';
+import 'package:tatislam_app/core/constants/app_localizations.dart';
+import 'package:tatislam_app/core/providers/locale_provider.dart';
 import 'package:tatislam_app/core/providers/text_scale_provider.dart';
 import 'package:tatislam_app/core/utils/responsive.dart';
 import 'package:tatislam_app/features/auth/providers/auth_provider.dart';
@@ -53,7 +54,7 @@ class _AboutScreenState extends ConsumerState<AboutScreen> {
       if (context.mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text(AppStrings.errorLoading)));
+        ).showSnackBar(SnackBar(content: Text(AppLocalizations.of(ref).errorLoading)));
       }
     }
   }
@@ -79,9 +80,9 @@ class _AboutScreenState extends ConsumerState<AboutScreen> {
                     icon: const Icon(Icons.arrow_back),
                     onPressed: () => GoRouter.of(context).pop(),
                   ),
-                  title: const Text(
-                    'Кушымта турында',
-                    style: TextStyle(
+                  title: Text(
+                    AppLocalizations.of(ref).aboutScreenTitle,
+                    style: const TextStyle(
                       color: Color(0xFFF8F7F2),
                       fontWeight: FontWeight.w600,
                       fontSize: 17,
@@ -232,7 +233,7 @@ class _AboutScreenState extends ConsumerState<AboutScreen> {
         ),
         const SizedBox(height: 8),
         Text(
-          'v${AppStrings.appVersion}',
+          AppLocalizations.of(ref).version(''),
           style: TextStyle(
             color: Colors.white.withValues(alpha: 0.80),
             fontSize: (14 * scale).roundToDouble(),
@@ -249,7 +250,7 @@ class _AboutScreenState extends ConsumerState<AboutScreen> {
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 600),
         child: Text(
-          'ТАТИСЛАМ — Раил Фәйзрахмановның татар телендәге ислам дәресләре тупланган кушымта. Монда аудио вәгазьләр, видео вәгазьләр һәм мәкаләләр бер урында җыелган.',
+          AppLocalizations.of(ref).appDescription,
           style: TextStyle(
             color: const Color(0xFF1A1A2E).withValues(alpha: 0.90),
             fontSize: (15 * scale).roundToDouble(),
@@ -267,7 +268,7 @@ class _AboutScreenState extends ConsumerState<AboutScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Кушымта мөмкинлекләре:',
+          AppLocalizations.of(ref).features,
           style: TextStyle(
             color: const Color(0xFFF8F7F2),
             fontSize: (16 * scale).roundToDouble(),
@@ -278,18 +279,24 @@ class _AboutScreenState extends ConsumerState<AboutScreen> {
         Row(
           children: [
             Expanded(
-              child: _buildFeatureCard(icon: Icons.headphones, label: 'Аудио'),
+              child: _buildFeatureCard(
+                icon: Icons.headphones,
+                label: AppLocalizations.of(ref).featureAudio,
+              ),
             ),
             const SizedBox(width: 10),
             Expanded(
               child: _buildFeatureCard(
                 icon: Icons.play_circle_filled,
-                label: 'Видео',
+                label: AppLocalizations.of(ref).featureVideo,
               ),
             ),
             const SizedBox(width: 10),
             Expanded(
-              child: _buildFeatureCard(icon: Icons.article, label: 'Мәкаләләр'),
+              child: _buildFeatureCard(
+                icon: Icons.article,
+                label: AppLocalizations.of(ref).featureArticles,
+              ),
             ),
           ],
         ),
@@ -297,17 +304,23 @@ class _AboutScreenState extends ConsumerState<AboutScreen> {
         Row(
           children: [
             Expanded(
-              child: _buildFeatureCard(icon: Icons.search, label: 'Эзләү'),
+              child: _buildFeatureCard(
+                icon: Icons.search,
+                label: AppLocalizations.of(ref).featureSearch,
+              ),
             ),
             const SizedBox(width: 10),
             Expanded(
-              child: _buildFeatureCard(icon: Icons.star, label: 'Сайланганнар'),
+              child: _buildFeatureCard(
+                icon: Icons.star,
+                label: AppLocalizations.of(ref).featureFavorites,
+              ),
             ),
             const SizedBox(width: 10),
             Expanded(
               child: _buildFeatureCard(
                 icon: Icons.filter_alt,
-                label: 'Фильтрлар',
+                label: AppLocalizations.of(ref).featureFilters,
               ),
             ),
           ],
@@ -322,7 +335,7 @@ class _AboutScreenState extends ConsumerState<AboutScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Сылтамалар:',
+          AppLocalizations.of(ref).links,
           style: TextStyle(
             color: const Color(0xFFF8F7F2),
             fontSize: (16 * scale).roundToDouble(),
@@ -402,7 +415,7 @@ class _AboutScreenState extends ConsumerState<AboutScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Контактлар:',
+          AppLocalizations.of(ref).contacts,
           style: TextStyle(
             color: const Color(0xFFF8F7F2),
             fontSize: (16 * scale).roundToDouble(),
@@ -427,7 +440,7 @@ class _AboutScreenState extends ConsumerState<AboutScreen> {
     final scale = ref.watch(textScaleProvider).scale;
     return Center(
       child: Text(
-        '© 2026 ${AppStrings.appName}.',
+        '© 2026 ТАТИСЛАМ.',
         style: TextStyle(
           color: Colors.white.withValues(alpha: 0.60),
           fontSize: (13 * scale).roundToDouble(),
@@ -464,16 +477,18 @@ class _AboutScreenState extends ConsumerState<AboutScreen> {
     );
   }
 
-  /// Builds the text scale settings section — placed at the top of the page.
+  /// Builds the settings section — text size + interface language.
   Widget _buildTextScaleSettings(BuildContext context) {
     final textScale = ref.watch(textScaleProvider);
+    final appLocale = ref.watch(localeProvider);
+    final t = AppLocalizations.fromLocale(appLocale);
     final scale = textScale.scale;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Настройки',
+          t.settings,
           style: TextStyle(
             color: const Color(0xFFF8F7F2),
             fontSize: (16 * scale).roundToDouble(),
@@ -485,8 +500,71 @@ class _AboutScreenState extends ConsumerState<AboutScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // ── Interface language ──
               Text(
-                'Размер текста',
+                t.interfaceLanguage,
+                style: TextStyle(
+                  color: const Color(0xFF1A1A2E).withValues(alpha: 0.90),
+                  fontSize: (14 * scale).roundToDouble(),
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(height: 12),
+              ...AppLocale.values.map((locale) {
+                final isSelected = appLocale == locale;
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: GestureDetector(
+                    onTap: () =>
+                        ref.read(localeProvider.notifier).setLocale(locale),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 22,
+                          height: 22,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: isSelected
+                                  ? _goldAccent
+                                  : Colors.grey.shade400,
+                              width: 2,
+                            ),
+                          ),
+                          child: isSelected
+                              ? Center(
+                                  child: Container(
+                                    width: 12,
+                                    height: 12,
+                                    decoration: const BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      color: _goldAccent,
+                                    ),
+                                  ),
+                                )
+                              : null,
+                        ),
+                        const SizedBox(width: 12),
+                        Text(
+                          locale.displayName(appLocale),
+                          style: TextStyle(
+                            color: const Color(
+                              0xFF1A1A2E,
+                            ).withValues(alpha: 0.85),
+                            fontSize: (14 * scale).roundToDouble(),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }),
+              const SizedBox(height: 12),
+              const Divider(color: Color(0x1A1A1A2E)),
+              const SizedBox(height: 12),
+              // ── Text size ──
+              Text(
+                t.textSize,
                 style: TextStyle(
                   color: const Color(0xFF1A1A2E).withValues(alpha: 0.90),
                   fontSize: (14 * scale).roundToDouble(),
@@ -530,7 +608,7 @@ class _AboutScreenState extends ConsumerState<AboutScreen> {
                         ),
                         const SizedBox(width: 12),
                         Text(
-                          level.displayName,
+                          level.displayName(appLocale),
                           style: TextStyle(
                             color: const Color(
                               0xFF1A1A2E,

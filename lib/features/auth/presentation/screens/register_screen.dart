@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:tatislam_app/core/constants/app_colors.dart';
+import 'package:tatislam_app/core/constants/app_localizations.dart';
 import 'package:tatislam_app/features/auth/providers/auth_provider.dart';
 
 class RegisterScreen extends ConsumerStatefulWidget {
@@ -43,9 +44,10 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
       );
 
       if (user != null && mounted) {
+        final t = AppLocalizations.of(ref);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Пользователь успешно создан!'),
+          SnackBar(
+            content: Text(t.userCreated),
             backgroundColor: AppColors.gold,
           ),
         );
@@ -53,9 +55,10 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
       }
     } catch (e) {
       if (mounted) {
+        final t = AppLocalizations.of(ref);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Ошибка регистрации: $e'),
+            content: Text(t.registerError(e.toString())),
             backgroundColor: Colors.red,
           ),
         );
@@ -87,7 +90,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
             }
           },
         ),
-        title: const Text('Регистрация'),
+        title: Text(AppLocalizations.of(ref).registerScreenTitle),
         backgroundColor: AppColors.secondary,
         foregroundColor: Colors.white,
       ),
@@ -109,7 +112,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 ),
                 const SizedBox(height: 32),
                 Text(
-                  'Создать аккаунт',
+                  AppLocalizations.of(ref).createAccountTitle,
                   style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                     fontWeight: FontWeight.bold,
                     color: AppColors.textPrimary,
@@ -120,17 +123,18 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 TextFormField(
                   controller: _emailController,
                   keyboardType: TextInputType.emailAddress,
-                  decoration: const InputDecoration(
-                    labelText: 'Email',
-                    prefixIcon: Icon(Icons.email),
-                    border: OutlineInputBorder(),
+                  decoration: InputDecoration(
+                    labelText: AppLocalizations.of(ref).email,
+                    prefixIcon: const Icon(Icons.email),
+                    border: const OutlineInputBorder(),
                   ),
                   validator: (value) {
+                    final t = AppLocalizations.of(ref);
                     if (value == null || value.isEmpty) {
-                      return 'Введите email';
+                      return t.enterEmail;
                     }
                     if (!value.contains('@')) {
-                      return 'Введите корректный email';
+                      return t.enterValidEmail;
                     }
                     return null;
                   },
@@ -140,7 +144,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   controller: _passwordController,
                   obscureText: _obscurePassword,
                   decoration: InputDecoration(
-                    labelText: 'Пароль',
+                    labelText: AppLocalizations.of(ref).password,
                     prefixIcon: const Icon(Icons.lock),
                     suffixIcon: IconButton(
                       icon: Icon(
@@ -157,11 +161,12 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                     border: const OutlineInputBorder(),
                   ),
                   validator: (value) {
+                    final t = AppLocalizations.of(ref);
                     if (value == null || value.isEmpty) {
-                      return 'Введите пароль';
+                      return t.enterPassword;
                     }
                     if (value.length < 6) {
-                      return 'Пароль должен содержать минимум 6 символов';
+                      return t.passwordMinLength;
                     }
                     return null;
                   },
@@ -171,7 +176,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   controller: _confirmPasswordController,
                   obscureText: _obscureConfirmPassword,
                   decoration: InputDecoration(
-                    labelText: 'Подтвердите пароль',
+                    labelText: AppLocalizations.of(ref).confirmPassword,
                     prefixIcon: const Icon(Icons.lock_outline),
                     suffixIcon: IconButton(
                       icon: Icon(
@@ -188,11 +193,12 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                     border: const OutlineInputBorder(),
                   ),
                   validator: (value) {
+                    final t = AppLocalizations.of(ref);
                     if (value == null || value.isEmpty) {
-                      return 'Подтвердите пароль';
+                      return t.confirmPasswordRequired;
                     }
                     if (value != _passwordController.text) {
-                      return 'Пароли не совпадают';
+                      return t.passwordsDoNotMatch;
                     }
                     return null;
                   },
@@ -220,7 +226,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                           ),
                         )
                       : Text(
-                          'Зарегистрироваться',
+                          AppLocalizations.of(ref).registerButton,
                           style: Theme.of(context).textTheme.labelLarge
                               ?.copyWith(fontWeight: FontWeight.bold),
                         ),
@@ -228,11 +234,11 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 const SizedBox(height: 16),
                 TextButton(
                   onPressed: () => context.go('/login'),
-                  child: const Text('Уже есть аккаунт? Войти'),
+                  child: Text(AppLocalizations.of(ref).haveAccount),
                 ),
                 TextButton(
                   onPressed: () => context.go('/'),
-                  child: const Text('Вернуться на главную'),
+                  child: Text(AppLocalizations.of(ref).goHome),
                 ),
                 // Добавляем отступ снизу для лучшего отображения
                 SizedBox(height: MediaQuery.of(context).size.height * 0.05),

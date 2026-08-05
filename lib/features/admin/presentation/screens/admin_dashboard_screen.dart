@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:tatislam_app/core/constants/app_colors.dart';
+import 'package:tatislam_app/core/constants/app_localizations.dart';
 import 'package:tatislam_app/features/admin/presentation/screens/publications_list_screen.dart';
 import 'package:tatislam_app/features/admin/presentation/screens/sections_management_screen.dart';
 
@@ -38,7 +39,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
             context.go('/');
           },
         ),
-        title: Text(_selectedIndex == 0 ? 'Публикации' : 'Разделы'),
+        title: Text(_selectedIndex == 0 ? AppLocalizations.of(ref).publicationsTitle : AppLocalizations.of(ref).sectionsTitle),
         actions: [
           if (_selectedIndex == 0)
             IconButton(
@@ -70,16 +71,16 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
       bottomNavigationBar: NavigationBar(
         selectedIndex: _selectedIndex,
         onDestinationSelected: _onItemTapped,
-        destinations: const [
+        destinations: [
           NavigationDestination(
-            icon: Icon(Icons.article_outlined),
-            selectedIcon: Icon(Icons.article),
-            label: 'Публикации',
+            icon: const Icon(Icons.article_outlined),
+            selectedIcon: const Icon(Icons.article),
+            label: AppLocalizations.of(ref).publicationsTitle,
           ),
           NavigationDestination(
-            icon: Icon(Icons.category_outlined),
-            selectedIcon: Icon(Icons.category),
-            label: 'Разделы',
+            icon: const Icon(Icons.category_outlined),
+            selectedIcon: const Icon(Icons.category),
+            label: AppLocalizations.of(ref).sectionsTitle,
           ),
         ],
       ),

@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:tatislam_app/core/constants/app_colors.dart';
-import 'package:tatislam_app/core/constants/app_strings.dart';
+import 'package:tatislam_app/core/constants/app_localizations.dart';
 import 'package:tatislam_app/core/services/image_dimensions_service.dart';
 import 'package:tatislam_app/core/storage/storage_providers.dart';
 import 'package:tatislam_app/core/storage/media_storage_repository.dart';
@@ -196,7 +196,7 @@ class _PublicationDetailScreenState
             children: [
               const Icon(Icons.error_outline, size: 64, color: AppColors.error),
               const SizedBox(height: 16),
-              Text(AppStrings.errorLoading),
+              Text(AppLocalizations.of(ref).errorLoading),
             ],
           ),
         ),
@@ -215,13 +215,13 @@ class _PublicationDetailScreenState
             children: [
               const Icon(Icons.error_outline, size: 64, color: AppColors.error),
               const SizedBox(height: 16),
-              Text(AppStrings.errorLoading),
+              Text(AppLocalizations.of(ref).errorLoading),
               const SizedBox(height: 16),
               ElevatedButton(
                 onPressed: () => ref.invalidate(
                   publicationDetailProvider(widget.publicationId),
                 ),
-                child: Text(AppStrings.retry),
+                child: Text(AppLocalizations.of(ref).retry),
               ),
             ],
           ),

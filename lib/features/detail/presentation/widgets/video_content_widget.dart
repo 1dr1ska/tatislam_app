@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:web/web.dart' as web;
 import 'package:webview_flutter/webview_flutter.dart';
+import 'package:tatislam_app/core/constants/app_localizations.dart';
 import 'package:tatislam_app/core/widgets/glass_container.dart';
 import 'package:tatislam_app/features/detail/domain/services/video_url_parser_service.dart';
 import 'package:tatislam_app/features/publications/domain/entities/content_block.dart';
@@ -236,9 +237,9 @@ class _VideoContentWidgetState extends ConsumerState<VideoContentWidget> {
                       color: Color(0xFFD4A843),
                     ),
                     const SizedBox(height: 12),
-                    const Text(
-                      'Видео на Rutube',
-                      style: TextStyle(
+                    Text(
+                      AppLocalizations.of(ref).videoOnRutube,
+                      style: const TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.bold,
                         color: Color(0xFFD4A843),
@@ -261,7 +262,7 @@ class _VideoContentWidgetState extends ConsumerState<VideoContentWidget> {
                     const SizedBox(height: 12),
                     ElevatedButton(
                       onPressed: () => _launchUrl(context, widget.block.url),
-                      child: const Text('Открыть в браузере'),
+                      child: Text(AppLocalizations.of(ref).openInBrowser),
                     ),
                   ],
                 ),
@@ -295,9 +296,9 @@ class _VideoContentWidgetState extends ConsumerState<VideoContentWidget> {
                       color: Color(0xFFD4A843),
                     ),
                     const SizedBox(height: 12),
-                    const Text(
-                      'Видео',
-                      style: TextStyle(
+                    Text(
+                      AppLocalizations.of(ref).video,
+                      style: const TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.bold,
                         color: Color(0xFFD4A843),
@@ -306,7 +307,7 @@ class _VideoContentWidgetState extends ConsumerState<VideoContentWidget> {
                     const SizedBox(height: 12),
                     ElevatedButton(
                       onPressed: () => _launchUrl(context, widget.block.url),
-                      child: const Text('Открыть в браузере'),
+                      child: Text(AppLocalizations.of(ref).openInBrowser),
                     ),
                   ],
                 ),
@@ -332,7 +333,7 @@ class _VideoContentWidgetState extends ConsumerState<VideoContentWidget> {
               const Icon(Icons.videocam_off, size: 64, color: Colors.grey),
               const SizedBox(height: 16),
               Text(
-                'Видео недоступно',
+                AppLocalizations.of(ref).videoUnavailable,
                 style: Theme.of(
                   context,
                 ).textTheme.titleMedium?.copyWith(color: Colors.grey),
@@ -352,9 +353,7 @@ class _VideoContentWidgetState extends ConsumerState<VideoContentWidget> {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(
-              'Не удалось открыть URL: $url\nПопробуйте открыть его вручную в браузере',
-            ),
+            content: Text(AppLocalizations.of(ref).couldNotOpenUrl(url)),
           ),
         );
       }
@@ -362,7 +361,7 @@ class _VideoContentWidgetState extends ConsumerState<VideoContentWidget> {
       if (context.mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Ошибка при открытии URL: $e')));
+        ).showSnackBar(SnackBar(content: Text(AppLocalizations.of(ref).urlOpeningError(e.toString()))));
       }
     }
   }

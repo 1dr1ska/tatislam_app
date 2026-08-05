@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:tatislam_app/core/constants/app_colors.dart';
+import 'package:tatislam_app/core/constants/app_localizations.dart';
 import 'package:tatislam_app/features/auth/providers/auth_provider.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
@@ -43,9 +44,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         if (user.isAdmin) {
           context.go('/admin');
         } else {
+          final t = AppLocalizations.of(ref);
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('У вас нет прав администратора'),
+            SnackBar(
+              content: Text(t.noAdminRights),
               backgroundColor: Colors.red,
             ),
           );
@@ -55,9 +57,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       }
     } catch (e) {
       if (mounted) {
+        final t = AppLocalizations.of(ref);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Ошибка входа: $e'),
+            content: Text(t.loginError(e.toString())),
             backgroundColor: Colors.red,
           ),
         );
@@ -89,7 +92,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             }
           },
         ),
-        title: const Text('Вход администратора'),
+        title: Text(AppLocalizations.of(ref).loginScreenTitle),
         backgroundColor: AppColors.secondary,
         foregroundColor: Colors.white,
       ),
@@ -111,7 +114,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 ),
                 const SizedBox(height: 32),
                 Text(
-                  'Панель администратора',
+                  AppLocalizations.of(ref).adminPanelTitle,
                   style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                     fontWeight: FontWeight.bold,
                     color: AppColors.textPrimary,
@@ -122,17 +125,18 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 TextFormField(
                   controller: _emailController,
                   keyboardType: TextInputType.emailAddress,
-                  decoration: const InputDecoration(
-                    labelText: 'Email',
-                    prefixIcon: Icon(Icons.email),
-                    border: OutlineInputBorder(),
+                  decoration: InputDecoration(
+                    labelText: AppLocalizations.of(ref).email,
+                    prefixIcon: const Icon(Icons.email),
+                    border: const OutlineInputBorder(),
                   ),
                   validator: (value) {
+                    final t = AppLocalizations.of(ref);
                     if (value == null || value.isEmpty) {
-                      return 'Введите email';
+                      return t.enterEmail;
                     }
                     if (!value.contains('@')) {
-                      return 'Введите корректный email';
+                      return t.enterValidEmail;
                     }
                     return null;
                   },
@@ -142,7 +146,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   controller: _passwordController,
                   obscureText: _obscurePassword,
                   decoration: InputDecoration(
-                    labelText: 'Пароль',
+                    labelText: AppLocalizations.of(ref).password,
                     prefixIcon: const Icon(Icons.lock),
                     suffixIcon: IconButton(
                       icon: Icon(
@@ -159,11 +163,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     border: const OutlineInputBorder(),
                   ),
                   validator: (value) {
+                    final t = AppLocalizations.of(ref);
                     if (value == null || value.isEmpty) {
-                      return 'Введите пароль';
+                      return t.enterPassword;
                     }
                     if (value.length < 6) {
-                      return 'Пароль должен содержать минимум 6 символов';
+                      return t.passwordMinLength;
                     }
                     return null;
                   },
@@ -191,7 +196,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           ),
                         )
                       : Text(
-                          'Войти',
+                          AppLocalizations.of(ref).loginButton,
                           style: Theme.of(context).textTheme.labelLarge
                               ?.copyWith(fontWeight: FontWeight.bold),
                         ),
@@ -199,11 +204,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 const SizedBox(height: 16),
                 TextButton(
                   onPressed: () => context.go('/register'),
-                  child: const Text('Нет аккаунта? Зарегистрироваться'),
+                  child: Text(AppLocalizations.of(ref).noAccount),
                 ),
                 TextButton(
                   onPressed: () => context.go('/'),
-                  child: const Text('Вернуться на главную'),
+                  child: Text(AppLocalizations.of(ref).goHome),
                 ),
                 // Добавляем отступ снизу для лучшего отображения
                 SizedBox(height: MediaQuery.of(context).size.height * 0.05),

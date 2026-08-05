@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:tatislam_app/core/constants/app_colors.dart';
 import 'package:tatislam_app/core/constants/app_icons.dart';
+import 'package:tatislam_app/core/constants/app_localizations.dart';
 import 'package:tatislam_app/features/publications/data/publication_providers.dart';
 import 'package:tatislam_app/features/publications/domain/entities/publication.dart';
 
@@ -75,7 +76,7 @@ class _PublicationsListScreenState
           padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
           child: TextField(
             decoration: InputDecoration(
-              hintText: 'Поиск публикаций...',
+              hintText: AppLocalizations.of(ref).searchPublications,
               prefixIcon: const Icon(Icons.search, size: 20),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10),
@@ -106,11 +107,11 @@ class _PublicationsListScreenState
                     children: [
                       const Icon(Icons.error, size: 64, color: Colors.red),
                       const SizedBox(height: 16),
-                      Text('Ошибка загрузки: ${snapshot.error}'),
+                      Text('${AppLocalizations.of(ref).publicationLoadError}${snapshot.error}'),
                       const SizedBox(height: 16),
                       ElevatedButton(
                         onPressed: _refreshPublications,
-                        child: const Text('Повторить'),
+                        child: Text(AppLocalizations.of(ref).retry),
                       ),
                     ],
                   ),
@@ -118,17 +119,17 @@ class _PublicationsListScreenState
               }
 
               if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                return const Center(
+                return Center(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(
+                      const Icon(
                         Icons.article_outlined,
                         size: 64,
                         color: AppColors.articleColor,
                       ),
-                      SizedBox(height: 16),
-                      Text('Публикации не найдены'),
+                      const SizedBox(height: 16),
+                      Text(AppLocalizations.of(ref).noPublicationsFound),
                     ],
                   ),
                 );
@@ -230,13 +231,13 @@ class _PublicationsListScreenState
                       }
                     },
                     itemBuilder: (context) => [
-                      const PopupMenuItem(
+                      PopupMenuItem(
                         value: 'edit',
-                        child: Text('Редактировать'),
+                        child: Text(AppLocalizations.of(ref).editAction),
                       ),
-                      const PopupMenuItem(
+                      PopupMenuItem(
                         value: 'delete',
-                        child: Text('Удалить'),
+                        child: Text(AppLocalizations.of(ref).deleteAction),
                       ),
                     ],
                     icon: const Icon(
@@ -336,12 +337,12 @@ class _PublicationsListScreenState
     showDialog(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Подтверждение удаления'),
-        content: Text('Вы уверены, что хотите удалить "${publication.title}"?'),
+        title: Text(AppLocalizations.of(ref).deleteConfirmation),
+        content: Text(AppLocalizations.of(ref).deleteConfirmationMessage(publication.title)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('Отмена'),
+            child: Text(AppLocalizations.of(ref).cancelAction),
           ),
           ElevatedButton(
             onPressed: () async {
@@ -349,7 +350,7 @@ class _PublicationsListScreenState
               await _deletePublication(context, publication);
             },
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Удалить'),
+            child: Text(AppLocalizations.of(ref).deleteAction),
           ),
         ],
       ),
@@ -368,13 +369,13 @@ class _PublicationsListScreenState
       if (context.mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(const SnackBar(content: Text('Публикация удалена')));
+        ).showSnackBar(SnackBar(content: Text(AppLocalizations.of(ref).publicationDeleted)));
       }
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Ошибка удаления: $e')));
+        ).showSnackBar(SnackBar(content: Text('${AppLocalizations.of(ref).publicationDeleteError}$e')));
       }
     }
   }

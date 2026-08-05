@@ -8,6 +8,7 @@ import 'package:uuid/uuid.dart';
 
 import 'package:image_picker/image_picker.dart';
 import 'package:tatislam_app/core/constants/app_colors.dart';
+import 'package:tatislam_app/core/constants/app_localizations.dart';
 import 'package:tatislam_app/core/services/media_optimization_service.dart';
 import 'package:tatislam_app/core/constants/app_icons.dart';
 import 'package:tatislam_app/core/storage/storage_paths.dart';
@@ -127,7 +128,7 @@ class _PublicationEditorScreenState
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Ошибка загрузки публикации: $e')),
+          SnackBar(content: Text('${AppLocalizations.of(ref).publicationLoadErrorDetail}$e')),
         );
       }
       return null;
@@ -148,7 +149,7 @@ class _PublicationEditorScreenState
         if (!await file.exists()) {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Ошибка: файл не найден')),
+              SnackBar(content: Text(AppLocalizations.of(ref).fileNotFoundError)),
             );
           }
           return;
@@ -161,7 +162,7 @@ class _PublicationEditorScreenState
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Ошибка выбора изображения: $e')),
+          SnackBar(content: Text('${AppLocalizations.of(ref).imageSelectionError}$e')),
         );
       }
     }
@@ -307,25 +308,26 @@ class _PublicationEditorScreenState
     });
   }
 
-  String _saveStepLabel() {
+    String _saveStepLabel() {
+    final t = AppLocalizations.of(ref);
     switch (_currentSaveStep) {
       case _SaveStep.idle:
         return '';
       case _SaveStep.savingMetadata:
-        return 'Сохранение данных...';
+        return t.savingMetadata;
       case _SaveStep.uploadingFiles:
         if (_totalFileCount > 0) {
-          return 'Загрузка файлов $_uploadedFileCount/$_totalFileCount...';
+          return t.uploadingFileProgress(_uploadedFileCount, _totalFileCount);
         }
-        return 'Загрузка файлов...';
+        return t.uploadingFiles;
       case _SaveStep.savingSections:
-        return 'Сохранение разделов...';
+        return t.savingSections;
       case _SaveStep.savingBlocks:
-        return 'Сохранение блоков...';
+        return t.savingBlocks;
       case _SaveStep.done:
-        return 'Сохранено';
+        return t.saved;
       case _SaveStep.error:
-        return 'Ошибка сохранения';
+        return t.saveError;
     }
   }
 
@@ -367,7 +369,7 @@ class _PublicationEditorScreenState
         _iconValidationAttempted = true;
       });
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Выберите иконку публикации')),
+        SnackBar(content: Text(AppLocalizations.of(ref).selectPublicationIcon)),
       );
       return;
     }
@@ -379,7 +381,7 @@ class _PublicationEditorScreenState
       });
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('Выберите основной раздел')));
+      ).showSnackBar(SnackBar(content: Text(AppLocalizations.of(ref).selectPrimarySectionRequired)));
       return;
     }
 
@@ -438,7 +440,7 @@ class _PublicationEditorScreenState
           final messenger = ScaffoldMessenger.of(context);
           await Future.delayed(const Duration(milliseconds: 500));
           messenger.showSnackBar(
-            const SnackBar(content: Text('Публикация создана')),
+            SnackBar(content: Text(AppLocalizations.of(ref).publicationCreated)),
           );
           ref.invalidate(publicationRepositoryProvider);
           if (mounted) context.pop(true);
@@ -485,7 +487,7 @@ class _PublicationEditorScreenState
           final messenger = ScaffoldMessenger.of(context);
           await Future.delayed(const Duration(milliseconds: 500));
           messenger.showSnackBar(
-            const SnackBar(content: Text('Публикация обновлена')),
+            SnackBar(content: Text(AppLocalizations.of(ref).publicationUpdated)),
           );
           ref.invalidate(publicationRepositoryProvider);
           if (mounted) context.pop(true);
@@ -498,7 +500,7 @@ class _PublicationEditorScreenState
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Ошибка сохранения: $e')));
+        ).showSnackBar(SnackBar(content: Text('${AppLocalizations.of(ref).publicationSaveError}$e')));
       }
     } finally {
       setState(() {
@@ -602,22 +604,20 @@ class _PublicationEditorScreenState
     final result = await showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Несохранённые изменения'),
-        content: const Text(
-          'У вас есть несохранённые изменения. Что вы хотите сделать?',
-        ),
+        title: Text(AppLocalizations.of(ref).unsavedChanges),
+        content: Text(AppLocalizations.of(ref).unsavedChangesMessage),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, 'cancel'),
-            child: const Text('Отмена'),
+            child: Text(AppLocalizations.of(ref).cancelAction),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, 'discard'),
-            child: const Text('Выйти без сохранения'),
+            child: Text(AppLocalizations.of(ref).leaveWithoutSaving),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(context, 'save'),
-            child: const Text('Сохранить'),
+            child: Text(AppLocalizations.of(ref).saveAction),
           ),
         ],
       ),
@@ -665,8 +665,8 @@ class _PublicationEditorScreenState
           ),
           title: Text(
             widget.publicationId == null
-                ? 'Новая публикация'
-                : 'Редактировать публикацию',
+                ? AppLocalizations.of(ref).newPublicationTitle
+                : AppLocalizations.of(ref).editPublicationTitle,
           ),
           actions: [
             IconButton(
@@ -696,20 +696,20 @@ class _PublicationEditorScreenState
                         children: [
                           // Metadata Card
                           _buildSectionCard(
-                            title: 'Метаданные',
+                            title: AppLocalizations.of(ref).metadata,
                             icon: Icons.info_outline,
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 TextFormField(
                                   controller: _titleController,
-                                  decoration: const InputDecoration(
-                                    labelText: 'Заголовок',
-                                    border: OutlineInputBorder(),
+                                  decoration: InputDecoration(
+                                    labelText: AppLocalizations.of(ref).titleField,
+                                    border: const OutlineInputBorder(),
                                   ),
                                   validator: (value) {
                                     if (value == null || value.isEmpty) {
-                                      return 'Введите заголовок';
+                                      return AppLocalizations.of(ref).enterTitle;
                                     }
                                     return null;
                                   },
@@ -736,14 +736,16 @@ class _PublicationEditorScreenState
 
                                     if (snapshot.hasError) {
                                       return Text(
-                                        'Ошибка загрузки разделов: ${snapshot.error}',
+                                        AppLocalizations.of(ref).sectionLoadError(
+                                          '${snapshot.error}',
+                                        ),
                                       );
                                     }
 
                                     if (!snapshot.hasData ||
                                         snapshot.data!.isEmpty) {
-                                      return const Text(
-                                        'Нет доступных разделов',
+                                      return Text(
+                                        AppLocalizations.of(ref).noSectionsAvailable,
                                       );
                                     }
 
@@ -752,8 +754,8 @@ class _PublicationEditorScreenState
                                       crossAxisAlignment:
                                           CrossAxisAlignment.start,
                                       children: [
-                                        const Text(
-                                          'Основной раздел (обязательно)',
+                                        Text(
+                                          AppLocalizations.of(ref).primarySection,
                                           style: TextStyle(
                                             fontSize: 14,
                                             fontWeight: FontWeight.bold,
@@ -802,7 +804,7 @@ class _PublicationEditorScreenState
                                                     .isEmpty)) ...[
                                           const SizedBox(height: 4),
                                           Text(
-                                            'Выберите основной раздел',
+                                            AppLocalizations.of(ref).selectPrimarySection,
                                             style: TextStyle(
                                               fontSize: 12,
                                               color: Colors.red[700],
@@ -830,14 +832,16 @@ class _PublicationEditorScreenState
 
                                     if (snapshot.hasError) {
                                       return Text(
-                                        'Ошибка загрузки разделов: ${snapshot.error}',
+                                        AppLocalizations.of(ref).sectionLoadError(
+                                          '${snapshot.error}',
+                                        ),
                                       );
                                     }
 
                                     if (!snapshot.hasData ||
                                         snapshot.data!.isEmpty) {
-                                      return const Text(
-                                        'Нет доступных разделов',
+                                      return Text(
+                                        AppLocalizations.of(ref).noSectionsAvailable,
                                       );
                                     }
 
@@ -846,8 +850,8 @@ class _PublicationEditorScreenState
                                       crossAxisAlignment:
                                           CrossAxisAlignment.start,
                                       children: [
-                                        const Text(
-                                          'Дополнительные разделы',
+                                        Text(
+                                          AppLocalizations.of(ref).additionalSections,
                                           style: TextStyle(
                                             fontSize: 14,
                                             fontWeight: FontWeight.bold,
@@ -895,18 +899,18 @@ class _PublicationEditorScreenState
                                 const SizedBox(height: 12),
                                 DropdownButtonFormField<String>(
                                   initialValue: _status,
-                                  decoration: const InputDecoration(
-                                    labelText: 'Статус',
-                                    border: OutlineInputBorder(),
+                                  decoration: InputDecoration(
+                                    labelText: AppLocalizations.of(ref).statusField,
+                                    border: const OutlineInputBorder(),
                                   ),
-                                  items: const [
+                                  items: [
                                     DropdownMenuItem(
                                       value: 'draft',
-                                      child: Text('Черновик'),
+                                      child: Text(AppLocalizations.of(ref).statusDraft),
                                     ),
                                     DropdownMenuItem(
                                       value: 'published',
-                                      child: Text('Опубликовано'),
+                                      child: Text(AppLocalizations.of(ref).statusPublished),
                                     ),
                                   ],
                                   onChanged: (value) {
@@ -934,10 +938,10 @@ class _PublicationEditorScreenState
                                   const SizedBox(height: 12),
                                   TextFormField(
                                     controller: _dateController,
-                                    decoration: const InputDecoration(
-                                      labelText: 'Дата публикации',
-                                      border: OutlineInputBorder(),
-                                      suffixIcon: Icon(Icons.calendar_today),
+                                    decoration: InputDecoration(
+                                      labelText: AppLocalizations.of(ref).publishDate,
+                                      border: const OutlineInputBorder(),
+                                      suffixIcon: const Icon(Icons.calendar_today),
                                     ),
                                     readOnly: true,
                                     onTap: _pickDate,
@@ -949,19 +953,19 @@ class _PublicationEditorScreenState
                           const SizedBox(height: 12),
                           // Content Blocks
                           _buildSectionCard(
-                            title: 'Блоки контента',
+                            title: AppLocalizations.of(ref).contentBlocks,
                             icon: Icons.view_stream,
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 // Blocks list
                                 if (_contentBlocks.isEmpty)
-                                  const Padding(
-                                    padding: EdgeInsets.symmetric(vertical: 16),
+                                  Padding(
+                                    padding: const EdgeInsets.symmetric(vertical: 16),
                                     child: Center(
                                       child: Text(
-                                        'Добавьте первый блок контента',
-                                        style: TextStyle(color: Colors.grey),
+                                        AppLocalizations.of(ref).addFirstBlock,
+                                        style: const TextStyle(color: Colors.grey),
                                       ),
                                     ),
                                   )
@@ -986,7 +990,7 @@ class _PublicationEditorScreenState
                                     vertical: 2,
                                   ),
                                   child: Text(
-                                    'Добавить блок',
+                                    AppLocalizations.of(ref).addBlock,
                                     style: TextStyle(
                                       fontSize: 12,
                                       color: Colors.grey[600],
@@ -1053,7 +1057,7 @@ class _PublicationEditorScreenState
       children: [
         _buildAddBlockChip(
           icon: Icons.text_fields,
-          label: 'Текст',
+          label: AppLocalizations.of(ref).textBlock,
           color: Colors.blue,
           onPressed: () {
             setState(() {
@@ -1071,7 +1075,7 @@ class _PublicationEditorScreenState
         ),
         _buildAddBlockChip(
           icon: Icons.image,
-          label: 'Изображение',
+          label: AppLocalizations.of(ref).imageBlock,
           color: Colors.green,
           onPressed: () {
             setState(() {
@@ -1089,7 +1093,7 @@ class _PublicationEditorScreenState
         ),
         _buildAddBlockChip(
           icon: Icons.video_library,
-          label: 'Видео',
+          label: AppLocalizations.of(ref).videoBlock,
           color: Colors.purple,
           onPressed: () {
             setState(() {
@@ -1108,7 +1112,7 @@ class _PublicationEditorScreenState
         ),
         _buildAddBlockChip(
           icon: Icons.audiotrack,
-          label: 'Аудио',
+          label: AppLocalizations.of(ref).audioBlock,
           color: Colors.orange,
           onPressed: () {
             setState(() {
@@ -1152,9 +1156,9 @@ class _PublicationEditorScreenState
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Иконка *',
-          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+        Text(
+          AppLocalizations.of(ref).iconField,
+          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
         ),
         const SizedBox(height: 6),
         Wrap(
@@ -1201,7 +1205,7 @@ class _PublicationEditorScreenState
         if (showError) ...[
           const SizedBox(height: 4),
           Text(
-            'Выберите иконку',
+            AppLocalizations.of(ref).selectIcon,
             style: TextStyle(fontSize: 12, color: Colors.red[700]),
           ),
         ],
@@ -1377,7 +1381,7 @@ class _PublicationEditorScreenState
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildBlockHeader(
-            title: 'Текстовый блок',
+            title: AppLocalizations.of(ref).textBlockLabel,
             icon: Icons.text_fields,
             iconColor: Colors.blue,
             index: index,
@@ -1397,10 +1401,10 @@ class _PublicationEditorScreenState
               padding: const EdgeInsets.all(10),
               child: TextFormField(
                 initialValue: block.text,
-                decoration: const InputDecoration(
-                  hintText: 'Введите текст...',
-                  border: OutlineInputBorder(),
-                  contentPadding: EdgeInsets.symmetric(
+                decoration: InputDecoration(
+                  hintText: AppLocalizations.of(ref).enterTextHint,
+                  border: const OutlineInputBorder(),
+                  contentPadding: const EdgeInsets.symmetric(
                     horizontal: 12,
                     vertical: 10,
                   ),
@@ -1434,7 +1438,7 @@ class _PublicationEditorScreenState
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildBlockHeader(
-            title: 'Изображение',
+            title: AppLocalizations.of(ref).imageBlock,
             icon: Icons.image,
             iconColor: Colors.green,
             index: index,
@@ -1535,8 +1539,8 @@ class _PublicationEditorScreenState
                                 ),
                                 label: Text(
                                   hasLocalFile || block.imagePath.isNotEmpty
-                                      ? 'Заменить'
-                                      : 'Выбрать',
+                                      ? AppLocalizations.of(ref).replaceImage
+                                      : AppLocalizations.of(ref).selectImage,
                                   style: const TextStyle(fontSize: 12),
                                 ),
                                 style: TextButton.styleFrom(
@@ -1571,9 +1575,9 @@ class _PublicationEditorScreenState
                                     size: 16,
                                     color: Colors.red,
                                   ),
-                                  label: const Text(
-                                    'Удалить',
-                                    style: TextStyle(
+                                  label: Text(
+                                    AppLocalizations.of(ref).deleteAction,
+                                    style: const TextStyle(
                                       fontSize: 12,
                                       color: Colors.red,
                                     ),
@@ -1614,7 +1618,7 @@ class _PublicationEditorScreenState
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildBlockHeader(
-            title: 'Видео',
+            title: AppLocalizations.of(ref).videoBlock,
             icon: Icons.video_library,
             iconColor: Colors.purple,
             index: index,
@@ -1637,10 +1641,10 @@ class _PublicationEditorScreenState
                 children: [
                   TextFormField(
                     initialValue: block.url,
-                    decoration: const InputDecoration(
-                      labelText: 'URL видео',
-                      border: OutlineInputBorder(),
-                      contentPadding: EdgeInsets.symmetric(
+                    decoration: InputDecoration(
+                      labelText: AppLocalizations.of(ref).videoUrlField,
+                      border: const OutlineInputBorder(),
+                      contentPadding: const EdgeInsets.symmetric(
                         horizontal: 12,
                         vertical: 10,
                       ),
@@ -1655,22 +1659,22 @@ class _PublicationEditorScreenState
                   const SizedBox(height: 10),
                   DropdownButtonFormField<VideoProviderType>(
                     initialValue: block.provider,
-                    decoration: const InputDecoration(
-                      labelText: 'Платформа',
-                      border: OutlineInputBorder(),
-                      contentPadding: EdgeInsets.symmetric(
+                    decoration: InputDecoration(
+                      labelText: AppLocalizations.of(ref).platformField,
+                      border: const OutlineInputBorder(),
+                      contentPadding: const EdgeInsets.symmetric(
                         horizontal: 12,
                         vertical: 10,
                       ),
                     ),
-                    items: const [
+                    items: [
                       DropdownMenuItem(
                         value: VideoProviderType.youtube,
-                        child: Text('YouTube'),
+                        child: Text(AppLocalizations.of(ref).youtubeLabel),
                       ),
                       DropdownMenuItem(
                         value: VideoProviderType.rutube,
-                        child: Text('RuTube'),
+                        child: Text(AppLocalizations.of(ref).rutubeLabel),
                       ),
                     ],
                     onChanged: (value) {
@@ -1705,7 +1709,7 @@ class _PublicationEditorScreenState
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildBlockHeader(
-            title: 'Аудио',
+            title: AppLocalizations.of(ref).audioBlock,
             icon: Icons.audiotrack,
             iconColor: Colors.orange,
             index: index,
@@ -1800,8 +1804,8 @@ class _PublicationEditorScreenState
                               label: Text(
                                 selectedAudioFile != null ||
                                         (block.audioPath?.isNotEmpty ?? false)
-                                    ? 'Заменить'
-                                    : 'Выбрать файл',
+                                    ? AppLocalizations.of(ref).replaceFile
+                                    : AppLocalizations.of(ref).selectFile,
                                 style: const TextStyle(fontSize: 12),
                               ),
                               style: TextButton.styleFrom(
@@ -1835,9 +1839,9 @@ class _PublicationEditorScreenState
                                   size: 16,
                                   color: Colors.red,
                                 ),
-                                label: const Text(
-                                  'Удалить',
-                                  style: TextStyle(
+                                label: Text(
+                                  AppLocalizations.of(ref).deleteAction,
+                                  style: const TextStyle(
                                     fontSize: 12,
                                     color: Colors.red,
                                   ),

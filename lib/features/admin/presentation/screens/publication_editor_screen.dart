@@ -1118,7 +1118,7 @@ class _PublicationEditorScreenState
                   publicationId: widget.publicationId ?? '',
                   orderIndex: _contentBlocks.length,
                   source: AudioSourceType.upload,
-                  audioPath: '',
+                  audioPath: null,
                 ),
               );
             });
@@ -1824,7 +1824,7 @@ class _PublicationEditorScreenState
                                     );
                                     if (idx != -1) {
                                       _contentBlocks[idx] = block.copyWith(
-                                        audioPath: '',
+                                        audioPath: null,
                                       );
                                     }
                                   });

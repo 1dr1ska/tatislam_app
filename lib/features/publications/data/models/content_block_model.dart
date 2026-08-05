@@ -60,8 +60,8 @@ class ContentBlockModel {
           (v) => v.name == data['source'],
           orElse: () => AudioSourceType.upload,
         ),
-        audioPath: data['audio_path'] as String?,
-        audioUrl: data['audio_url'] as String?,
+        audioPath: data['path'] as String?,
+        audioUrl: data['url'] as String?,
       ),
       _ => throw ArgumentError('Unknown content block type: $type'),
     };
@@ -83,8 +83,8 @@ class ContentBlockModel {
       ) =>
         {
           'source': source.name,
-          'audio_path': ?audioPath,
-          'audio_url': ?audioUrl,
+          'path': ?audioPath,
+          'url': ?audioUrl,
         },
     };
   }

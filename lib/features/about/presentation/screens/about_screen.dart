@@ -17,8 +17,8 @@ const double _glassOpacity = 0.40;
 const double _glassBorderOpacity = 0.30;
 const double _glassBorderWidth = 0.8;
 const double _glassRadius = 16;
-const double _cardPadding = 16;
-const double _sectionSpacing = 20;
+const double _cardPadding = 14;
+const double _sectionSpacing = 16;
 const Color _goldAccent = Color(0xFFE0B84A);
 
 /// Data model for a link/contact card.
@@ -211,15 +211,15 @@ class _AboutScreenState extends ConsumerState<AboutScreen> {
             }
           },
           child: Container(
-            width: 150,
-            height: 150,
+            width: 120,
+            height: 120,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               boxShadow: [
                 BoxShadow(
                   color: _goldAccent.withValues(alpha: 0.20),
-                  blurRadius: 20,
-                  spreadRadius: 4,
+                  blurRadius: 16,
+                  spreadRadius: 3,
                 ),
               ],
             ),
@@ -231,7 +231,7 @@ class _AboutScreenState extends ConsumerState<AboutScreen> {
             ),
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 6),
         Text(
           AppLocalizations.of(ref).version(''),
           style: TextStyle(
@@ -246,17 +246,19 @@ class _AboutScreenState extends ConsumerState<AboutScreen> {
 
   Widget _buildDescriptionCard() {
     final scale = ref.watch(textScaleProvider).scale;
-    return _buildGlassCard(
+    return Align(
+      alignment: Alignment.centerLeft,
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 600),
-        child: Text(
-          AppLocalizations.of(ref).appDescription,
-          style: TextStyle(
-            color: const Color(0xFF1A1A2E).withValues(alpha: 0.90),
-            fontSize: (15 * scale).roundToDouble(),
-            height: 1.6,
+        constraints: const BoxConstraints(maxWidth: 520),
+        child: _buildGlassCard(
+          child: Text(
+            AppLocalizations.of(ref).appDescription,
+            style: TextStyle(
+              color: const Color(0xFF1A1A2E).withValues(alpha: 0.90),
+              fontSize: (14 * scale).roundToDouble(),
+              height: 1.55,
+            ),
           ),
-          textAlign: TextAlign.justify,
         ),
       ),
     );
@@ -275,7 +277,7 @@ class _AboutScreenState extends ConsumerState<AboutScreen> {
             fontWeight: FontWeight.w600,
           ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 10),
         Row(
           children: [
             Expanded(
@@ -342,65 +344,65 @@ class _AboutScreenState extends ConsumerState<AboutScreen> {
             fontWeight: FontWeight.w600,
           ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 10),
         _buildLinkCard(
-          item: const _LinkItem(
+          item: _LinkItem(
             icon: Icons.language,
-            title: 'Безнең сайт',
+            title: AppLocalizations.of(ref).linkOurSite,
             subtitle: 'tatislam.com',
             url: 'https://tatislam.com',
           ),
         ),
         const SizedBox(height: 10),
         _buildLinkCard(
-          item: const _LinkItem(
+          item: _LinkItem(
             icon: Icons.play_circle_filled,
-            title: 'YouTube каналы',
+            title: AppLocalizations.of(ref).linkYouTube,
             subtitle: 'youtube.com/channel/UCyoQBRnx-UU2gBPPFjU1hIw',
             url: 'https://www.youtube.com/channel/UCyoQBRnx-UU2gBPPFjU1hIw',
           ),
         ),
         const SizedBox(height: 10),
         _buildLinkCard(
-          item: const _LinkItem(
+          item: _LinkItem(
             icon: Icons.ondemand_video,
-            title: 'RuTube каналы',
+            title: AppLocalizations.of(ref).linkRuTube,
             subtitle: 'rutube.ru/channel/38324482',
             url: 'https://rutube.ru/channel/38324482',
           ),
         ),
         const SizedBox(height: 10),
         _buildLinkCard(
-          item: const _LinkItem(
+          item: _LinkItem(
             icon: Icons.people_alt,
-            title: 'ВКонтакте',
+            title: AppLocalizations.of(ref).linkVK,
             subtitle: 'vk.com/tat_islam_com',
             url: 'https://vk.com/tat_islam_com',
           ),
         ),
         const SizedBox(height: 10),
         _buildLinkCard(
-          item: const _LinkItem(
+          item: _LinkItem(
             icon: Icons.chat,
-            title: 'Бип',
+            title: AppLocalizations.of(ref).linkBip,
             subtitle: 'bip.ai/join/tatislam',
             url: 'https://bip.ai/join/tatislam',
           ),
         ),
         const SizedBox(height: 10),
         _buildLinkCard(
-          item: const _LinkItem(
+          item: _LinkItem(
             icon: Icons.forum,
-            title: 'Макс',
+            title: AppLocalizations.of(ref).linkMax,
             subtitle: 'max.ru/join/W0hU3jNSKOSno',
             url: 'https://max.ru/join/W0hU3jNSKOSno',
           ),
         ),
         const SizedBox(height: 10),
         _buildLinkCard(
-          item: const _LinkItem(
+          item: _LinkItem(
             icon: Icons.telegram,
-            title: 'Telegram каналы',
+            title: AppLocalizations.of(ref).linkTelegram,
             subtitle: 't.me/tatislam',
             url: 'https://t.me/tatislam',
           ),
@@ -422,7 +424,7 @@ class _AboutScreenState extends ConsumerState<AboutScreen> {
             fontWeight: FontWeight.w600,
           ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 10),
         _buildLinkCard(
           item: const _LinkItem(
             icon: Icons.email,
@@ -509,11 +511,11 @@ class _AboutScreenState extends ConsumerState<AboutScreen> {
                   fontWeight: FontWeight.w500,
                 ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 8),
               ...AppLocale.values.map((locale) {
                 final isSelected = appLocale == locale;
                 return Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
+                  padding: const EdgeInsets.only(bottom: 6),
                   child: GestureDetector(
                     onTap: () =>
                         ref.read(localeProvider.notifier).setLocale(locale),
@@ -559,9 +561,9 @@ class _AboutScreenState extends ConsumerState<AboutScreen> {
                   ),
                 );
               }),
-              const SizedBox(height: 12),
+              const SizedBox(height: 8),
               const Divider(color: Color(0x1A1A1A2E)),
-              const SizedBox(height: 12),
+              const SizedBox(height: 8),
               // ── Text size ──
               Text(
                 t.textSize,
@@ -571,11 +573,11 @@ class _AboutScreenState extends ConsumerState<AboutScreen> {
                   fontWeight: FontWeight.w500,
                 ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 8),
               ...TextScaleLevel.values.map((level) {
                 final isSelected = textScale == level;
                 return Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
+                  padding: const EdgeInsets.only(bottom: 6),
                   child: GestureDetector(
                     onTap: () =>
                         ref.read(textScaleProvider.notifier).setScale(level),
@@ -631,7 +633,7 @@ class _AboutScreenState extends ConsumerState<AboutScreen> {
   /// Builds a small feature card with a gold icon and label.
   Widget _buildFeatureCard({required IconData icon, required String label}) {
     final scale = ref.watch(textScaleProvider).scale;
-    final vPadding = (14 * (1.0 + (scale - 1.0) * 0.5)).clamp(14.0, 20.0);
+    final vPadding = (16 * (1.0 + (scale - 1.0) * 0.5)).clamp(16.0, 22.0);
     return ClipRRect(
       borderRadius: BorderRadius.circular(12),
       child: BackdropFilter(
@@ -645,12 +647,12 @@ class _AboutScreenState extends ConsumerState<AboutScreen> {
               width: 0.8,
             ),
           ),
-          padding: EdgeInsets.symmetric(vertical: vPadding, horizontal: 8),
+          padding: EdgeInsets.symmetric(vertical: vPadding, horizontal: 10),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(icon, color: _goldAccent, size: 34),
-              const SizedBox(height: 6),
+              const SizedBox(height: 8),
               Text(
                 label,
                 style: TextStyle(
@@ -687,7 +689,7 @@ class _AboutScreenState extends ConsumerState<AboutScreen> {
                 width: 0.8,
               ),
             ),
-            padding: EdgeInsets.symmetric(horizontal: 14, vertical: vPadding),
+            padding: EdgeInsets.symmetric(horizontal: 16, vertical: vPadding),
             child: Row(
               children: [
                 Icon(item.icon, color: _goldAccent, size: 24),
@@ -704,7 +706,7 @@ class _AboutScreenState extends ConsumerState<AboutScreen> {
                           fontWeight: FontWeight.w500,
                         ),
                       ),
-                      const SizedBox(height: 2),
+                      const SizedBox(height: 4),
                       Text(
                         item.subtitle,
                         style: TextStyle(

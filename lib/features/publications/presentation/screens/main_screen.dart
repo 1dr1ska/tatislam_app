@@ -513,9 +513,13 @@ class _PublicationCard extends ConsumerWidget {
       },
       child: _TapScale(
         onTap: () {
-          GoRouter.of(
-            context,
-          ).push('/publication/${publication.id}?source=catalog');
+          if (publication.type == 'admin') {
+            GoRouter.of(context).go('/login');
+          } else {
+            GoRouter.of(
+              context,
+            ).push('/publication/${publication.id}?source=catalog');
+          }
         },
         child: ClipRRect(
           borderRadius: BorderRadius.circular(12),

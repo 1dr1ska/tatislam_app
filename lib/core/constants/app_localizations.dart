@@ -238,6 +238,13 @@ class AppLocalizations {
   String get featureFilters => _locale == AppLocale.tatar ? 'Сезгечлэр' : 'Фильтры';
   String get links => _locale == AppLocale.tatar ? 'Сылтамалар:' : 'Ссылки:';
   String get contacts => _locale == AppLocale.tatar ? 'Контактлар:' : 'Контакты:';
+  String get linkOurSite => _locale == AppLocale.tatar ? 'Безнең сайт' : 'Наш сайт';
+  String get linkYouTube => _locale == AppLocale.tatar ? 'YouTube каналы' : 'YouTube';
+  String get linkRuTube => _locale == AppLocale.tatar ? 'RuTube каналы' : 'RuTube';
+  String get linkVK => 'ВКонтакте';
+  String get linkBip => 'Бип';
+  String get linkMax => 'Макс';
+  String get linkTelegram => _locale == AppLocale.tatar ? 'Telegram каналы' : 'Telegram';
 
   // ── Text Scale ──────────────────────────────────────────
   String get textScaleCompact => 'Компактный';

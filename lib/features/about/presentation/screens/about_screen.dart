@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:tatislam_app/core/constants/app_localizations.dart';
+import 'package:tatislam_app/core/constants/app_strings.dart';
 import 'package:tatislam_app/core/providers/locale_provider.dart';
 import 'package:tatislam_app/core/providers/text_scale_provider.dart';
 import 'package:tatislam_app/core/utils/responsive.dart';
@@ -233,7 +234,7 @@ class _AboutScreenState extends ConsumerState<AboutScreen> {
         ),
         const SizedBox(height: 6),
         Text(
-          AppLocalizations.of(ref).version(''),
+          AppLocalizations.of(ref).version(AppStrings.appVersion),
           style: TextStyle(
             color: Colors.white.withValues(alpha: 0.80),
             fontSize: (14 * scale).roundToDouble(),
@@ -480,6 +481,8 @@ class _AboutScreenState extends ConsumerState<AboutScreen> {
   }
 
   /// Builds the settings section — text size + interface language.
+  /// On wide screens (>= 600px) uses two columns: left = text size, right = language.
+  /// On narrow screens falls back to vertical layout.
   Widget _buildTextScaleSettings(BuildContext context) {
     final textScale = ref.watch(textScaleProvider);
     final appLocale = ref.watch(localeProvider);
@@ -498,134 +501,185 @@ class _AboutScreenState extends ConsumerState<AboutScreen> {
           ),
         ),
         const SizedBox(height: 8),
-        _buildGlassCard(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // ── Interface language ──
-              Text(
-                t.interfaceLanguage,
-                style: TextStyle(
-                  color: const Color(0xFF1A1A2E).withValues(alpha: 0.90),
-                  fontSize: (14 * scale).roundToDouble(),
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              const SizedBox(height: 8),
-              ...AppLocale.values.map((locale) {
-                final isSelected = appLocale == locale;
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 6),
-                  child: GestureDetector(
-                    onTap: () =>
-                        ref.read(localeProvider.notifier).setLocale(locale),
-                    child: Row(
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final isWide = constraints.maxWidth >= 600;
+            return _buildGlassCard(
+              child: isWide
+                  ? Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Container(
-                          width: 22,
-                          height: 22,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: isSelected
-                                  ? _goldAccent
-                                  : Colors.grey.shade400,
-                              width: 2,
-                            ),
+                        // Left column: Text size
+                        Expanded(
+                          child: _buildTextSizeColumn(
+                            textScale,
+                            appLocale,
+                            scale,
                           ),
-                          child: isSelected
-                              ? Center(
-                                  child: Container(
-                                    width: 12,
-                                    height: 12,
-                                    decoration: const BoxDecoration(
-                                      shape: BoxShape.circle,
-                                      color: _goldAccent,
-                                    ),
-                                  ),
-                                )
-                              : null,
                         ),
-                        const SizedBox(width: 12),
-                        Text(
-                          locale.displayName(appLocale),
-                          style: TextStyle(
-                            color: const Color(
-                              0xFF1A1A2E,
-                            ).withValues(alpha: 0.85),
-                            fontSize: (14 * scale).roundToDouble(),
+                        const SizedBox(width: 24),
+                        // Right column: Interface language
+                        Expanded(
+                          child: _buildLanguageColumn(
+                            appLocale,
+                            scale,
                           ),
                         ),
                       ],
-                    ),
-                  ),
-                );
-              }),
-              const SizedBox(height: 8),
-              const Divider(color: Color(0x1A1A1A2E)),
-              const SizedBox(height: 8),
-              // ── Text size ──
-              Text(
-                t.textSize,
-                style: TextStyle(
-                  color: const Color(0xFF1A1A2E).withValues(alpha: 0.90),
-                  fontSize: (14 * scale).roundToDouble(),
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              const SizedBox(height: 8),
-              ...TextScaleLevel.values.map((level) {
-                final isSelected = textScale == level;
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 6),
-                  child: GestureDetector(
-                    onTap: () =>
-                        ref.read(textScaleProvider.notifier).setScale(level),
-                    child: Row(
+                    )
+                  : Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Container(
-                          width: 22,
-                          height: 22,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: isSelected
-                                  ? _goldAccent
-                                  : Colors.grey.shade400,
-                              width: 2,
-                            ),
-                          ),
-                          child: isSelected
-                              ? Center(
-                                  child: Container(
-                                    width: 12,
-                                    height: 12,
-                                    decoration: const BoxDecoration(
-                                      shape: BoxShape.circle,
-                                      color: _goldAccent,
-                                    ),
-                                  ),
-                                )
-                              : null,
-                        ),
-                        const SizedBox(width: 12),
-                        Text(
-                          level.displayName(appLocale),
-                          style: TextStyle(
-                            color: const Color(
-                              0xFF1A1A2E,
-                            ).withValues(alpha: 0.85),
-                            fontSize: (14 * scale).roundToDouble(),
-                          ),
-                        ),
+                        _buildLanguageColumn(appLocale, scale),
+                        const SizedBox(height: 8),
+                        const Divider(color: Color(0x1A1A1A2E)),
+                        const SizedBox(height: 8),
+                        _buildTextSizeColumn(textScale, appLocale, scale),
                       ],
                     ),
-                  ),
-                );
-              }),
-            ],
+            );
+          },
+        ),
+      ],
+    );
+  }
+
+  /// Column with interface language radio buttons.
+  Widget _buildLanguageColumn(AppLocale appLocale, double scale) {
+    final t = AppLocalizations.fromLocale(appLocale);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          t.interfaceLanguage,
+          style: TextStyle(
+            color: const Color(0xFF1A1A2E).withValues(alpha: 0.90),
+            fontSize: (14 * scale).roundToDouble(),
+            fontWeight: FontWeight.w500,
           ),
         ),
+        const SizedBox(height: 8),
+        ...AppLocale.values.map((locale) {
+          final isSelected = appLocale == locale;
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 6),
+            child: GestureDetector(
+              onTap: () =>
+                  ref.read(localeProvider.notifier).setLocale(locale),
+              child: Row(
+                children: [
+                  Container(
+                    width: 22,
+                    height: 22,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: isSelected
+                            ? _goldAccent
+                            : Colors.grey.shade400,
+                        width: 2,
+                      ),
+                    ),
+                    child: isSelected
+                        ? Center(
+                            child: Container(
+                              width: 12,
+                              height: 12,
+                              decoration: const BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: _goldAccent,
+                              ),
+                            ),
+                          )
+                        : null,
+                  ),
+                  const SizedBox(width: 12),
+                  Text(
+                    locale.displayName(appLocale),
+                    style: TextStyle(
+                      color: const Color(
+                        0xFF1A1A2E,
+                      ).withValues(alpha: 0.85),
+                      fontSize: (14 * scale).roundToDouble(),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }),
+      ],
+    );
+  }
+
+  /// Column with text size radio buttons.
+  Widget _buildTextSizeColumn(
+    TextScaleLevel textScale,
+    AppLocale appLocale,
+    double scale,
+  ) {
+    final t = AppLocalizations.fromLocale(appLocale);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          t.textSize,
+          style: TextStyle(
+            color: const Color(0xFF1A1A2E).withValues(alpha: 0.90),
+            fontSize: (14 * scale).roundToDouble(),
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        const SizedBox(height: 8),
+        ...TextScaleLevel.values.map((level) {
+          final isSelected = textScale == level;
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 6),
+            child: GestureDetector(
+              onTap: () =>
+                  ref.read(textScaleProvider.notifier).setScale(level),
+              child: Row(
+                children: [
+                  Container(
+                    width: 22,
+                    height: 22,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: isSelected
+                            ? _goldAccent
+                            : Colors.grey.shade400,
+                        width: 2,
+                      ),
+                    ),
+                    child: isSelected
+                        ? Center(
+                            child: Container(
+                              width: 12,
+                              height: 12,
+                              decoration: const BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: _goldAccent,
+                              ),
+                            ),
+                          )
+                        : null,
+                  ),
+                  const SizedBox(width: 12),
+                  Text(
+                    level.displayName(appLocale),
+                    style: TextStyle(
+                      color: const Color(
+                        0xFF1A1A2E,
+                      ).withValues(alpha: 0.85),
+                      fontSize: (14 * scale).roundToDouble(),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }),
       ],
     );
   }

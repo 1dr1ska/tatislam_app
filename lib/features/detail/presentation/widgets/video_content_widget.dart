@@ -1,11 +1,9 @@
-import 'dart:ui_web' as ui_web;
-
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:web/web.dart' as web;
 import 'package:webview_flutter/webview_flutter.dart';
+import 'package:tatislam_app/features/detail/presentation/widgets/rutube_web_view_factory.dart';
 import 'package:tatislam_app/core/constants/app_localizations.dart';
 import 'package:tatislam_app/core/widgets/glass_container.dart';
 import 'package:tatislam_app/features/detail/domain/services/video_url_parser_service.dart';
@@ -76,23 +74,9 @@ class _VideoContentWidgetState extends ConsumerState<VideoContentWidget> {
       if (kIsWeb) {
         // On Flutter Web, use HtmlElementView with a direct iframe.
         // webview_flutter_web uses an iframe internally, but RuTube blocks
-        // embedding via X-Frame-Options. A direct HtmlElementView approach
-        // gives us more control and avoids WebViewPlatform issues.
-        _rutubeViewId = 'rutube_${videoId}_${DateTime.now().millisecondsSinceEpoch}';
-        ui_web.platformViewRegistry.registerViewFactory(
-          _rutubeViewId!,
-          (int viewId) {
-            final htmlIFrame = web.document.createElement('iframe')
-                as web.HTMLIFrameElement;
-            htmlIFrame.src = 'https://rutube.ru/play/embed/$videoId';
-            htmlIFrame.style.width = '100%';
-            htmlIFrame.style.height = '100%';
-            htmlIFrame.style.border = 'none';
-            htmlIFrame.allow = 'autoplay; encrypted-media';
-            htmlIFrame.allowFullscreen = true;
-            return htmlIFrame;
-          },
-        );
+        // embedding via X-Frame-Options. The factory is conditionally
+        // imported — on non-web platforms it returns null.
+        _rutubeViewId = registerRutubeView(videoId);
       } else {
         // On mobile (Android/iOS), use WebViewWidget.
         _rutubeController = _buildController(

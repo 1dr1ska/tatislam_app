@@ -44,10 +44,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         if (user.isAdmin) {
           context.go('/admin');
         } else {
-          final t = AppLocalizations.of(ref);
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(t.noAdminRights),
+              content: Text(AppLocalizations.admin.noAdminRights),
               backgroundColor: Colors.red,
             ),
           );
@@ -57,10 +56,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       }
     } catch (e) {
       if (mounted) {
-        final t = AppLocalizations.of(ref);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(t.loginError(e.toString())),
+            content: Text(AppLocalizations.admin.loginError(e.toString())),
             backgroundColor: Colors.red,
           ),
         );
@@ -92,7 +90,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             }
           },
         ),
-        title: Text(AppLocalizations.of(ref).loginScreenTitle),
+        title: Text(AppLocalizations.admin.loginScreenTitle),
         backgroundColor: AppColors.secondary,
         foregroundColor: Colors.white,
       ),
@@ -114,7 +112,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 ),
                 const SizedBox(height: 32),
                 Text(
-                  AppLocalizations.of(ref).adminPanelTitle,
+                  AppLocalizations.admin.adminPanelTitle,
                   style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                     fontWeight: FontWeight.bold,
                     color: AppColors.textPrimary,
@@ -126,17 +124,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   controller: _emailController,
                   keyboardType: TextInputType.emailAddress,
                   decoration: InputDecoration(
-                    labelText: AppLocalizations.of(ref).email,
+                    labelText: AppLocalizations.admin.email,
                     prefixIcon: const Icon(Icons.email),
                     border: const OutlineInputBorder(),
                   ),
                   validator: (value) {
-                    final t = AppLocalizations.of(ref);
                     if (value == null || value.isEmpty) {
-                      return t.enterEmail;
+                      return AppLocalizations.admin.enterEmail;
                     }
                     if (!value.contains('@')) {
-                      return t.enterValidEmail;
+                      return AppLocalizations.admin.enterValidEmail;
                     }
                     return null;
                   },
@@ -146,7 +143,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   controller: _passwordController,
                   obscureText: _obscurePassword,
                   decoration: InputDecoration(
-                    labelText: AppLocalizations.of(ref).password,
+                    labelText: AppLocalizations.admin.password,
                     prefixIcon: const Icon(Icons.lock),
                     suffixIcon: IconButton(
                       icon: Icon(
@@ -163,12 +160,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     border: const OutlineInputBorder(),
                   ),
                   validator: (value) {
-                    final t = AppLocalizations.of(ref);
                     if (value == null || value.isEmpty) {
-                      return t.enterPassword;
+                      return AppLocalizations.admin.enterPassword;
                     }
                     if (value.length < 6) {
-                      return t.passwordMinLength;
+                      return AppLocalizations.admin.passwordMinLength;
                     }
                     return null;
                   },
@@ -196,7 +192,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           ),
                         )
                       : Text(
-                          AppLocalizations.of(ref).loginButton,
+                          AppLocalizations.admin.loginButton,
                           style: Theme.of(context).textTheme.labelLarge
                               ?.copyWith(fontWeight: FontWeight.bold),
                         ),
@@ -204,11 +200,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 const SizedBox(height: 16),
                 TextButton(
                   onPressed: () => context.go('/register'),
-                  child: Text(AppLocalizations.of(ref).noAccount),
+                  child: Text(AppLocalizations.admin.noAccount),
                 ),
                 TextButton(
                   onPressed: () => context.go('/'),
-                  child: Text(AppLocalizations.of(ref).goHome),
+                  child: Text(AppLocalizations.admin.goHome),
                 ),
                 // Добавляем отступ снизу для лучшего отображения
                 SizedBox(height: MediaQuery.of(context).size.height * 0.05),

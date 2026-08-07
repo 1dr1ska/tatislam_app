@@ -7,6 +7,7 @@ import 'package:tatislam_app/core/constants/app_icons.dart';
 import 'package:tatislam_app/core/constants/app_localizations.dart';
 import 'package:tatislam_app/features/publications/data/publication_providers.dart';
 import 'package:tatislam_app/features/publications/domain/entities/publication.dart';
+import 'package:tatislam_app/features/publications/presentation/providers/publications_providers.dart';
 
 class PublicationsListScreen extends ConsumerStatefulWidget {
   const PublicationsListScreen({super.key});
@@ -70,13 +71,21 @@ class _PublicationsListScreenState
 
   @override
   Widget build(BuildContext context) {
+    // Auto-refresh the list when any publication is created, updated or
+    // deleted (version counter is incremented by the editor and delete flows).
+    ref.listen(publicationListVersionProvider, (previous, next) {
+      if (previous != next) {
+        _refreshPublications();
+      }
+    });
+
     return Column(
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
           child: TextField(
             decoration: InputDecoration(
-              hintText: AppLocalizations.of(ref).searchPublications,
+              hintText: AppLocalizations.admin.searchPublications,
               prefixIcon: const Icon(Icons.search, size: 20),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10),
@@ -107,11 +116,11 @@ class _PublicationsListScreenState
                     children: [
                       const Icon(Icons.error, size: 64, color: Colors.red),
                       const SizedBox(height: 16),
-                      Text('${AppLocalizations.of(ref).publicationLoadError}${snapshot.error}'),
+                      Text('${AppLocalizations.admin.publicationLoadError}${snapshot.error}'),
                       const SizedBox(height: 16),
                       ElevatedButton(
                         onPressed: _refreshPublications,
-                        child: Text(AppLocalizations.of(ref).retry),
+                        child: Text(AppLocalizations.admin.retry),
                       ),
                     ],
                   ),
@@ -129,7 +138,7 @@ class _PublicationsListScreenState
                         color: AppColors.articleColor,
                       ),
                       const SizedBox(height: 16),
-                      Text(AppLocalizations.of(ref).noPublicationsFound),
+                      Text(AppLocalizations.admin.noPublicationsFound),
                     ],
                   ),
                 );
@@ -233,11 +242,11 @@ class _PublicationsListScreenState
                     itemBuilder: (context) => [
                       PopupMenuItem(
                         value: 'edit',
-                        child: Text(AppLocalizations.of(ref).editAction),
+                        child: Text(AppLocalizations.admin.editAction),
                       ),
                       PopupMenuItem(
                         value: 'delete',
-                        child: Text(AppLocalizations.of(ref).deleteAction),
+                        child: Text(AppLocalizations.admin.deleteAction),
                       ),
                     ],
                     icon: const Icon(
@@ -337,12 +346,12 @@ class _PublicationsListScreenState
     showDialog(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: Text(AppLocalizations.of(ref).deleteConfirmation),
-        content: Text(AppLocalizations.of(ref).deleteConfirmationMessage(publication.title)),
+        title: Text(AppLocalizations.admin.deleteConfirmation),
+        content: Text(AppLocalizations.admin.deleteConfirmationMessage(publication.title)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext),
-            child: Text(AppLocalizations.of(ref).cancelAction),
+            child: Text(AppLocalizations.admin.cancelAction),
           ),
           ElevatedButton(
             onPressed: () async {
@@ -350,7 +359,7 @@ class _PublicationsListScreenState
               await _deletePublication(context, publication);
             },
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: Text(AppLocalizations.of(ref).deleteAction),
+            child: Text(AppLocalizations.admin.deleteAction),
           ),
         ],
       ),
@@ -364,18 +373,19 @@ class _PublicationsListScreenState
     try {
       final repository = ref.read(publicationRepositoryProvider);
       await repository.deletePublication(publication.id);
+      ref.read(publicationListVersionProvider.notifier).state++;
       _refreshPublications();
 
       if (context.mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text(AppLocalizations.of(ref).publicationDeleted)));
+        ).showSnackBar(SnackBar(content: Text(AppLocalizations.admin.publicationDeleted)));
       }
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('${AppLocalizations.of(ref).publicationDeleteError}$e')));
+        ).showSnackBar(SnackBar(content: Text('${AppLocalizations.admin.publicationDeleteError}$e')));
       }
     }
   }

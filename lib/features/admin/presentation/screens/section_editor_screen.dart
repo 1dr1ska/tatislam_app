@@ -57,7 +57,7 @@ class _SectionEditorScreenState extends ConsumerState<SectionEditorScreen> {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('${AppLocalizations.of(ref).sectionLoadErrorT}$e')));
+        ).showSnackBar(SnackBar(content: Text('${AppLocalizations.admin.sectionLoadErrorT}$e')));
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -69,7 +69,7 @@ class _SectionEditorScreenState extends ConsumerState<SectionEditorScreen> {
     if (name.isEmpty) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text(AppLocalizations.of(ref).enterSectionName)));
+      ).showSnackBar(SnackBar(content: Text(AppLocalizations.admin.enterSectionName)));
       return;
     }
 
@@ -91,14 +91,14 @@ class _SectionEditorScreenState extends ConsumerState<SectionEditorScreen> {
         if (mounted) {
           ScaffoldMessenger.of(
             context,
-          ).showSnackBar(SnackBar(content: Text(AppLocalizations.of(ref).sectionSaved)));
+          ).showSnackBar(SnackBar(content: Text(AppLocalizations.admin.sectionSaved)));
         }
       } else {
         await repository.createSection(name);
         if (mounted) {
           ScaffoldMessenger.of(
             context,
-          ).showSnackBar(SnackBar(content: Text(AppLocalizations.of(ref).sectionCreated)));
+          ).showSnackBar(SnackBar(content: Text(AppLocalizations.admin.sectionCreated)));
         }
       }
 
@@ -110,7 +110,7 @@ class _SectionEditorScreenState extends ConsumerState<SectionEditorScreen> {
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('${AppLocalizations.of(ref).saveError}: $e')));
+        ).showSnackBar(SnackBar(content: Text('${AppLocalizations.admin.saveError}: $e')));
       }
     } finally {
       if (mounted) setState(() => _isSaving = false);
@@ -122,7 +122,7 @@ class _SectionEditorScreenState extends ConsumerState<SectionEditorScreen> {
     return Scaffold(
       appBar: AppBar(
         backgroundColor: AppColors.secondary,
-        title: Text(_isEditing ? AppLocalizations.of(ref).editSectionTitle : AppLocalizations.of(ref).createSectionTitle),
+        title: Text(_isEditing ? AppLocalizations.admin.editSectionTitle : AppLocalizations.admin.createSectionTitle),
         actions: [
           TextButton(
             onPressed: _isSaving ? null : _save,
@@ -132,7 +132,7 @@ class _SectionEditorScreenState extends ConsumerState<SectionEditorScreen> {
                     height: 20,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
-                : Text(AppLocalizations.of(ref).saveAction),
+                : Text(AppLocalizations.admin.saveAction),
           ),
         ],
       ),
@@ -147,7 +147,7 @@ class _SectionEditorScreenState extends ConsumerState<SectionEditorScreen> {
                   TextField(
                     controller: _nameController,
                     decoration: InputDecoration(
-                      labelText: AppLocalizations.of(ref).sectionName,
+                      labelText: AppLocalizations.admin.sectionName,
                       border: const OutlineInputBorder(),
                       counterText: '',
                     ),
@@ -158,8 +158,8 @@ class _SectionEditorScreenState extends ConsumerState<SectionEditorScreen> {
                   if (_isEditing) ...[
                     const SizedBox(height: 24),
                     SwitchListTile(
-                      title: Text(AppLocalizations.of(ref).showSection),
-                      subtitle: Text(AppLocalizations.of(ref).sectionHiddenInfo),
+                      title: Text(AppLocalizations.admin.showSection),
+                      subtitle: Text(AppLocalizations.admin.sectionHiddenInfo),
                       value: _isVisible ?? true,
                       onChanged: (value) {
                         setState(() => _isVisible = value);

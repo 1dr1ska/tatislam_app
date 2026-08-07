@@ -52,16 +52,14 @@ class _SectionsManagementScreenState
       await _refreshSections();
 
       if (mounted) {
-        final t = AppLocalizations.of(ref);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(t.sectionVisibilityChanged(isVisible))),
+          SnackBar(content: Text(AppLocalizations.admin.sectionVisibilityChanged(isVisible))),
         );
       }
     } catch (e) {
       if (mounted) {
-        final t = AppLocalizations.of(ref);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('${t.sectionVisibilityError}$e')),
+          SnackBar(content: Text('${AppLocalizations.admin.sectionVisibilityError}$e')),
         );
       }
     }
@@ -87,13 +85,12 @@ class _SectionsManagementScreenState
         if (mounted) {
           ScaffoldMessenger.of(
             context,
-          ).showSnackBar(SnackBar(content: Text(AppLocalizations.of(ref).sectionDeleted)));
+          ).showSnackBar(SnackBar(content: Text(AppLocalizations.admin.sectionDeleted)));
         }
       } catch (e) {
         if (mounted) {
-          final t = AppLocalizations.of(ref);
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('${t.sectionDeleteError}$e')),
+            SnackBar(content: Text('${AppLocalizations.admin.sectionDeleteError}$e')),
           );
         }
       }
@@ -123,14 +120,14 @@ class _SectionsManagementScreenState
           children: [
             const Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 24),
             const SizedBox(width: 8),
-            Expanded(child: Text(AppLocalizations.of(ref).cannotDeleteSection)),
+            Expanded(child: Text(AppLocalizations.admin.cannotDeleteSection)),
           ],
         ),
-        content: Text(AppLocalizations.of(ref).sectionHasPublications(sectionName)),
+        content: Text(AppLocalizations.admin.sectionHasPublications(sectionName)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text(AppLocalizations.of(ref).gotIt),
+            child: Text(AppLocalizations.admin.gotIt),
           ),
         ],
       ),
@@ -142,17 +139,17 @@ class _SectionsManagementScreenState
           context: context,
           builder: (context) {
             return AlertDialog(
-              title: Text(AppLocalizations.of(ref).deleteSectionTitle),
-              content: Text(AppLocalizations.of(ref).sectionDeleteConfirmation(sectionName)),
+              title: Text(AppLocalizations.admin.deleteSectionTitle),
+              content: Text(AppLocalizations.admin.sectionDeleteConfirmation(sectionName)),
               actions: [
                 TextButton(
                   onPressed: () => Navigator.pop(context, false),
-                  child: Text(AppLocalizations.of(ref).cancelAction),
+                  child: Text(AppLocalizations.admin.cancelAction),
                 ),
                 ElevatedButton(
                   onPressed: () => Navigator.pop(context, true),
                   style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-                  child: Text(AppLocalizations.of(ref).deleteAction),
+                  child: Text(AppLocalizations.admin.deleteAction),
                 ),
               ],
             );
@@ -170,13 +167,12 @@ class _SectionsManagementScreenState
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text(AppLocalizations.of(ref).sectionMovedUp)));
+        ).showSnackBar(SnackBar(content: Text(AppLocalizations.admin.sectionMovedUp)));
       }
     } catch (e) {
       if (mounted) {
-        final t = AppLocalizations.of(ref);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('${t.sectionMoveUpError}$e')),
+          SnackBar(content: Text('${AppLocalizations.admin.sectionMoveUpError}$e')),
         );
       }
     }
@@ -191,13 +187,12 @@ class _SectionsManagementScreenState
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text(AppLocalizations.of(ref).sectionMovedDown)));
+        ).showSnackBar(SnackBar(content: Text(AppLocalizations.admin.sectionMovedDown)));
       }
     } catch (e) {
       if (mounted) {
-        final t = AppLocalizations.of(ref);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('${t.sectionMoveDownError}$e')),
+          SnackBar(content: Text('${AppLocalizations.admin.sectionMoveDownError}$e')),
         );
       }
     }
@@ -219,11 +214,11 @@ class _SectionsManagementScreenState
               children: [
                 const Icon(Icons.error, size: 64, color: Colors.red),
                 const SizedBox(height: 16),
-                Text(AppLocalizations.of(ref).sectionLoadError('${snapshot.error}')),
+                Text(AppLocalizations.admin.sectionLoadError('${snapshot.error}')),
                 const SizedBox(height: 16),
                 ElevatedButton(
                   onPressed: _refreshSections,
-                  child: Text(AppLocalizations.of(ref).retry),
+                  child: Text(AppLocalizations.admin.retry),
                 ),
               ],
             ),
@@ -231,17 +226,16 @@ class _SectionsManagementScreenState
         }
 
         if (!snapshot.hasData || snapshot.data!.isEmpty) {
-          final t = AppLocalizations.of(ref);
           return Center(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 const Icon(Icons.category_outlined, size: 64, color: Colors.grey),
                 const SizedBox(height: 16),
-                Text(t.noSections),
+                Text(AppLocalizations.admin.noSections),
                 const SizedBox(height: 8),
                 Text(
-                  t.createFirstSection,
+                  AppLocalizations.admin.createFirstSection,
                   style: const TextStyle(color: AppColors.textLight, fontSize: 13),
                 ),
               ],
@@ -320,7 +314,7 @@ class _SectionsManagementScreenState
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    AppLocalizations.of(ref).orderLabel(section.sortOrder),
+                    AppLocalizations.admin.orderLabel(section.sortOrder),
                     style: const TextStyle(
                       fontSize: 11,
                       color: AppColors.textLight,

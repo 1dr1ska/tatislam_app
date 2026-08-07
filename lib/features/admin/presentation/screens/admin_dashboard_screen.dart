@@ -39,7 +39,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
             context.go('/');
           },
         ),
-        title: Text(_selectedIndex == 0 ? AppLocalizations.of(ref).publicationsTitle : AppLocalizations.of(ref).sectionsTitle),
+        title: Text(_selectedIndex == 0 ? AppLocalizations.admin.publicationsTitle : AppLocalizations.admin.sectionsTitle),
         actions: [
           if (_selectedIndex == 0)
             IconButton(
@@ -75,12 +75,12 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
           NavigationDestination(
             icon: const Icon(Icons.article_outlined),
             selectedIcon: const Icon(Icons.article),
-            label: AppLocalizations.of(ref).publicationsTitle,
+            label: AppLocalizations.admin.publicationsTitle,
           ),
           NavigationDestination(
             icon: const Icon(Icons.category_outlined),
             selectedIcon: const Icon(Icons.category),
-            label: AppLocalizations.of(ref).sectionsTitle,
+            label: AppLocalizations.admin.sectionsTitle,
           ),
         ],
       ),

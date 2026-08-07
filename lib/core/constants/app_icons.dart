@@ -8,6 +8,7 @@ class AppIcons {
     'video': 'assets/images/icons/video.png',
     'pen': 'assets/images/icons/pen.png',
     'hands': 'assets/images/icons/hands.png',
+    'moon': 'assets/images/icons/moon.png',
   };
 
   /// Returns the asset path for [id], or null if unknown.

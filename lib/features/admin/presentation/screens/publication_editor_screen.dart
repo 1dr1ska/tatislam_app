@@ -8,12 +8,13 @@ import 'package:uuid/uuid.dart';
 
 import 'package:image_picker/image_picker.dart';
 import 'package:tatislam_app/core/constants/app_colors.dart';
-import 'package:tatislam_app/core/constants/app_localizations.dart';
+import 'package:tatislam_app/core/constants/app_localizations.dart' as loc;
 import 'package:tatislam_app/core/services/media_optimization_service.dart';
 import 'package:tatislam_app/core/constants/app_icons.dart';
 import 'package:tatislam_app/core/storage/storage_paths.dart';
 import 'package:tatislam_app/core/storage/storage_providers.dart';
 import 'package:tatislam_app/features/publications/data/publication_providers.dart';
+import 'package:tatislam_app/features/publications/presentation/providers/publications_providers.dart';
 import 'package:tatislam_app/features/publications/domain/entities/audio_source_type.dart';
 import 'package:tatislam_app/features/publications/domain/entities/content_block.dart';
 import 'package:tatislam_app/features/publications/domain/entities/publication_detail.dart';
@@ -128,7 +129,7 @@ class _PublicationEditorScreenState
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('${AppLocalizations.of(ref).publicationLoadErrorDetail}$e')),
+          SnackBar(content: Text('${loc.AppLocalizations.admin.publicationLoadErrorDetail}$e')),
         );
       }
       return null;
@@ -149,7 +150,7 @@ class _PublicationEditorScreenState
         if (!await file.exists()) {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(AppLocalizations.of(ref).fileNotFoundError)),
+              SnackBar(content: Text(loc.AppLocalizations.admin.fileNotFoundError)),
             );
           }
           return;
@@ -162,7 +163,7 @@ class _PublicationEditorScreenState
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('${AppLocalizations.of(ref).imageSelectionError}$e')),
+          SnackBar(content: Text('${loc.AppLocalizations.admin.imageSelectionError}$e')),
         );
       }
     }
@@ -309,7 +310,7 @@ class _PublicationEditorScreenState
   }
 
     String _saveStepLabel() {
-    final t = AppLocalizations.of(ref);
+    final t = loc.AppLocalizations.admin;
     switch (_currentSaveStep) {
       case _SaveStep.idle:
         return '';
@@ -369,7 +370,7 @@ class _PublicationEditorScreenState
         _iconValidationAttempted = true;
       });
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(AppLocalizations.of(ref).selectPublicationIcon)),
+        SnackBar(content: Text(loc.AppLocalizations.admin.selectPublicationIcon)),
       );
       return;
     }
@@ -381,7 +382,7 @@ class _PublicationEditorScreenState
       });
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text(AppLocalizations.of(ref).selectPrimarySectionRequired)));
+      ).showSnackBar(SnackBar(content: Text(loc.AppLocalizations.admin.selectPrimarySectionRequired)));
       return;
     }
 
@@ -440,9 +441,10 @@ class _PublicationEditorScreenState
           final messenger = ScaffoldMessenger.of(context);
           await Future.delayed(const Duration(milliseconds: 500));
           messenger.showSnackBar(
-            SnackBar(content: Text(AppLocalizations.of(ref).publicationCreated)),
+            SnackBar(content: Text(loc.AppLocalizations.admin.publicationCreated)),
           );
           ref.invalidate(publicationRepositoryProvider);
+          ref.read(publicationListVersionProvider.notifier).state++;
           if (mounted) context.pop(true);
         }
       } else {
@@ -487,9 +489,10 @@ class _PublicationEditorScreenState
           final messenger = ScaffoldMessenger.of(context);
           await Future.delayed(const Duration(milliseconds: 500));
           messenger.showSnackBar(
-            SnackBar(content: Text(AppLocalizations.of(ref).publicationUpdated)),
+            SnackBar(content: Text(loc.AppLocalizations.admin.publicationUpdated)),
           );
           ref.invalidate(publicationRepositoryProvider);
+          ref.read(publicationListVersionProvider.notifier).state++;
           if (mounted) context.pop(true);
         }
       }
@@ -500,7 +503,7 @@ class _PublicationEditorScreenState
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('${AppLocalizations.of(ref).publicationSaveError}$e')));
+        ).showSnackBar(SnackBar(content: Text('${loc.AppLocalizations.admin.publicationSaveError}$e')));
       }
     } finally {
       setState(() {
@@ -604,20 +607,20 @@ class _PublicationEditorScreenState
     final result = await showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(AppLocalizations.of(ref).unsavedChanges),
-        content: Text(AppLocalizations.of(ref).unsavedChangesMessage),
+        title: Text(loc.AppLocalizations.admin.unsavedChanges),
+        content: Text(loc.AppLocalizations.admin.unsavedChangesMessage),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, 'cancel'),
-            child: Text(AppLocalizations.of(ref).cancelAction),
+            child: Text(loc.AppLocalizations.admin.cancelAction),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, 'discard'),
-            child: Text(AppLocalizations.of(ref).leaveWithoutSaving),
+            child: Text(loc.AppLocalizations.admin.leaveWithoutSaving),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(context, 'save'),
-            child: Text(AppLocalizations.of(ref).saveAction),
+            child: Text(loc.AppLocalizations.admin.saveAction),
           ),
         ],
       ),
@@ -665,8 +668,8 @@ class _PublicationEditorScreenState
           ),
           title: Text(
             widget.publicationId == null
-                ? AppLocalizations.of(ref).newPublicationTitle
-                : AppLocalizations.of(ref).editPublicationTitle,
+                ? loc.AppLocalizations.admin.newPublicationTitle
+                : loc.AppLocalizations.admin.editPublicationTitle,
           ),
           actions: [
             IconButton(
@@ -696,7 +699,7 @@ class _PublicationEditorScreenState
                         children: [
                           // Metadata Card
                           _buildSectionCard(
-                            title: AppLocalizations.of(ref).metadata,
+                            title: loc.AppLocalizations.admin.metadata,
                             icon: Icons.info_outline,
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -704,12 +707,12 @@ class _PublicationEditorScreenState
                                 TextFormField(
                                   controller: _titleController,
                                   decoration: InputDecoration(
-                                    labelText: AppLocalizations.of(ref).titleField,
+                                    labelText: loc.AppLocalizations.admin.titleField,
                                     border: const OutlineInputBorder(),
                                   ),
                                   validator: (value) {
                                     if (value == null || value.isEmpty) {
-                                      return AppLocalizations.of(ref).enterTitle;
+                                      return loc.AppLocalizations.admin.enterTitle;
                                     }
                                     return null;
                                   },
@@ -736,7 +739,7 @@ class _PublicationEditorScreenState
 
                                     if (snapshot.hasError) {
                                       return Text(
-                                        AppLocalizations.of(ref).sectionLoadError(
+                                        loc.AppLocalizations.admin.sectionLoadError(
                                           '${snapshot.error}',
                                         ),
                                       );
@@ -745,7 +748,7 @@ class _PublicationEditorScreenState
                                     if (!snapshot.hasData ||
                                         snapshot.data!.isEmpty) {
                                       return Text(
-                                        AppLocalizations.of(ref).noSectionsAvailable,
+                                        loc.AppLocalizations.admin.noSectionsAvailable,
                                       );
                                     }
 
@@ -755,7 +758,7 @@ class _PublicationEditorScreenState
                                           CrossAxisAlignment.start,
                                       children: [
                                         Text(
-                                          AppLocalizations.of(ref).primarySection,
+                                          loc.AppLocalizations.admin.primarySection,
                                           style: TextStyle(
                                             fontSize: 14,
                                             fontWeight: FontWeight.bold,
@@ -804,7 +807,7 @@ class _PublicationEditorScreenState
                                                     .isEmpty)) ...[
                                           const SizedBox(height: 4),
                                           Text(
-                                            AppLocalizations.of(ref).selectPrimarySection,
+                                            loc.AppLocalizations.admin.selectPrimarySection,
                                             style: TextStyle(
                                               fontSize: 12,
                                               color: Colors.red[700],
@@ -832,7 +835,7 @@ class _PublicationEditorScreenState
 
                                     if (snapshot.hasError) {
                                       return Text(
-                                        AppLocalizations.of(ref).sectionLoadError(
+                                        loc.AppLocalizations.admin.sectionLoadError(
                                           '${snapshot.error}',
                                         ),
                                       );
@@ -841,7 +844,7 @@ class _PublicationEditorScreenState
                                     if (!snapshot.hasData ||
                                         snapshot.data!.isEmpty) {
                                       return Text(
-                                        AppLocalizations.of(ref).noSectionsAvailable,
+                                        loc.AppLocalizations.admin.noSectionsAvailable,
                                       );
                                     }
 
@@ -851,7 +854,7 @@ class _PublicationEditorScreenState
                                           CrossAxisAlignment.start,
                                       children: [
                                         Text(
-                                          AppLocalizations.of(ref).additionalSections,
+                                          loc.AppLocalizations.admin.additionalSections,
                                           style: TextStyle(
                                             fontSize: 14,
                                             fontWeight: FontWeight.bold,
@@ -900,17 +903,17 @@ class _PublicationEditorScreenState
                                 DropdownButtonFormField<String>(
                                   initialValue: _status,
                                   decoration: InputDecoration(
-                                    labelText: AppLocalizations.of(ref).statusField,
+                                    labelText: loc.AppLocalizations.admin.statusField,
                                     border: const OutlineInputBorder(),
                                   ),
                                   items: [
                                     DropdownMenuItem(
                                       value: 'draft',
-                                      child: Text(AppLocalizations.of(ref).statusDraft),
+                                      child: Text(loc.AppLocalizations.admin.statusDraft),
                                     ),
                                     DropdownMenuItem(
                                       value: 'published',
-                                      child: Text(AppLocalizations.of(ref).statusPublished),
+                                      child: Text(loc.AppLocalizations.admin.statusPublished),
                                     ),
                                   ],
                                   onChanged: (value) {
@@ -939,7 +942,7 @@ class _PublicationEditorScreenState
                                   TextFormField(
                                     controller: _dateController,
                                     decoration: InputDecoration(
-                                      labelText: AppLocalizations.of(ref).publishDate,
+                                      labelText: loc.AppLocalizations.admin.publishDate,
                                       border: const OutlineInputBorder(),
                                       suffixIcon: const Icon(Icons.calendar_today),
                                     ),
@@ -953,7 +956,7 @@ class _PublicationEditorScreenState
                           const SizedBox(height: 12),
                           // Content Blocks
                           _buildSectionCard(
-                            title: AppLocalizations.of(ref).contentBlocks,
+                            title: loc.AppLocalizations.admin.contentBlocks,
                             icon: Icons.view_stream,
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -964,7 +967,7 @@ class _PublicationEditorScreenState
                                     padding: const EdgeInsets.symmetric(vertical: 16),
                                     child: Center(
                                       child: Text(
-                                        AppLocalizations.of(ref).addFirstBlock,
+                                        loc.AppLocalizations.admin.addFirstBlock,
                                         style: const TextStyle(color: Colors.grey),
                                       ),
                                     ),
@@ -990,7 +993,7 @@ class _PublicationEditorScreenState
                                     vertical: 2,
                                   ),
                                   child: Text(
-                                    AppLocalizations.of(ref).addBlock,
+                                    loc.AppLocalizations.admin.addBlock,
                                     style: TextStyle(
                                       fontSize: 12,
                                       color: Colors.grey[600],
@@ -1057,7 +1060,7 @@ class _PublicationEditorScreenState
       children: [
         _buildAddBlockChip(
           icon: Icons.text_fields,
-          label: AppLocalizations.of(ref).textBlock,
+          label: loc.AppLocalizations.admin.textBlock,
           color: Colors.blue,
           onPressed: () {
             setState(() {
@@ -1075,7 +1078,7 @@ class _PublicationEditorScreenState
         ),
         _buildAddBlockChip(
           icon: Icons.image,
-          label: AppLocalizations.of(ref).imageBlock,
+          label: loc.AppLocalizations.admin.imageBlock,
           color: Colors.green,
           onPressed: () {
             setState(() {
@@ -1093,7 +1096,7 @@ class _PublicationEditorScreenState
         ),
         _buildAddBlockChip(
           icon: Icons.video_library,
-          label: AppLocalizations.of(ref).videoBlock,
+          label: loc.AppLocalizations.admin.videoBlock,
           color: Colors.purple,
           onPressed: () {
             setState(() {
@@ -1112,7 +1115,7 @@ class _PublicationEditorScreenState
         ),
         _buildAddBlockChip(
           icon: Icons.audiotrack,
-          label: AppLocalizations.of(ref).audioBlock,
+          label: loc.AppLocalizations.admin.audioBlock,
           color: Colors.orange,
           onPressed: () {
             setState(() {
@@ -1157,7 +1160,7 @@ class _PublicationEditorScreenState
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          AppLocalizations.of(ref).iconField,
+          loc.AppLocalizations.admin.iconField,
           style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
         ),
         const SizedBox(height: 6),
@@ -1205,7 +1208,7 @@ class _PublicationEditorScreenState
         if (showError) ...[
           const SizedBox(height: 4),
           Text(
-            AppLocalizations.of(ref).selectIcon,
+            loc.AppLocalizations.admin.selectIcon,
             style: TextStyle(fontSize: 12, color: Colors.red[700]),
           ),
         ],
@@ -1381,7 +1384,7 @@ class _PublicationEditorScreenState
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildBlockHeader(
-            title: AppLocalizations.of(ref).textBlockLabel,
+            title: loc.AppLocalizations.admin.textBlockLabel,
             icon: Icons.text_fields,
             iconColor: Colors.blue,
             index: index,
@@ -1402,7 +1405,7 @@ class _PublicationEditorScreenState
               child: TextFormField(
                 initialValue: block.text,
                 decoration: InputDecoration(
-                  hintText: AppLocalizations.of(ref).enterTextHint,
+                  hintText: loc.AppLocalizations.admin.enterTextHint,
                   border: const OutlineInputBorder(),
                   contentPadding: const EdgeInsets.symmetric(
                     horizontal: 12,
@@ -1438,7 +1441,7 @@ class _PublicationEditorScreenState
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildBlockHeader(
-            title: AppLocalizations.of(ref).imageBlock,
+            title: loc.AppLocalizations.admin.imageBlock,
             icon: Icons.image,
             iconColor: Colors.green,
             index: index,
@@ -1539,8 +1542,8 @@ class _PublicationEditorScreenState
                                 ),
                                 label: Text(
                                   hasLocalFile || block.imagePath.isNotEmpty
-                                      ? AppLocalizations.of(ref).replaceImage
-                                      : AppLocalizations.of(ref).selectImage,
+                                      ? loc.AppLocalizations.admin.replaceImage
+                                      : loc.AppLocalizations.admin.selectImage,
                                   style: const TextStyle(fontSize: 12),
                                 ),
                                 style: TextButton.styleFrom(
@@ -1576,7 +1579,7 @@ class _PublicationEditorScreenState
                                     color: Colors.red,
                                   ),
                                   label: Text(
-                                    AppLocalizations.of(ref).deleteAction,
+                                    loc.AppLocalizations.admin.deleteAction,
                                     style: const TextStyle(
                                       fontSize: 12,
                                       color: Colors.red,
@@ -1618,7 +1621,7 @@ class _PublicationEditorScreenState
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildBlockHeader(
-            title: AppLocalizations.of(ref).videoBlock,
+            title: loc.AppLocalizations.admin.videoBlock,
             icon: Icons.video_library,
             iconColor: Colors.purple,
             index: index,
@@ -1642,7 +1645,7 @@ class _PublicationEditorScreenState
                   TextFormField(
                     initialValue: block.url,
                     decoration: InputDecoration(
-                      labelText: AppLocalizations.of(ref).videoUrlField,
+                      labelText: loc.AppLocalizations.admin.videoUrlField,
                       border: const OutlineInputBorder(),
                       contentPadding: const EdgeInsets.symmetric(
                         horizontal: 12,
@@ -1660,7 +1663,7 @@ class _PublicationEditorScreenState
                   DropdownButtonFormField<VideoProviderType>(
                     initialValue: block.provider,
                     decoration: InputDecoration(
-                      labelText: AppLocalizations.of(ref).platformField,
+                      labelText: loc.AppLocalizations.admin.platformField,
                       border: const OutlineInputBorder(),
                       contentPadding: const EdgeInsets.symmetric(
                         horizontal: 12,
@@ -1670,11 +1673,11 @@ class _PublicationEditorScreenState
                     items: [
                       DropdownMenuItem(
                         value: VideoProviderType.youtube,
-                        child: Text(AppLocalizations.of(ref).youtubeLabel),
+                        child: Text(loc.AppLocalizations.admin.youtubeLabel),
                       ),
                       DropdownMenuItem(
                         value: VideoProviderType.rutube,
-                        child: Text(AppLocalizations.of(ref).rutubeLabel),
+                        child: Text(loc.AppLocalizations.admin.rutubeLabel),
                       ),
                     ],
                     onChanged: (value) {
@@ -1709,7 +1712,7 @@ class _PublicationEditorScreenState
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildBlockHeader(
-            title: AppLocalizations.of(ref).audioBlock,
+            title: loc.AppLocalizations.admin.audioBlock,
             icon: Icons.audiotrack,
             iconColor: Colors.orange,
             index: index,
@@ -1804,8 +1807,8 @@ class _PublicationEditorScreenState
                               label: Text(
                                 selectedAudioFile != null ||
                                         (block.audioPath?.isNotEmpty ?? false)
-                                    ? AppLocalizations.of(ref).replaceFile
-                                    : AppLocalizations.of(ref).selectFile,
+                                    ? loc.AppLocalizations.admin.replaceFile
+                                    : loc.AppLocalizations.admin.selectFile,
                                 style: const TextStyle(fontSize: 12),
                               ),
                               style: TextButton.styleFrom(
@@ -1840,7 +1843,7 @@ class _PublicationEditorScreenState
                                   color: Colors.red,
                                 ),
                                 label: Text(
-                                  AppLocalizations.of(ref).deleteAction,
+                                  loc.AppLocalizations.admin.deleteAction,
                                   style: const TextStyle(
                                     fontSize: 12,
                                     color: Colors.red,

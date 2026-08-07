@@ -399,7 +399,25 @@ class _MainScreenState extends ConsumerState<MainScreen> {
   }) {
     return publicationsAsync.when(
       data: (publications) {
-        if (publications.isEmpty) {
+        // Inject synthetic admin card when searching for "admin"
+        final query = ref.watch(searchQueryProvider);
+        final showAdminCard = query.trim().toLowerCase() == 'admin';
+        final displayList = showAdminCard
+            ? [
+                Publication(
+                  id: 'admin_access',
+                  title: 'Панель администратора',
+                  type: 'admin',
+                  publishedAt: DateTime.now(),
+                  createdAt: DateTime.now(),
+                  updatedAt: DateTime.now(),
+                  primarySectionId: '',
+                ),
+                ...publications,
+              ]
+            : publications;
+
+        if (displayList.isEmpty) {
           return Center(
             child: Padding(
               padding: const EdgeInsets.only(top: 64),
@@ -446,10 +464,10 @@ class _MainScreenState extends ConsumerState<MainScreen> {
             mainAxisSpacing: 16,
             childAspectRatio: aspectRatio,
           ),
-          itemCount: publications.length,
+          itemCount: displayList.length,
           padding: const EdgeInsets.all(16),
           itemBuilder: (context, index) {
-            final publication = publications[index];
+            final publication = displayList[index];
             return _PublicationCard(publication: publication, index: index);
           },
         );
@@ -553,8 +571,8 @@ class _PublicationCard extends ConsumerWidget {
                       child: Center(
                         child: Image.asset(
                           AppIcons.pathOrDefault(publication.icon),
-                          width: 120,
-                          height: 120,
+                          width: 140,
+                          height: 140,
                           fit: BoxFit.contain,
                         ),
                       ),

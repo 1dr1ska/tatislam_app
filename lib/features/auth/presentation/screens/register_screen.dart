@@ -44,10 +44,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
       );
 
       if (user != null && mounted) {
-        final t = AppLocalizations.of(ref);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(t.userCreated),
+            content: Text(AppLocalizations.admin.userCreated),
             backgroundColor: AppColors.gold,
           ),
         );
@@ -55,10 +54,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
       }
     } catch (e) {
       if (mounted) {
-        final t = AppLocalizations.of(ref);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(t.registerError(e.toString())),
+            content: Text(AppLocalizations.admin.registerError(e.toString())),
             backgroundColor: Colors.red,
           ),
         );
@@ -90,7 +88,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
             }
           },
         ),
-        title: Text(AppLocalizations.of(ref).registerScreenTitle),
+        title: Text(AppLocalizations.admin.registerScreenTitle),
         backgroundColor: AppColors.secondary,
         foregroundColor: Colors.white,
       ),
@@ -112,7 +110,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 ),
                 const SizedBox(height: 32),
                 Text(
-                  AppLocalizations.of(ref).createAccountTitle,
+                  AppLocalizations.admin.createAccountTitle,
                   style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                     fontWeight: FontWeight.bold,
                     color: AppColors.textPrimary,
@@ -124,17 +122,16 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   controller: _emailController,
                   keyboardType: TextInputType.emailAddress,
                   decoration: InputDecoration(
-                    labelText: AppLocalizations.of(ref).email,
+                    labelText: AppLocalizations.admin.email,
                     prefixIcon: const Icon(Icons.email),
                     border: const OutlineInputBorder(),
                   ),
                   validator: (value) {
-                    final t = AppLocalizations.of(ref);
                     if (value == null || value.isEmpty) {
-                      return t.enterEmail;
+                      return AppLocalizations.admin.enterEmail;
                     }
                     if (!value.contains('@')) {
-                      return t.enterValidEmail;
+                      return AppLocalizations.admin.enterValidEmail;
                     }
                     return null;
                   },
@@ -144,7 +141,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   controller: _passwordController,
                   obscureText: _obscurePassword,
                   decoration: InputDecoration(
-                    labelText: AppLocalizations.of(ref).password,
+                    labelText: AppLocalizations.admin.password,
                     prefixIcon: const Icon(Icons.lock),
                     suffixIcon: IconButton(
                       icon: Icon(
@@ -161,12 +158,11 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                     border: const OutlineInputBorder(),
                   ),
                   validator: (value) {
-                    final t = AppLocalizations.of(ref);
                     if (value == null || value.isEmpty) {
-                      return t.enterPassword;
+                      return AppLocalizations.admin.enterPassword;
                     }
                     if (value.length < 6) {
-                      return t.passwordMinLength;
+                      return AppLocalizations.admin.passwordMinLength;
                     }
                     return null;
                   },
@@ -176,7 +172,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   controller: _confirmPasswordController,
                   obscureText: _obscureConfirmPassword,
                   decoration: InputDecoration(
-                    labelText: AppLocalizations.of(ref).confirmPassword,
+                    labelText: AppLocalizations.admin.confirmPassword,
                     prefixIcon: const Icon(Icons.lock_outline),
                     suffixIcon: IconButton(
                       icon: Icon(
@@ -193,12 +189,11 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                     border: const OutlineInputBorder(),
                   ),
                   validator: (value) {
-                    final t = AppLocalizations.of(ref);
                     if (value == null || value.isEmpty) {
-                      return t.confirmPasswordRequired;
+                      return AppLocalizations.admin.confirmPasswordRequired;
                     }
                     if (value != _passwordController.text) {
-                      return t.passwordsDoNotMatch;
+                      return AppLocalizations.admin.passwordsDoNotMatch;
                     }
                     return null;
                   },
@@ -226,7 +221,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                           ),
                         )
                       : Text(
-                          AppLocalizations.of(ref).registerButton,
+                          AppLocalizations.admin.registerButton,
                           style: Theme.of(context).textTheme.labelLarge
                               ?.copyWith(fontWeight: FontWeight.bold),
                         ),
@@ -234,11 +229,11 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 const SizedBox(height: 16),
                 TextButton(
                   onPressed: () => context.go('/login'),
-                  child: Text(AppLocalizations.of(ref).haveAccount),
+                  child: Text(AppLocalizations.admin.haveAccount),
                 ),
                 TextButton(
                   onPressed: () => context.go('/'),
-                  child: Text(AppLocalizations.of(ref).goHome),
+                  child: Text(AppLocalizations.admin.goHome),
                 ),
                 // Добавляем отступ снизу для лучшего отображения
                 SizedBox(height: MediaQuery.of(context).size.height * 0.05),

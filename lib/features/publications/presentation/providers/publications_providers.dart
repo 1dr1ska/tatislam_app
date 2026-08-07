@@ -5,6 +5,10 @@ import 'package:tatislam_app/features/publications/data/publication_providers.da
 import 'package:tatislam_app/features/sections/presentation/providers/selected_section_provider.dart';
 import 'package:tatislam_app/features/favorites/providers/favorites_provider.dart';
 
+/// Version counter that increments after any publication create/update/delete.
+/// Watched by [mainPublicationsProvider] to trigger automatic refresh.
+final publicationListVersionProvider = StateProvider<int>((ref) => 0);
+
 /// Current search query text (updated immediately on every keystroke).
 final searchQueryProvider = StateProvider<String>((ref) => '');
 
@@ -20,7 +24,11 @@ final toggleFavoritesFilterProvider = Provider<void Function()>((ref) {
 });
 
 /// Main publications provider — network-only.
+/// Watches [publicationListVersionProvider] to auto-refresh after
+/// create/update/delete operations.
 final mainPublicationsProvider = FutureProvider<List<Publication>>((ref) async {
+  // Watch version counter so provider re-fetches after any mutation
+  ref.watch(publicationListVersionProvider);
   final query = ref.watch(searchQueryProvider);
   final selectedSection = ref.watch(selectedSectionProvider);
   final showFavoritesOnly = ref.watch(favoritesFilterProvider);

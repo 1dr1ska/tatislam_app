@@ -350,11 +350,14 @@ class _PublicationEditorScreenState
     _contentBlocks.removeWhere((block) {
       return switch (block) {
         TextContentBlock() => block.text.trim().isEmpty,
-        ImageContentBlock() => block.imagePath.isEmpty,
+        ImageContentBlock() =>
+          block.imagePath.isEmpty &&
+              !_selectedBlockImageFiles.containsKey(block.id),
         VideoContentBlock() => block.url.trim().isEmpty,
         AudioContentBlock() =>
           (block.audioPath == null || block.audioPath!.trim().isEmpty) &&
-              (block.audioUrl == null || block.audioUrl!.trim().isEmpty),
+              (block.audioUrl == null || block.audioUrl!.trim().isEmpty) &&
+              !_selectedBlockAudioFiles.containsKey(block.id),
       };
     });
   }

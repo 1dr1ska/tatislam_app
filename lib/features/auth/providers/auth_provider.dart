@@ -49,6 +49,7 @@ final authStateProvider = StreamProvider<UserProfile?>((ref) {
 
 // Current User Provider
 final currentUserProvider = FutureProvider<UserProfile?>((ref) {
+  ref.watch(authStateProvider);
   final getCurrentUser = ref.read(getCurrentUserProvider);
   return getCurrentUser();
 });

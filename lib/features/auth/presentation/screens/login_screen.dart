@@ -42,6 +42,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
       if (user != null && mounted) {
         if (user.isAdmin) {
+          // Invalidate the cached user so the router sees the fresh session
+          ref.invalidate(currentUserProvider);
           context.go('/admin');
         } else {
           ScaffoldMessenger.of(context).showSnackBar(

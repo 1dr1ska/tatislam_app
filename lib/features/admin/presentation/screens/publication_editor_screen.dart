@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -21,6 +21,15 @@ import 'package:tatislam_app/features/publications/domain/entities/publication_d
 import 'package:tatislam_app/features/publications/domain/entities/video_provider_type.dart';
 import 'package:tatislam_app/features/sections/data/section_providers.dart';
 import 'package:tatislam_app/features/sections/domain/entities/section.dart';
+
+/// Holds a selected file's raw bytes and original name, independently of
+/// `dart:io` — works on both Android and Web.
+class _SelectedFile {
+  final Uint8List bytes;
+  final String name;
+
+  const _SelectedFile({required this.bytes, required this.name});
+}
 
 /// Tracks the current step of the save process for UI feedback.
 enum _SaveStep {
@@ -61,10 +70,10 @@ class _PublicationEditorScreenState
   DateTime? _publishedAt;
 
   // Map to store selected image files for each content block
-  final Map<String, File> _selectedBlockImageFiles = {};
+  final Map<String, _SelectedFile> _selectedBlockImageFiles = {};
 
   // Map to store selected audio files for each content block
-  final Map<String, File> _selectedBlockAudioFiles = {};
+  final Map<String, _SelectedFile> _selectedBlockAudioFiles = {};
 
   // Track which blocks are expanded/collapsed
   final Set<String> _collapsedBlockIds = {};
@@ -145,18 +154,13 @@ class _PublicationEditorScreenState
       );
 
       if (pickedFile != null) {
-        // Verify the file is accessible
-        final file = File(pickedFile.path);
-        if (!await file.exists()) {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text(loc.AppLocalizations.admin.fileNotFoundError)),
-            );
-          }
-          return;
-        }
+        final bytes = await pickedFile.readAsBytes();
+        final name = pickedFile.name;
         setState(() {
-          _selectedBlockImageFiles[blockId] = file;
+          _selectedBlockImageFiles[blockId] = _SelectedFile(
+            bytes: bytes,
+            name: name,
+          );
           _hasUnsavedChanges = true;
         });
       }
@@ -170,11 +174,18 @@ class _PublicationEditorScreenState
   }
 
   Future<void> _pickBlockAudio(String blockId) async {
-    final result = await FilePicker.platform.pickFiles(type: FileType.audio);
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.audio,
+      withData: true,
+    );
 
-    if (result != null && result.files.single.path != null) {
+    if (result != null && result.files.single.bytes != null) {
+      final file = result.files.single;
       setState(() {
-        _selectedBlockAudioFiles[blockId] = File(result.files.single.path!);
+        _selectedBlockAudioFiles[blockId] = _SelectedFile(
+          bytes: file.bytes!,
+          name: file.name,
+        );
         _hasUnsavedChanges = true;
       });
     }
@@ -194,11 +205,10 @@ class _PublicationEditorScreenState
       final storageRepository = ref.read(mediaStorageRepositoryProvider);
 
       // Optimize image before upload (resize to 1920px max, JPEG quality 90)
-      final rawBytes = await selectedImageFile.readAsBytes();
       final optimizationService = const MediaOptimizationService();
       final result = await optimizationService.optimizeImage(
-        originalBytes: rawBytes,
-        originalFileName: selectedImageFile.path.split('/').last,
+        originalBytes: selectedImageFile.bytes,
+        originalFileName: selectedImageFile.name,
       );
 
       final bytes = result.bytes;
@@ -238,15 +248,17 @@ class _PublicationEditorScreenState
 
     try {
       final storageRepository = ref.read(mediaStorageRepositoryProvider);
-      final extension = selectedAudioFile.path.split('.').last;
+      final extension = selectedAudioFile.name.split('.').last;
       final path = StoragePaths.blockAudio(
         widget.publicationId ?? _uuid.v4(),
         extension,
         blockId: blockId,
       );
 
-      final bytes = await selectedAudioFile.readAsBytes();
-      final s3Key = await storageRepository.upload(path, bytes);
+      final s3Key = await storageRepository.upload(
+        path,
+        selectedAudioFile.bytes,
+      );
 
       if (currentAudioPath.isNotEmpty && currentAudioPath != s3Key) {
         try {
@@ -1487,8 +1499,8 @@ class _PublicationEditorScreenState
                                 width: double.infinity,
                                 color: Colors.grey.shade100,
                                 child: hasLocalFile
-                                    ? Image.file(
-                                        localFile!,
+                                    ? Image.memory(
+                                        localFile!.bytes,
                                         fit: BoxFit.contain,
                                         errorBuilder:
                                             (context, error, stackTrace) =>
@@ -1757,7 +1769,7 @@ class _PublicationEditorScreenState
                               const SizedBox(width: 8),
                               Expanded(
                                 child: Text(
-                                  selectedAudioFile.path.split('/').last,
+                                  selectedAudioFile.name,
                                   style: const TextStyle(
                                     fontWeight: FontWeight.w500,
                                     fontSize: 12,

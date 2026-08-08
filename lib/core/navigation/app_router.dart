@@ -21,10 +21,10 @@ import 'package:tatislam_app/features/publications/presentation/screens/main_scr
 /// - `/login`, `/register` — Auth screens
 /// - `/admin/**` — Admin section (protected)
 final appRouterProvider = Provider<GoRouter>((ref) {
-  // Watch current user to make redirect reactive when session resolves
-  ref.watch(currentUserProvider);
-
-  return GoRouter(
+  // Build the router once. NOTE: we must NOT `ref.watch(currentUserProvider)`
+  // here — doing so would recreate GoRouter on every auth change, resetting the
+  // current URL back to `initialLocation` (the cause of the F5 -> home bug).
+  final router = GoRouter(
     // Remove the initial route splash — start at the main screen
     initialLocation: '/',
     routes: [
@@ -148,4 +148,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
     ],
   );
+
+  // Listen for auth changes and re-evaluate redirects WITHOUT recreating the
+  // router. This preserves the current browser URL after a full page reload,
+  // so F5 on /admin (or any deep route) keeps that route instead of resetting
+  // to '/' (the initial location).
+  ref.listen(currentUserProvider, (_, _) {
+    router.refresh();
+  });
+
+  return router;
 });

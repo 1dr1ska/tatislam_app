@@ -5,6 +5,17 @@ import { AwsClient } from "aws4fetch";
 console.log("delete-media function started");
 
 // ---------------------------------------------------------------------------
+// Constants
+// ---------------------------------------------------------------------------
+
+const CORS_HEADERS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Headers":
+    "apikey, Authorization, Content-Type",
+};
+
+// ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
@@ -62,22 +73,41 @@ async function fetchUserRole(userId: string, userJwt: string): Promise<string | 
   return data[0].role ?? null;
 }
 
+function corsResponse(body: unknown, init: ResponseInit): Response {
+  return new Response(JSON.stringify(body), {
+    ...init,
+    headers: {
+      ...CORS_HEADERS,
+      ...(init.headers as Record<string, string> ?? {}),
+      "Content-Type": "application/json",
+    },
+  });
+}
+
 // ---------------------------------------------------------------------------
 // Handler
 // ---------------------------------------------------------------------------
 
 Deno.serve(async (req) => {
+  // ---- CORS preflight ----------------------------------------------------
+  if (req.method === "OPTIONS") {
+    return new Response(null, {
+      status: 204,
+      headers: CORS_HEADERS,
+    });
+  }
+
   try {
     // ---- 1. Extract and validate JWT -------------------------------------
     const authHeader = req.headers.get("Authorization");
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return Response.json({ error: "Authentication required" }, { status: 401 });
+      return corsResponse({ error: "Authentication required" }, { status: 401 });
     }
 
     const token = authHeader.slice(7);
     const payload = decodeJWT(token);
     if (!payload || !payload.sub) {
-      return Response.json({ error: "Authentication required" }, { status: 401 });
+      return corsResponse({ error: "Authentication required" }, { status: 401 });
     }
 
     const userId = payload.sub as string;
@@ -87,12 +117,12 @@ Deno.serve(async (req) => {
     const role = await fetchUserRole(userId, token);
     if (!role) {
       console.error(`[delete-media] Failed to fetch profile for user ${userId}`);
-      return Response.json({ error: "Forbidden" }, { status: 403 });
+      return corsResponse({ error: "Forbidden" }, { status: 403 });
     }
 
     if (role !== "admin") {
       console.warn(`[delete-media] Non-admin user ${userId} attempted delete`);
-      return Response.json({ error: "Forbidden" }, { status: 403 });
+      return corsResponse({ error: "Forbidden" }, { status: 403 });
     }
 
     console.log(`[delete-media] Admin check passed for user ${userId}`);
@@ -102,12 +132,12 @@ Deno.serve(async (req) => {
     try {
       body = await req.json();
     } catch {
-      return Response.json({ error: "Invalid JSON body" }, { status: 400 });
+      return corsResponse({ error: "Invalid JSON body" }, { status: 400 });
     }
 
     const key = body.key;
     if (!key || typeof key !== "string") {
-      return Response.json(
+      return corsResponse(
         { error: "Missing or invalid 'key' field. Expected a string." },
         { status: 400 }
       );
@@ -119,7 +149,7 @@ Deno.serve(async (req) => {
     const config = getYandexConfig();
     if ("error" in config) {
       console.error("[delete-media] Missing Yandex configuration");
-      return Response.json({ error: "Server configuration error" }, { status: 500 });
+      return corsResponse({ error: "Server configuration error" }, { status: 500 });
     }
 
     const { accessKey, secretKey, bucket, region, endpoint } = config;
@@ -145,19 +175,19 @@ Deno.serve(async (req) => {
     // If the object doesn't exist, S3 returns 204 as well (idempotent)
     if (response.status === 204 || response.status === 404) {
       console.log(`[delete-media] Delete successful: key=${key}, s3_status=${response.status}`);
-      return Response.json({ deleted: true }, { status: 200 });
+      return corsResponse({ deleted: true }, { status: 200 });
     }
 
     // Any other status is an error
     const errorText = await response.text();
     console.error(`[delete-media] S3 delete failed: status=${response.status}, body=${errorText}`);
-    return Response.json(
+    return corsResponse(
       { error: `Failed to delete file: ${response.statusText}` },
       { status: 500 }
     );
   } catch (error) {
     console.error("[delete-media] Unexpected error:", error);
-    return Response.json(
+    return corsResponse(
       { error: error instanceof Error ? error.message : "Internal server error" },
       { status: 500 }
     );

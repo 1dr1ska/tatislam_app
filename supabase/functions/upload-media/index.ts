@@ -24,6 +24,13 @@ const FOLDER_MIME_PREFIXES: Record<string, string> = {
   covers: "image/",
 };
 
+const CORS_HEADERS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Headers":
+    "apikey, Authorization, Content-Type",
+};
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -112,6 +119,17 @@ async function fetchUserRole(userId: string, userJwt: string): Promise<string | 
   return data[0].role ?? null;
 }
 
+function corsResponse(body: unknown, init: ResponseInit): Response {
+  return new Response(JSON.stringify(body), {
+    ...init,
+    headers: {
+      ...CORS_HEADERS,
+      ...(init.headers as Record<string, string> ?? {}),
+      "Content-Type": "application/json",
+    },
+  });
+}
+
 // ---------------------------------------------------------------------------
 // Handler
 // ---------------------------------------------------------------------------
@@ -119,17 +137,25 @@ async function fetchUserRole(userId: string, userJwt: string): Promise<string | 
 Deno.serve(async (req) => {
   const startTime = Date.now();
 
+  // ---- CORS preflight ----------------------------------------------------
+  if (req.method === "OPTIONS") {
+    return new Response(null, {
+      status: 204,
+      headers: CORS_HEADERS,
+    });
+  }
+
   try {
     // ---- 1. Extract and validate JWT -------------------------------------
     const authHeader = req.headers.get("Authorization");
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return Response.json({ error: "Authentication required" }, { status: 401 });
+      return corsResponse({ error: "Authentication required" }, { status: 401 });
     }
 
     const token = authHeader.slice(7);
     const payload = decodeJWT(token);
     if (!payload || !payload.sub) {
-      return Response.json({ error: "Authentication required" }, { status: 401 });
+      return corsResponse({ error: "Authentication required" }, { status: 401 });
     }
 
     const userId = payload.sub as string;
@@ -139,12 +165,12 @@ Deno.serve(async (req) => {
     const role = await fetchUserRole(userId, token);
     if (!role) {
       console.error(`[upload-media] Failed to fetch profile for user ${userId}`);
-      return Response.json({ error: "Forbidden" }, { status: 403 });
+      return corsResponse({ error: "Forbidden" }, { status: 403 });
     }
 
     if (role !== "admin") {
       console.warn(`[upload-media] Non-admin user ${userId} attempted upload`);
-      return Response.json({ error: "Forbidden" }, { status: 403 });
+      return corsResponse({ error: "Forbidden" }, { status: 403 });
     }
 
     console.log(`[upload-media] Admin check passed for user ${userId}`);
@@ -154,7 +180,7 @@ Deno.serve(async (req) => {
     const folder = validateFolder(url.searchParams.get("folder"));
 
     if (!folder) {
-      return Response.json(
+      return corsResponse(
         { error: `Invalid or missing 'folder' parameter. Allowed: ${ALLOWED_FOLDERS.join(", ")}` },
         { status: 400 }
       );
@@ -165,7 +191,7 @@ Deno.serve(async (req) => {
     const file = formData.get("file");
 
     if (!file || !(file instanceof File)) {
-      return Response.json(
+      return corsResponse(
         { error: "Missing 'file' field in form data" },
         { status: 400 }
       );
@@ -177,14 +203,14 @@ Deno.serve(async (req) => {
     const sizeError = validateFileSize(folder, file.size);
     if (sizeError) {
       console.warn(`[upload-media] Size limit exceeded: user=${userId}, folder=${folder}, size=${file.size}`);
-      return Response.json({ error: sizeError }, { status: 413 });
+      return corsResponse({ error: sizeError }, { status: 413 });
     }
 
     // ---- 6. Validate MIME type --------------------------------------------
     const mimeType = file.type;
     if (!mimeType) {
       console.warn(`[upload-media] Missing Content-Type: user=${userId}, folder=${folder}, file=${file.name}`);
-      return Response.json(
+      return corsResponse(
         { error: "File must have a Content-Type (MIME type)" },
         { status: 400 }
       );
@@ -192,14 +218,14 @@ Deno.serve(async (req) => {
     const mimeError = validateMimeType(folder, mimeType);
     if (mimeError) {
       console.warn(`[upload-media] Invalid MIME type: user=${userId}, folder=${folder}, type=${mimeType}`);
-      return Response.json({ error: mimeError }, { status: 400 });
+      return corsResponse({ error: mimeError }, { status: 400 });
     }
 
     // ---- 7. Read Yandex config --------------------------------------------
     const config = getYandexConfig();
     if ("error" in config) {
       console.error("[upload-media] Missing Yandex configuration");
-      return Response.json({ error: "Server configuration error" }, { status: 500 });
+      return corsResponse({ error: "Server configuration error" }, { status: 500 });
     }
 
     const { accessKey, secretKey, bucket, region, endpoint } = config;
@@ -238,7 +264,7 @@ Deno.serve(async (req) => {
     if (!response.ok) {
       const errorText = await response.text();
       console.error(`[upload-media] S3 upload failed: status=${response.status}, body=${errorText}`);
-      return Response.json(
+      return corsResponse(
         { error: `Failed to upload file: ${response.statusText}` },
         { status: 500 }
       );
@@ -250,7 +276,7 @@ Deno.serve(async (req) => {
 
     console.log(`[upload-media] Upload successful: user=${userId}, key=${key}, size=${file.size}, duration=${elapsed}ms`);
 
-    return Response.json(
+    return corsResponse(
       {
         url: publicUrl,
         key,
@@ -261,7 +287,7 @@ Deno.serve(async (req) => {
     );
   } catch (error) {
     console.error("[upload-media] Unexpected error:", error);
-    return Response.json(
+    return corsResponse(
       { error: error instanceof Error ? error.message : "Internal server error" },
       { status: 500 }
     );

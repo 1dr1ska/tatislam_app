@@ -1,4 +1,10 @@
-/// Stub implementation for non-web platforms (Android, iOS, macOS, etc.).
+/// Conditional export barrel — selects the correct platform implementation.
 ///
-/// Returns `null` because HtmlElementView is not available outside Flutter Web.
-String? registerRutubeView(String videoId) => null;
+/// - **Web:** delegates to [rutube_web_view_factory_web.dart] which registers a
+///   real `HtmlElementView` iframe via `dart:ui_web` + `package:web`.
+/// - **Non-web:** delegates to [rutube_web_view_factory_stub.dart] which returns
+///   `null` (no-op stub).
+library;
+
+export 'rutube_web_view_factory_stub.dart'
+    if (dart.library.js_interop) 'rutube_web_view_factory_web.dart';

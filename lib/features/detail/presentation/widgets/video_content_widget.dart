@@ -132,7 +132,17 @@ class _VideoContentWidgetState extends ConsumerState<VideoContentWidget> {
     if (widget.block.provider == VideoProviderType.youtube) {
       final videoId = widget.urlParser.extractYouTubeId(widget.block.url);
       if (videoId != null && _youtubeController != null) {
-        return _buildEmbeddedVideo(controller: _youtubeController!);
+        if (kIsWeb) {
+          // Web: browser handles Origin/Referer automatically
+          return _buildEmbeddedVideo(controller: _youtubeController!);
+        } else {
+          // Android: add a fallback button in case YouTube embed returns
+          // Error 153 (missing HTTP Referer in native WebView context).
+          return _buildYouTubeWithFallback(
+            controller: _youtubeController!,
+            videoId: videoId,
+          );
+        }
       }
     } else if (widget.block.provider == VideoProviderType.rutube) {
       final videoId = widget.urlParser.extractRutubeId(widget.block.url);
@@ -169,6 +179,52 @@ class _VideoContentWidgetState extends ConsumerState<VideoContentWidget> {
             aspectRatio: 16 / 9,
             child: WebViewWidget(controller: controller),
           ),
+        ),
+      ),
+    );
+  }
+
+  /// Renders YouTube on Android: the embedded WebView plus a fallback button
+  /// that opens the video in the browser/YouTube app.
+  ///
+  /// YouTube's iframe embed does not work reliably inside an Android WebView
+  /// because the native WebView does not send the HTTP Referer header that
+  /// YouTube requires (Error 153). On Web the browser handles this correctly.
+  Widget _buildYouTubeWithFallback({
+    required WebViewController controller,
+    required String videoId,
+  }) {
+    final localizations = AppLocalizations.of(ref);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: GlassContainer(
+        opacity: _glassOpacity,
+        borderRadius: _glassRadius,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ClipRRect(
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(_glassRadius),
+              ),
+              child: AspectRatio(
+                aspectRatio: 16 / 9,
+                child: WebViewWidget(controller: controller),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+              child: SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: () =>
+                      _launchUrl(context, 'https://youtu.be/$videoId'),
+                  icon: const Icon(Icons.open_in_new, size: 18),
+                  label: Text(localizations.openInBrowser),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );

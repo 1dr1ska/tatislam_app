@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:tatislam_app/features/detail/presentation/widgets/rutube_web_view_factory.dart';
+import 'package:tatislam_app/features/detail/presentation/widgets/youtube_web_view_factory.dart';
 import 'package:tatislam_app/core/constants/app_localizations.dart';
 import 'package:tatislam_app/core/widgets/glass_container.dart';
 import 'package:tatislam_app/features/detail/domain/services/video_url_parser_service.dart';
@@ -39,6 +40,9 @@ class _VideoContentWidgetState extends ConsumerState<VideoContentWidget> {
   /// Unique view ID for the HtmlElementView (web only).
   String? _rutubeViewId;
 
+  /// Unique view ID for the YouTube HtmlElementView (web only).
+  String? _youtubeViewId;
+
   @override
   void initState() {
     super.initState();
@@ -54,16 +58,27 @@ class _VideoContentWidgetState extends ConsumerState<VideoContentWidget> {
       _lastYoutubeId = null;
       _lastRutubeId = null;
       _rutubeViewId = null;
+      _youtubeViewId = null;
       _initControllers();
     }
   }
 
   void _ensureYoutubeController(String videoId) {
-    if (_youtubeController == null || _lastYoutubeId != videoId) {
+    if (_youtubeController == null && _youtubeViewId == null ||
+        _lastYoutubeId != videoId) {
       _lastYoutubeId = videoId;
-      _youtubeController = _buildController(
-        'https://www.youtube.com/embed/$videoId',
-      );
+
+      if (kIsWeb) {
+        // On Flutter Web, use HtmlElementView with a direct iframe.
+        // The factory is conditionally imported — on non-web platforms it
+        // returns null, so _youtubeController falls back to WebViewWidget.
+        _youtubeViewId = registerYoutubeView(videoId);
+      } else {
+        // On mobile (Android/iOS), use WebViewWidget.
+        _youtubeController = _buildController(
+          'https://www.youtube.com/embed/$videoId',
+        );
+      }
     }
   }
 
@@ -120,6 +135,7 @@ class _VideoContentWidgetState extends ConsumerState<VideoContentWidget> {
     _youtubeController = null;
     _rutubeController = null;
     _rutubeViewId = null;
+    _youtubeViewId = null;
     super.dispose();
   }
 
@@ -131,17 +147,20 @@ class _VideoContentWidgetState extends ConsumerState<VideoContentWidget> {
 
     if (widget.block.provider == VideoProviderType.youtube) {
       final videoId = widget.urlParser.extractYouTubeId(widget.block.url);
-      if (videoId != null && _youtubeController != null) {
-        if (kIsWeb) {
-          // Web: browser handles Origin/Referer automatically
-          return _buildEmbeddedVideo(controller: _youtubeController!);
-        } else {
-          // Android: add a fallback button in case YouTube embed returns
-          // Error 153 (missing HTTP Referer in native WebView context).
-          return _buildYouTubeWithFallback(
-            controller: _youtubeController!,
-            videoId: videoId,
-          );
+      if (videoId != null) {
+        if (kIsWeb && _youtubeViewId != null) {
+          // Flutter Web: render the HtmlElementView with the iframe.
+          return _buildYoutubeWebView();
+        } else if (_youtubeController != null) {
+          // Mobile: render the WebViewWidget (with fallback button on Android).
+          if (kIsWeb) {
+            return _buildEmbeddedVideo(controller: _youtubeController!);
+          } else {
+            return _buildYouTubeWithFallback(
+              controller: _youtubeController!,
+              videoId: videoId,
+            );
+          }
         }
       }
     } else if (widget.block.provider == VideoProviderType.rutube) {
@@ -244,6 +263,26 @@ class _VideoContentWidgetState extends ConsumerState<VideoContentWidget> {
           child: AspectRatio(
             aspectRatio: 16 / 9,
             child: HtmlElementView(viewType: _rutubeViewId!),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Renders YouTube on Flutter Web using a direct HtmlElementView with iframe.
+  Widget _buildYoutubeWebView() {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: GlassContainer(
+        opacity: _glassOpacity,
+        borderRadius: _glassRadius,
+        child: ClipRRect(
+          borderRadius: const BorderRadius.vertical(
+            top: Radius.circular(_glassRadius),
+          ),
+          child: AspectRatio(
+            aspectRatio: 16 / 9,
+            child: HtmlElementView(viewType: _youtubeViewId!),
           ),
         ),
       ),

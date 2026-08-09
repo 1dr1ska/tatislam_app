@@ -3,8 +3,7 @@ import 'dart:ui' show ImageFilter;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:just_audio/just_audio.dart'
-    show AudioPlayer, ProcessingState, UriAudioSource;
+import 'package:just_audio/just_audio.dart' show AudioPlayer, ProcessingState, UriAudioSource;
 import 'package:tatislam_app/core/services/local_storage_service.dart';
 import 'package:tatislam_app/core/storage/media_storage_repository.dart';
 import 'package:tatislam_app/core/utils/responsive.dart';
@@ -12,14 +11,8 @@ import 'package:tatislam_app/features/detail/presentation/providers/audio_player
 import 'package:tatislam_app/features/publications/domain/entities/audio_source_type.dart';
 import 'package:tatislam_app/features/publications/domain/entities/content_block.dart';
 
-/// Available playback speed options.
 const _speedOptions = [1.0, 1.25, 1.5, 2.0];
-
-/// Prefix for Hive keys used to persist audio playback positions.
-/// Key format: `audio_position_<publicationId>_<blockId>`
 const _positionKeyPrefix = 'audio_position_';
-
-/// Glassmorphism constants matching the design system.
 const double _glassBlur = 12;
 const double _glassOpacity = 0.30;
 const double _glassBorderOpacity = 0.40;
@@ -28,10 +21,6 @@ const double _glassRadius = 12;
 const Color _goldAccent = Color(0xFFE0B84A);
 const Color _goldAccentDark = Color(0xFFC49A2E);
 
-/// Renders an [AudioContentBlock] with play/pause control, seek slider,
-/// playback speed selector, and persisted playback position.
-///
-/// Audio source is always a network URL — offline support has been removed.
 class AudioContentWidget extends ConsumerStatefulWidget {
   final AudioContentBlock block;
   final MediaStorageRepository mediaStorage;
@@ -67,8 +56,6 @@ class _AudioContentWidgetState extends ConsumerState<AudioContentWidget>
       _positionKey =
           '$_positionKeyPrefix${widget.block.publicationId}_${widget.block.id}';
 
-      // Показываем сохранённую позицию сразу, до первого build,
-      // чтобы ползунок не появлялся в 0:00 и не прыгал вперёд.
       _savedSeconds = LocalStorageService.settingsBox.get(
         _positionKey!,
         defaultValue: 0,
@@ -77,22 +64,17 @@ class _AudioContentWidgetState extends ConsumerState<AudioContentWidget>
         _displayPosition = Duration(seconds: _savedSeconds!);
       }
 
-      // Блокируем обновления из positionStream до завершения
-      // _restorePosition, чтобы стартовые нулевые эмиты не сбросили
-      // отображение на 0:00.
       _isRestoring = true;
-
       _audioPlayer = ref.read(audioPlayerProvider);
+
       _positionSub = _audioPlayer!.positionStream.listen((pos) {
         if (_isDragging || _isRestoring) return;
         _displayPosition = pos;
         if (mounted) setState(() {});
       });
 
-      // Restore saved position after the audio source is set
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _restorePosition();
-      });
+      // Start immediately instead of waiting for the first frame.
+      unawaited(_restorePosition());
     }
   }
 
@@ -127,7 +109,6 @@ class _AudioContentWidgetState extends ConsumerState<AudioContentWidget>
 
   void _savePosition() {
     if (_positionKey == null) return;
-
     try {
       if (_displayPosition.inSeconds > 0) {
         LocalStorageService.settingsBox.put(
@@ -146,12 +127,8 @@ class _AudioContentWidgetState extends ConsumerState<AudioContentWidget>
 
       final audioPlayer = ref.read(audioPlayerProvider);
       final mediaUrl = _resolveMediaUrl();
-
       if (mediaUrl == null) return;
 
-      // Перезагружаем источник только если он ещё не загружен
-      // (или загружен другой URL). Это исключает повторную сетевую
-      // загрузку и лишние скачки при повторном открытии публикации.
       final currentSource = audioPlayer.audioSource;
       if (currentSource is! UriAudioSource ||
           currentSource.uri.toString() != mediaUrl) {
@@ -159,9 +136,6 @@ class _AudioContentWidgetState extends ConsumerState<AudioContentWidget>
         await audioPlayer.load();
       }
 
-      // Всегда явно seek к сохранённой позиции после загрузки.
-      // initialPosition в setUrl не гарантирует, что плеер
-      // окажется на этой позиции после load().
       if (_savedSeconds != null && _savedSeconds! > 0) {
         final saved = Duration(seconds: _savedSeconds!);
         if ((audioPlayer.position - saved).inSeconds.abs() > 1) {
@@ -172,23 +146,15 @@ class _AudioContentWidgetState extends ConsumerState<AudioContentWidget>
       debugPrint('Error restoring audio position: $e');
     } finally {
       _isRestoring = false;
-      // Принудительно фиксируем отображение, чтобы positionStream
-      // не успел перезаписать _displayPosition нулём до того, как
-      // реальный seek отразится в stream.
       if (_savedSeconds != null && _savedSeconds! > 0) {
         _displayPosition = Duration(seconds: _savedSeconds!);
       }
-      if (mounted) {
-        setState(() {});
-      }
+      if (mounted) setState(() {});
     }
   }
 
-  /// Resolves the audio URL directly from the block's source.
-  /// Always returns a network URL — offline support is removed.
   String? _resolveMediaUrl() {
     if (!_hasValidBlock()) return null;
-
     if (widget.block.source == AudioSourceType.upload &&
         widget.block.audioPath != null) {
       return widget.mediaStorage.publicUrlFor(widget.block.audioPath!);
@@ -200,13 +166,89 @@ class _AudioContentWidgetState extends ConsumerState<AudioContentWidget>
     return null;
   }
 
+  Future<void> _togglePlayback(AudioPlayer audioPlayer) async {
+    try {
+      final mediaUrl = _resolveMediaUrl();
+      if (mediaUrl == null) return;
+
+      await audioPlayer.setSpeed(_speed);
+
+      final state = audioPlayer.playerState;
+      if (state.playing) {
+        _savePosition();
+        await audioPlayer.pause();
+        return;
+      }
+
+      if (_isRestoring) {
+        await Future.doWhile(() async {
+          await Future.delayed(const Duration(milliseconds: 50));
+          return _isRestoring;
+        });
+      }
+
+      if (state.processingState == ProcessingState.completed) {
+        await audioPlayer.seek(Duration.zero);
+      } else if (_savedSeconds != null &&
+          _savedSeconds! > 0 &&
+          audioPlayer.position.inSeconds < 1) {
+        await audioPlayer.seek(Duration(seconds: _savedSeconds!));
+      }
+
+      await audioPlayer.play();
+    } catch (e) {
+      debugPrint('Error controlling audio playback: $e');
+    }
+  }
+
+  Widget _buildPlayButton(AudioPlayer audioPlayer, {double size = 72}) {
+    return StreamBuilder(
+      stream: audioPlayer.playerStateStream,
+      builder: (context, snapshot) {
+        final state = snapshot.data;
+        final isPlaying = state?.playing == true;
+        final isCompleted =
+            state?.processingState == ProcessingState.completed;
+
+        return GestureDetector(
+          onTap: () => _togglePlayback(audioPlayer),
+          child: Container(
+            width: size,
+            height: size,
+            decoration: BoxDecoration(
+              color: _goldAccent.withValues(alpha: 0.25),
+              borderRadius: BorderRadius.circular(size / 2),
+              border: Border.all(
+                color: _goldAccent.withValues(alpha: 0.6),
+                width: 2,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: _goldAccent.withValues(alpha: 0.15),
+                  blurRadius: 16,
+                  spreadRadius: 2,
+                ),
+              ],
+            ),
+            child: Icon(
+              isCompleted
+                  ? Icons.replay
+                  : isPlaying
+                  ? Icons.pause
+                  : Icons.play_arrow,
+              color: _goldAccentDark,
+              size: size * 0.56,
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final audioPlayer = ref.watch(audioPlayerProvider);
-
-    if (!_hasValidBlock()) {
-      return _buildUnavailable(context);
-    }
+    if (!_hasValidBlock()) return _buildUnavailable(context);
 
     final isLandscape =
         ResponsiveBreakpoints.isCompactLandscape(context) ||
@@ -237,198 +279,49 @@ class _AudioContentWidgetState extends ConsumerState<AudioContentWidget>
             ),
             padding: const EdgeInsets.all(16),
             child: isLandscape
-                ? _buildLandscapePlayer(audioPlayer, context)
-                : _buildPortraitPlayer(audioPlayer, context),
+                ? _buildLandscapePlayer(audioPlayer)
+                : _buildPortraitPlayer(audioPlayer),
           ),
         ),
       ),
     );
   }
 
-  Widget _buildPortraitPlayer(AudioPlayer audioPlayer, BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        // Play / Pause button
-        StreamBuilder(
-          stream: audioPlayer.playerStateStream,
-          builder: (context, snapshot) {
-            final state = snapshot.data;
-            final isPlaying = state?.playing == true;
-            final isCompleted =
-                state?.processingState == ProcessingState.completed;
+  Widget _buildPortraitPlayer(AudioPlayer audioPlayer) => Column(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      _buildPlayButton(audioPlayer),
+      const SizedBox(height: 16),
+      _buildSeekBar(audioPlayer),
+      const SizedBox(height: 12),
+      _buildSpeedSelector(audioPlayer),
+    ],
+  );
 
-            return GestureDetector(
-              onTap: () async {
-                try {
-                  final mediaUrl = _resolveMediaUrl();
-                  if (mediaUrl == null) return;
-
-                  await audioPlayer.setSpeed(_speed);
-                  if (isPlaying) {
-                    _savePosition();
-                    await audioPlayer.pause();
-                  } else {
-                    // Если _restorePosition ещё не завершилась (сетевая
-                    // загрузка), ждём — иначе setUrl сбросит play.
-                    if (_isRestoring) {
-                      await Future.doWhile(() async {
-                        await Future.delayed(const Duration(milliseconds: 50));
-                        return _isRestoring;
-                      });
-                    }
-                    if (isCompleted) {
-                      await audioPlayer.seek(Duration.zero);
-                    } else if (_savedSeconds != null &&
-                        _savedSeconds! > 0 &&
-                        audioPlayer.position.inSeconds < 1) {
-                      // Плеер на 0, но есть сохранённая позиция — seek
-                      await audioPlayer.seek(Duration(seconds: _savedSeconds!));
-                    }
-                    await audioPlayer.play();
-                  }
-                } catch (e) {
-                  debugPrint('Error controlling audio playback: $e');
-                }
-              },
-              child: Container(
-                width: 72,
-                height: 72,
-                decoration: BoxDecoration(
-                  color: _goldAccent.withValues(alpha: 0.25),
-                  borderRadius: BorderRadius.circular(36),
-                  border: Border.all(
-                    color: _goldAccent.withValues(alpha: 0.6),
-                    width: 2.0,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: _goldAccent.withValues(alpha: 0.15),
-                      blurRadius: 16,
-                      spreadRadius: 2,
-                    ),
-                  ],
-                ),
-                child: Icon(
-                  isCompleted
-                      ? Icons.replay
-                      : isPlaying
-                      ? Icons.pause
-                      : Icons.play_arrow,
-                  color: _goldAccentDark,
-                  size: 40,
-                ),
-              ),
-            );
-          },
+  Widget _buildLandscapePlayer(AudioPlayer audioPlayer) => Row(
+    crossAxisAlignment: CrossAxisAlignment.center,
+    children: [
+      _buildPlayButton(audioPlayer, size: 80),
+      const SizedBox(width: 16),
+      Expanded(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _buildSeekBar(audioPlayer),
+            const SizedBox(height: 8),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [_buildSpeedSelector(audioPlayer)],
+            ),
+          ],
         ),
-        const SizedBox(height: 16),
-        _buildSeekBar(audioPlayer),
-        const SizedBox(height: 12),
-        _buildSpeedSelector(audioPlayer),
-      ],
-    );
-  }
-
-  Widget _buildLandscapePlayer(AudioPlayer audioPlayer, BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        StreamBuilder(
-          stream: audioPlayer.playerStateStream,
-          builder: (context, snapshot) {
-            final state = snapshot.data;
-            final isPlaying = state?.playing == true;
-            final isCompleted =
-                state?.processingState == ProcessingState.completed;
-
-            return GestureDetector(
-              onTap: () async {
-                try {
-                  final mediaUrl = _resolveMediaUrl();
-                  if (mediaUrl == null) return;
-
-                  await audioPlayer.setSpeed(_speed);
-                  if (isPlaying) {
-                    _savePosition();
-                    await audioPlayer.pause();
-                  } else {
-                    // Если _restorePosition ещё не завершилась (сетевая
-                    // загрузка), ждём — иначе setUrl сбросит play.
-                    if (_isRestoring) {
-                      await Future.doWhile(() async {
-                        await Future.delayed(const Duration(milliseconds: 50));
-                        return _isRestoring;
-                      });
-                    }
-                    if (isCompleted) {
-                      await audioPlayer.seek(Duration.zero);
-                    } else if (_savedSeconds != null &&
-                        _savedSeconds! > 0 &&
-                        audioPlayer.position.inSeconds < 1) {
-                      // Плеер на 0, но есть сохранённая позиция — seek
-                      await audioPlayer.seek(Duration(seconds: _savedSeconds!));
-                    }
-                    await audioPlayer.play();
-                  }
-                } catch (e) {
-                  debugPrint('Error controlling audio playback: $e');
-                }
-              },
-              child: Container(
-                width: 80,
-                height: 80,
-                decoration: BoxDecoration(
-                  color: _goldAccent.withValues(alpha: 0.25),
-                  borderRadius: BorderRadius.circular(40),
-                  border: Border.all(
-                    color: _goldAccent.withValues(alpha: 0.6),
-                    width: 2.0,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: _goldAccent.withValues(alpha: 0.15),
-                      blurRadius: 16,
-                      spreadRadius: 2,
-                    ),
-                  ],
-                ),
-                child: Icon(
-                  isCompleted
-                      ? Icons.replay
-                      : isPlaying
-                      ? Icons.pause
-                      : Icons.play_arrow,
-                  color: _goldAccentDark,
-                  size: 44,
-                ),
-              ),
-            );
-          },
-        ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _buildSeekBar(audioPlayer),
-              const SizedBox(height: 8),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [_buildSpeedSelector(audioPlayer)],
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
+      ),
+    ],
+  );
 
   Widget _buildSeekBar(AudioPlayer audioPlayer) {
     final duration = audioPlayer.duration ?? Duration.zero;
     final durationSeconds = duration.inSeconds.toDouble();
-
-    // Во время перетаскивания ползунок полностью управляется пальцем.
     final positionSeconds = _isDragging
         ? (_dragValue ?? 0).clamp(0.0, durationSeconds)
         : _displayPosition.inSeconds.toDouble();
@@ -453,20 +346,33 @@ class _AudioContentWidgetState extends ConsumerState<AudioContentWidget>
                 : positionSeconds,
             max: durationSeconds > 0 ? durationSeconds : 1,
             onChanged: (value) {
-              // Только локальное состояние — seek выполняется один раз
-              // в onChangeEnd, чтобы stream плеера не дёргал ползунок.
               setState(() {
                 _isDragging = true;
                 _dragValue = value;
               });
             },
-            onChangeEnd: (value) {
+            onChangeEnd: (value) async {
+              final wasCompleted =
+                  audioPlayer.playerState.processingState ==
+                  ProcessingState.completed;
+
               setState(() {
                 _isDragging = false;
                 _dragValue = null;
                 _displayPosition = Duration(seconds: value.toInt());
               });
-              audioPlayer.seek(Duration(seconds: value.toInt()));
+
+              try {
+                await audioPlayer.seek(Duration(seconds: value.toInt()));
+
+                // just_audio can stay in completed state after reaching
+                // the end. Seeking backwards does not necessarily resume.
+                if (wasCompleted) {
+                  await audioPlayer.play();
+                }
+              } catch (e) {
+                debugPrint('Error seeking audio: $e');
+              }
             },
           ),
         ),
@@ -496,48 +402,43 @@ class _AudioContentWidgetState extends ConsumerState<AudioContentWidget>
     );
   }
 
-  Widget _buildSpeedSelector(AudioPlayer audioPlayer) {
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: _speedOptions.map((speed) {
-        final isSelected = speed == _speed;
-        return GestureDetector(
-          onTap: () {
-            setState(() {
-              _speed = speed;
-            });
-            audioPlayer.setSpeed(speed);
-          },
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            decoration: BoxDecoration(
+  Widget _buildSpeedSelector(AudioPlayer audioPlayer) => Wrap(
+    spacing: 8,
+    runSpacing: 8,
+    children: _speedOptions.map((speed) {
+      final isSelected = speed == _speed;
+      return GestureDetector(
+        onTap: () {
+          setState(() => _speed = speed);
+          audioPlayer.setSpeed(speed);
+        },
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          decoration: BoxDecoration(
+            color: isSelected
+                ? _goldAccent.withValues(alpha: 0.30)
+                : Colors.white.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
               color: isSelected
-                  ? _goldAccent.withValues(alpha: 0.30)
-                  : Colors.white.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(
-                color: isSelected
-                    ? _goldAccent
-                    : Colors.white.withValues(alpha: 0.20),
-                width: 1.0,
-              ),
-            ),
-            child: Text(
-              '${speed}x',
-              style: TextStyle(
-                color: isSelected
-                    ? _goldAccentDark
-                    : Colors.white.withValues(alpha: 0.90),
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                fontSize: 14,
-              ),
+                  ? _goldAccent
+                  : Colors.white.withValues(alpha: 0.20),
             ),
           ),
-        );
-      }).toList(),
-    );
-  }
+          child: Text(
+            '${speed}x',
+            style: TextStyle(
+              color: isSelected
+                  ? _goldAccentDark
+                  : Colors.white.withValues(alpha: 0.90),
+              fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+              fontSize: 14,
+            ),
+          ),
+        ),
+      );
+    }).toList(),
+  );
 
   String _formatDuration(Duration d) {
     final minutes = d.inMinutes.remainder(60).toString().padLeft(2, '0');
@@ -545,42 +446,40 @@ class _AudioContentWidgetState extends ConsumerState<AudioContentWidget>
     return '$minutes:$seconds';
   }
 
-  Widget _buildUnavailable(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(_glassRadius),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: _glassBlur, sigmaY: _glassBlur),
-          child: Container(
-            width: double.infinity,
-            height: 120,
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: _glassOpacity),
-              borderRadius: BorderRadius.circular(_glassRadius),
-              border: Border.all(
-                color: Colors.white.withValues(alpha: _glassBorderOpacity),
-                width: _glassBorderWidth,
-              ),
+  Widget _buildUnavailable(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(bottom: 16),
+    child: ClipRRect(
+      borderRadius: BorderRadius.circular(_glassRadius),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: _glassBlur, sigmaY: _glassBlur),
+        child: Container(
+          width: double.infinity,
+          height: 120,
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: _glassOpacity),
+            borderRadius: BorderRadius.circular(_glassRadius),
+            border: Border.all(
+              color: Colors.white.withValues(alpha: _glassBorderOpacity),
+              width: _glassBorderWidth,
             ),
-            child: Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(Icons.music_off, size: 48, color: Colors.grey),
-                  const SizedBox(height: 12),
-                  Text(
-                    'Аудио недоступно',
-                    style: Theme.of(
-                      context,
-                    ).textTheme.titleMedium?.copyWith(color: Colors.grey),
-                  ),
-                ],
-              ),
+          ),
+          child: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.music_off, size: 48, color: Colors.grey),
+                const SizedBox(height: 12),
+                Text(
+                  'Аудио недоступно',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleMedium?.copyWith(color: Colors.grey),
+                ),
+              ],
             ),
           ),
         ),
       ),
-    );
-  }
+    ),
+  );
 }

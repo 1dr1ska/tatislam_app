@@ -8,18 +8,17 @@ final favoritesProvider = FutureProvider<List<Publication>>((ref) async {
   return await getFavorites();
 });
 
-/// Provider for checking if a publication is favorite
+/// Provider for checking if a publication is a favorite.
+/// Backed by the local Hive store so cards can render the star instantly
+/// without triggering a network fetch of every favorite's metadata on the
+/// home screen.
 final favoritesIsFavoriteProvider = Provider.family<bool, String>((
   ref,
   publicationId,
 ) {
-  final asyncValue = ref.watch(favoritesProvider);
-
-  return asyncValue.when(
-    data: (favorites) => favorites.any((p) => p.id == publicationId),
-    loading: () => false,
-    error: (error, stackTrace) => false,
-  );
+  return ref
+      .watch(favoritesLocalDataSourceProvider)
+      .isFavorite(publicationId);
 });
 
 /// Provider for refreshing favorites
@@ -37,6 +36,11 @@ final toggleFavoriteProvider =
     Provider<Future<bool> Function(String publicationId)>((ref) {
       return (publicationId) async {
         final repository = ref.watch(favoritesRepositoryProvider);
-        return await repository.toggleFavorite(publicationId);
+        final result = await repository.toggleFavorite(publicationId);
+        // The local star provider is sync Hive-backed — invalidate it (and the
+        // aggregated favorites provider) so every listener rebuilds.
+        ref.invalidate(favoritesIsFavoriteProvider);
+        ref.invalidate(favoritesProvider);
+        return result;
       };
     });

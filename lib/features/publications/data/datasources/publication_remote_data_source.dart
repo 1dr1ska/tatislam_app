@@ -36,29 +36,21 @@ class PublicationRemoteDataSource {
         false, // New parameter to include all statuses for admin
   }) async {
     try {
-      // If filtering by section, first get publication IDs for that section
+      // If filtering by section, use a dedicated view that joins
+      // publications ↔ publication_sections, so ORDER BY + LIMIT/OFFSET are
+      // applied inside Postgres — only the requested page is fetched even for
+      // sections with thousands of publications.
       if (sectionId != null) {
-        final sectionPublications = await _client
-            .from(SupabaseTables.publicationSections)
-            .select('publication_id')
+        var query = _client
+            .from(SupabaseTables.publicationsBySectionView)
+            .select()
             .eq('section_id', sectionId);
 
-        final publicationIds = sectionPublications
-            .map((row) => row['publication_id'] as String)
-            .toList();
-
-        if (publicationIds.isEmpty) {
-          return [];
-        }
-
-        var query = _client
-            .from(SupabaseTables.publications)
-            .select()
-            .inFilter('id', publicationIds);
-
-        // Only filter by status if not including all statuses (for admin access)
+        // Only filter by status if not including all statuses (for admin access).
+        // The view already excludes drafts for public callers; for admin we
+        // query the base table path instead (see below).
         if (!includeAllStatuses) {
-          query = query.eq('status', 'published');
+          // Public: view already filters status=published.
         }
 
         if (searchQuery != null && searchQuery.trim().isNotEmpty) {

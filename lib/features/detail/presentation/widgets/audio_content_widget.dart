@@ -4,14 +4,18 @@ import 'dart:ui' show ImageFilter;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:just_audio/just_audio.dart' show AudioPlayer, ProcessingState, UriAudioSource;
+import 'package:tatislam_app/core/constants/app_localizations.dart';
+import 'package:tatislam_app/core/providers/locale_provider.dart';
 import 'package:tatislam_app/core/services/local_storage_service.dart';
 import 'package:tatislam_app/core/storage/media_storage_repository.dart';
 import 'package:tatislam_app/core/utils/responsive.dart';
+import 'package:tatislam_app/features/detail/domain/services/file_transfer_service.dart';
+import 'package:tatislam_app/features/detail/presentation/providers/audio_playback_speed_provider.dart';
 import 'package:tatislam_app/features/detail/presentation/providers/audio_player_provider.dart';
+import 'package:tatislam_app/features/detail/presentation/providers/file_transfer_provider.dart';
 import 'package:tatislam_app/features/publications/domain/entities/audio_source_type.dart';
 import 'package:tatislam_app/features/publications/domain/entities/content_block.dart';
 
-const _speedOptions = [1.0, 1.25, 1.5, 2.0];
 const _positionKeyPrefix = 'audio_position_';
 const double _glassBlur = 12;
 const double _glassOpacity = 0.30;
@@ -37,7 +41,6 @@ class AudioContentWidget extends ConsumerStatefulWidget {
 
 class _AudioContentWidgetState extends ConsumerState<AudioContentWidget>
     with WidgetsBindingObserver {
-  double _speed = 1.0;
   String? _positionKey;
   Duration _displayPosition = Duration.zero;
   StreamSubscription<dynamic>? _positionSub;
@@ -46,6 +49,8 @@ class _AudioContentWidgetState extends ConsumerState<AudioContentWidget>
   double? _dragValue;
   int? _savedSeconds;
   bool _isRestoring = false;
+  bool _isDownloading = false;
+  bool _isSharing = false;
 
   @override
   void initState() {
@@ -136,6 +141,9 @@ class _AudioContentWidgetState extends ConsumerState<AudioContentWidget>
         await audioPlayer.load();
       }
 
+      // New audio always starts with the global app-wide speed.
+      await audioPlayer.setSpeed(ref.read(audioPlaybackSpeedProvider));
+
       if (_savedSeconds != null && _savedSeconds! > 0) {
         final saved = Duration(seconds: _savedSeconds!);
         if ((audioPlayer.position - saved).inSeconds.abs() > 1) {
@@ -171,7 +179,8 @@ class _AudioContentWidgetState extends ConsumerState<AudioContentWidget>
       final mediaUrl = _resolveMediaUrl();
       if (mediaUrl == null) return;
 
-      await audioPlayer.setSpeed(_speed);
+      // Apply the global app-wide playback speed before starting playback.
+      await audioPlayer.setSpeed(ref.read(audioPlaybackSpeedProvider));
 
       final state = audioPlayer.playerState;
       if (state.playing) {
@@ -294,7 +303,7 @@ class _AudioContentWidgetState extends ConsumerState<AudioContentWidget>
       const SizedBox(height: 16),
       _buildSeekBar(audioPlayer),
       const SizedBox(height: 12),
-      _buildSpeedSelector(audioPlayer),
+      _buildActionBar(),
     ],
   );
 
@@ -309,9 +318,9 @@ class _AudioContentWidgetState extends ConsumerState<AudioContentWidget>
           children: [
             _buildSeekBar(audioPlayer),
             const SizedBox(height: 8),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [_buildSpeedSelector(audioPlayer)],
+            Align(
+              alignment: Alignment.centerLeft,
+              child: _buildActionBar(),
             ),
           ],
         ),
@@ -402,43 +411,206 @@ class _AudioContentWidgetState extends ConsumerState<AudioContentWidget>
     );
   }
 
-  Widget _buildSpeedSelector(AudioPlayer audioPlayer) => Wrap(
-    spacing: 8,
-    runSpacing: 8,
-    children: _speedOptions.map((speed) {
-      final isSelected = speed == _speed;
-      return GestureDetector(
-        onTap: () {
-          setState(() => _speed = speed);
-          audioPlayer.setSpeed(speed);
-        },
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          decoration: BoxDecoration(
-            color: isSelected
-                ? _goldAccent.withValues(alpha: 0.30)
-                : Colors.white.withValues(alpha: 0.12),
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(
-              color: isSelected
-                  ? _goldAccent
-                  : Colors.white.withValues(alpha: 0.20),
-            ),
+  Widget _buildSpeedSelector() {
+    final current = ref.watch(audioPlaybackSpeedProvider);
+
+    return PopupMenuButton<double>(
+      tooltip: AppLocalizations.of(ref).audioSpeedTooltip,
+      onSelected: (speed) {
+        ref.read(audioPlaybackSpeedProvider.notifier).setSpeed(speed);
+      },
+      itemBuilder: (context) => audioSpeedOptions.map((speed) {
+        final isSelected = speed == current;
+        return PopupMenuItem<double>(
+          value: speed,
+          height: 44,
+          child: Row(
+            children: [
+              SizedBox(
+                width: 24,
+                child: Icon(
+                  isSelected ? Icons.check : null,
+                  size: 18,
+                  color: _goldAccentDark,
+                ),
+              ),
+              const SizedBox(width: 4),
+              Text(
+                formatAudioSpeed(speed),
+                style: TextStyle(
+                  color: isSelected ? _goldAccentDark : Colors.white,
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                  fontSize: 15,
+                ),
+              ),
+            ],
           ),
-          child: Text(
-            '${speed}x',
-            style: TextStyle(
-              color: isSelected
-                  ? _goldAccentDark
-                  : Colors.white.withValues(alpha: 0.90),
-              fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-              fontSize: 14,
-            ),
+        );
+      }).toList(),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: Colors.white.withValues(alpha: 0.20),
           ),
         ),
-      );
-    }).toList(),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              formatAudioSpeed(current),
+              style: TextStyle(
+                color: _goldAccent,
+                fontWeight: FontWeight.bold,
+                fontSize: 14,
+              ),
+            ),
+            const SizedBox(width: 4),
+            const Icon(Icons.arrow_drop_down, size: 18, color: Colors.white70),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Compact action bar: speed dropdown + download + share.
+  Widget _buildActionBar() {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        _buildSpeedSelector(),
+        _buildActionButton(
+          tooltip: t.audioDownloadTooltip,
+          icon: _isDownloading
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: _goldAccent,
+                  ),
+                )
+              : const Icon(Icons.download, size: 20, color: Colors.white),
+          onTap: _isDownloading || _isSharing ? null : _handleDownload,
+        ),
+        _buildActionButton(
+          tooltip: t.audioShareTooltip,
+          icon: _isSharing
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: _goldAccent,
+                  ),
+                )
+              : const Icon(Icons.share, size: 20, color: Colors.white),
+          onTap: _isDownloading || _isSharing ? null : _handleShare,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildActionButton({
+    required String tooltip,
+    required Widget icon,
+    VoidCallback? onTap,
+  }) {
+    return Tooltip(
+      message: tooltip,
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          width: 38,
+          height: 38,
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: Colors.white.withValues(alpha: 0.20),
+            ),
+          ),
+          child: Center(child: icon),
+        ),
+      ),
+    );
+  }
+
+  AppLocalizations get t => AppLocalizations.fromLocale(
+    ref.read(localeProvider),
   );
+
+  Future<void> _handleDownload() async {
+    final mediaUrl = _resolveMediaUrl();
+    if (mediaUrl == null) return;
+
+    setState(() => _isDownloading = true);
+    try {
+      final service = ref.read(fileTransferServiceProvider);
+      final result = await service.saveFile(
+        url: mediaUrl,
+        fileName: deriveFileName(mediaUrl),
+      );
+      if (!mounted) return;
+      final messenger = ScaffoldMessenger.of(context);
+      switch (result.status) {
+        case FileSaveStatus.saved:
+          messenger.showSnackBar(
+            SnackBar(content: Text(t.audioDownloaded)),
+          );
+        case FileSaveStatus.canceled:
+          break; // User closed the dialog — no message needed.
+        case FileSaveStatus.unavailable:
+        case FileSaveStatus.error:
+          messenger.showSnackBar(
+            SnackBar(content: Text(t.audioDownloadError)),
+          );
+      }
+    } catch (e) {
+      debugPrint('Error downloading audio: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(t.audioDownloadError)));
+      }
+    } finally {
+      if (mounted) setState(() => _isDownloading = false);
+    }
+  }
+
+  Future<void> _handleShare() async {
+    final mediaUrl = _resolveMediaUrl();
+    if (mediaUrl == null) return;
+
+    setState(() => _isSharing = true);
+    try {
+      final service = ref.read(fileTransferServiceProvider);
+      final fileName = widget.block.audioPath?.split('/').last;
+      final result = await service.shareFile(
+        url: mediaUrl,
+        fileName: fileName,
+      );
+      if (!mounted) return;
+      if (!result.shared) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(t.audioShareError)));
+      }
+    } catch (e) {
+      debugPrint('Error sharing audio: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(t.audioShareError)));
+      }
+    } finally {
+      if (mounted) setState(() => _isSharing = false);
+    }
+  }
 
   String _formatDuration(Duration d) {
     final minutes = d.inMinutes.remainder(60).toString().padLeft(2, '0');
@@ -470,7 +642,7 @@ class _AudioContentWidgetState extends ConsumerState<AudioContentWidget>
                 const Icon(Icons.music_off, size: 48, color: Colors.grey),
                 const SizedBox(height: 12),
                 Text(
-                  'Аудио недоступно',
+                  t.audioUnavailable,
                   style: Theme.of(
                     context,
                   ).textTheme.titleMedium?.copyWith(color: Colors.grey),

@@ -88,8 +88,25 @@ class _ImageContentWidgetState extends State<ImageContentWidget> {
           child: GestureDetector(
             onTap: () {
               Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (context) => ImageViewerScreen(imageUrl: imageUrl),
+                PageRouteBuilder(
+                  // Fade transition with a transparent background — the
+                  // default Material zoom transition flashes a white frame
+                  // while the route is being built.
+                  opaque: false,
+                  transitionDuration: const Duration(milliseconds: 200),
+                  reverseTransitionDuration:
+                      const Duration(milliseconds: 150),
+                  pageBuilder: (context, animation, secondaryAnimation) =>
+                      ImageViewerScreen(
+                    imageUrl: imageUrl,
+                    fileName: widget.block.imagePath.split('/').last,
+                  ),
+                  transitionsBuilder: (
+                    context,
+                    animation,
+                    secondaryAnimation,
+                    child,
+                  ) => FadeTransition(opacity: animation, child: child),
                 ),
               );
             },
@@ -141,7 +158,7 @@ class _ImageContentWidgetState extends State<ImageContentWidget> {
   Widget _buildPlaceholder() {
     return Container(
       width: double.infinity,
-      color: Colors.white.withValues(alpha: 0.08),
+      color: Colors.transparent,
       child: const Center(child: CircularProgressIndicator()),
     );
   }

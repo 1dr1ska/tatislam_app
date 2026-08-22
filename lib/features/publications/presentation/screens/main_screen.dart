@@ -97,12 +97,11 @@ class _MainScreenState extends ConsumerState<MainScreen> {
   @override
   Widget build(BuildContext context) {
     final sections = ref.watch(sectionsProvider);
-    final publicationsAsync = ref.watch(filteredPublicationsProvider);
+    final publicationsAsync = ref.watch(mainPublicationsProvider);
     final showFavoritesOnly = ref.watch(favoritesFilterProvider);
     final selectedSection = ref.watch(selectedSectionProvider);
 
     final backgroundPath = selectedSection?.backgroundImage;
-    final isLoading = publicationsAsync.isLoading;
 
     return PopScope(
       canPop: false,
@@ -253,41 +252,25 @@ class _MainScreenState extends ConsumerState<MainScreen> {
             ),
             body: RefreshIndicator(
               onRefresh: () async {
+                await ref.read(mainPublicationsProvider.notifier).refresh();
                 await ref.read(sectionsProvider.notifier).refresh();
-                ref.invalidate(mainPublicationsProvider);
                 ref.invalidate(favoritesProvider);
-                await ref.read(mainPublicationsProvider.future);
                 await ref.read(favoritesProvider.future);
               },
-              child: isLoading
-                  ? const Center(child: CircularProgressIndicator())
-                  : SingleChildScrollView(
-                      physics: const AlwaysScrollableScrollPhysics(),
-                      child: Center(
-                        child: ConstrainedBox(
-                          constraints: BoxConstraints(
-                            maxWidth: 1000,
-                            // Ensure the scrollable area is always taller than
-                            // the viewport so RefreshIndicator works even when
-                            // there are only 1-2 publication cards.
-                            minHeight: MediaQuery.of(context).size.height,
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              _buildSectionFilters(ref, sections),
-                              const SizedBox(height: 16),
-                              _buildPublicationsGrid(
-                                context,
-                                ref,
-                                publicationsAsync,
-                                hasLocalSections: sections.isNotEmpty,
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
+              child: Column(
+                children: [
+                  _buildSectionFilters(ref, sections),
+                  const SizedBox(height: 12),
+                  Expanded(
+                    child: _buildPublicationsGrid(
+                      context,
+                      ref,
+                      publicationsAsync,
+                      hasLocalSections: sections.isNotEmpty,
                     ),
+                  ),
+                ],
+              ),
             ),
           ),
         ],
@@ -397,108 +380,162 @@ class _MainScreenState extends ConsumerState<MainScreen> {
   Widget _buildPublicationsGrid(
     BuildContext context,
     WidgetRef ref,
-    AsyncValue<List<Publication>> publicationsAsync, {
+    AsyncValue<PublicationsPage> publicationsAsync, {
     required bool hasLocalSections,
   }) {
-    return publicationsAsync.when(
-      data: (publications) {
-        // Inject synthetic admin card when searching for "admin"
-        final query = ref.watch(searchQueryProvider);
-        final showAdminCard = query.trim().toLowerCase() == 'admin';
-        final displayList = showAdminCard
-            ? [
-                Publication(
-                  id: 'admin_access',
-                  title: 'Панель администратора',
-                  type: 'admin',
-                  publishedAt: DateTime.now(),
-                  createdAt: DateTime.now(),
-                  updatedAt: DateTime.now(),
-                  primarySectionId: '',
-                ),
-                ...publications,
-              ]
-            : publications;
+    // First load (no previous data) — show a centered spinner.
+    if (publicationsAsync.isLoading && publicationsAsync.value == null) {
+      return const Center(child: CircularProgressIndicator());
+    }
 
-        if (displayList.isEmpty) {
-          return Center(
-            child: Padding(
-              padding: const EdgeInsets.only(top: 64),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(
-                    Icons.article_outlined,
-                    size: 64,
-                    color: AppColors.primary,
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    AppLocalizations.of(ref).noPublicationsFound,
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
-                ],
-              ),
+    // A full error with no data to fall back on.
+    if (publicationsAsync.hasError && publicationsAsync.value == null) {
+      return _buildGridError(context, ref, hasLocalSections);
+    }
+
+    final page =
+        publicationsAsync.value ?? const PublicationsPage(items: [], hasMore: false);
+
+    // While a background refresh is in flight we still have data — render the
+    // grid (new data will land when the refresh completes) so the user never
+    // sees a blank screen.
+    return _buildGrid(context, ref, page);
+  }
+
+  Widget _buildGrid(
+    BuildContext context,
+    WidgetRef ref,
+    PublicationsPage page,
+  ) {
+    // Inject synthetic admin card when searching for "admin"
+    final query = ref.watch(searchQueryProvider);
+    final showAdminCard = query.trim().toLowerCase() == 'admin';
+    final displayList = showAdminCard
+        ? [
+            Publication(
+              id: 'admin_access',
+              title: 'Панель администратора',
+              type: 'admin',
+              publishedAt: DateTime.now(),
+              createdAt: DateTime.now(),
+              updatedAt: DateTime.now(),
+              primarySectionId: '',
             ),
-          );
-        }
+            ...page.items,
+          ]
+        : page.items;
+    final hasMore = page.hasMore;
 
-        // Determine grid columns and aspect ratio based on breakpoint
-        final isTablet = ResponsiveBreakpoints.isTablet(context);
-        final isLandscape = ResponsiveBreakpoints.isCompactLandscape(context);
-        final availableWidth = ResponsiveBreakpoints.layoutWidth(context) - 32;
-        final cardMinWidth = isTablet ? 280.0 : (isLandscape ? 200.0 : 160.0);
-        final cols = (availableWidth / cardMinWidth).floor().clamp(2, 4);
-        // Base aspect ratio (width/height) for the card grid.
-        // Taller cards on mobile, more compact on landscape/tablet.
-        // Reduced by ~10% to give more room for 3-line titles.
-        final baseAspectRatio = isTablet ? 0.75 : (isLandscape ? 0.85 : 0.78);
-        // Scale aspect ratio inversely with text size so cards grow taller
-        // when text is larger, preventing overflow.
-        final textScale = ref.watch(textScaleProvider).scale;
-        final aspectRatio = baseAspectRatio / (0.5 + textScale * 0.5);
-
-        return GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: cols,
-            crossAxisSpacing: 16,
-            mainAxisSpacing: 16,
-            childAspectRatio: aspectRatio,
-          ),
-          itemCount: displayList.length,
-          padding: const EdgeInsets.all(16),
-          itemBuilder: (context, index) {
-            final publication = displayList[index];
-            return _PublicationCard(publication: publication, index: index);
-          },
-        );
-      },
-      loading: () => const Center(child: CircularProgressIndicator()),
-      error: (error, stackTrace) => Center(
+    if (displayList.isEmpty) {
+      return Center(
         child: Padding(
           padding: const EdgeInsets.only(top: 64),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(Icons.error_outline, size: 64, color: AppColors.error),
+              const Icon(
+                Icons.article_outlined,
+                size: 64,
+                color: AppColors.primary,
+              ),
               const SizedBox(height: 16),
               Text(
-                hasLocalSections
-                    ? AppLocalizations.of(ref).errorLoading
-                    : AppLocalizations.of(ref).needInternetForFirstLoad,
-                textAlign: TextAlign.center,
+                AppLocalizations.of(ref).noPublicationsFound,
+                style: Theme.of(context).textTheme.titleMedium,
               ),
-              if (hasLocalSections) ...[
-                const SizedBox(height: 16),
-                ElevatedButton(
-                  onPressed: () => ref.invalidate(mainPublicationsProvider),
-                  child: Text(AppLocalizations.of(ref).retry),
-                ),
-              ],
             ],
           ),
+        ),
+      );
+    }
+
+    // Determine grid columns and aspect ratio based on breakpoint
+    final isTablet = ResponsiveBreakpoints.isTablet(context);
+    final isLandscape = ResponsiveBreakpoints.isCompactLandscape(context);
+    final availableWidth = ResponsiveBreakpoints.layoutWidth(context) - 32;
+    final cardMinWidth = isTablet ? 280.0 : (isLandscape ? 200.0 : 160.0);
+    final cols = (availableWidth / cardMinWidth).floor().clamp(2, 4);
+    // Base aspect ratio (width/height) for the card grid.
+    // Taller cards on mobile, more compact on landscape/tablet.
+    // Reduced by ~10% to give more room for 3-line titles.
+    final baseAspectRatio = isTablet ? 0.75 : (isLandscape ? 0.85 : 0.78);
+    // Scale aspect ratio inversely with text size so cards grow taller
+    // when text is larger, preventing overflow.
+    final textScale = ref.watch(textScaleProvider).scale;
+    final aspectRatio = baseAspectRatio / (0.5 + textScale * 0.5);
+
+    return NotificationListener<ScrollNotification>(
+      onNotification: (notification) {
+        // Pre-load the next page shortly before reaching the bottom.
+        if (hasMore &&
+            notification.metrics.extentAfter < 400 &&
+            notification.metrics.axisDirection == AxisDirection.down) {
+          ref.read(mainPublicationsProvider.notifier).loadMore();
+        }
+        return false;
+      },
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 1000),
+          child: GridView.builder(
+            physics: const AlwaysScrollableScrollPhysics(),
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: cols,
+              crossAxisSpacing: 16,
+              mainAxisSpacing: 16,
+              childAspectRatio: aspectRatio,
+            ),
+            itemCount: displayList.length + (hasMore ? 1 : 0),
+            padding: const EdgeInsets.all(16),
+            itemBuilder: (context, index) {
+              if (index >= displayList.length) {
+                return const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(12),
+                    child: SizedBox(
+                      width: 28,
+                      height: 28,
+                      child: CircularProgressIndicator(strokeWidth: 2.5),
+                    ),
+                  ),
+                );
+              }
+              final publication = displayList[index];
+              return _PublicationCard(publication: publication, index: index);
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildGridError(
+    BuildContext context,
+    WidgetRef ref,
+    bool hasLocalSections,
+  ) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.only(top: 64),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.error_outline, size: 64, color: AppColors.error),
+            const SizedBox(height: 16),
+            Text(
+              hasLocalSections
+                  ? AppLocalizations.of(ref).errorLoading
+                  : AppLocalizations.of(ref).needInternetForFirstLoad,
+              textAlign: TextAlign.center,
+            ),
+            if (hasLocalSections) ...[
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: () => ref.invalidate(mainPublicationsProvider),
+                child: Text(AppLocalizations.of(ref).retry),
+              ),
+            ],
+          ],
         ),
       ),
     );
@@ -540,11 +577,26 @@ class _PublicationCard extends ConsumerWidget {
             GoRouter.of(context).go('/login');
           } else if (isPhoto) {
             final mediaStorage = ref.read(mediaStorageRepositoryProvider);
+            final photoPath = publication.photoPath!;
             Navigator.of(context).push(
-              MaterialPageRoute(
-                builder: (context) => ImageViewerScreen(
-                  imageUrl: mediaStorage.publicUrlFor(publication.photoPath!),
+              PageRouteBuilder(
+                // Fade transition with a transparent background — the
+                // default Material zoom transition flashes a white frame
+                // while the route is being built.
+                opaque: false,
+                transitionDuration: const Duration(milliseconds: 200),
+                reverseTransitionDuration: const Duration(milliseconds: 150),
+                pageBuilder: (context, animation, secondaryAnimation) =>
+                    ImageViewerScreen(
+                  imageUrl: mediaStorage.publicUrlFor(photoPath),
+                  fileName: photoPath.split('/').last,
                 ),
+                transitionsBuilder: (
+                  context,
+                  animation,
+                  secondaryAnimation,
+                  child,
+                ) => FadeTransition(opacity: animation, child: child),
               ),
             );
           } else {
@@ -674,8 +726,13 @@ class _PublicationCard extends ConsumerWidget {
         fadeInCurve: Curves.easeIn,
         placeholder: (context, url) => Container(
           width: double.infinity,
-          color: AppColors.photoColor.withValues(alpha: 0.35),
-          child: const Center(child: CircularProgressIndicator()),
+          color: Colors.transparent,
+          child: const Center(
+            child: CircularProgressIndicator(
+              strokeWidth: 2.5,
+              color: AppColors.gold,
+            ),
+          ),
         ),
         errorWidget: (context, url, error) => const Center(
           child: Icon(

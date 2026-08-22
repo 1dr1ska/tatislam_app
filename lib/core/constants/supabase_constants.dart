@@ -8,6 +8,7 @@ class SupabaseTables {
   static const String profiles = 'profiles';
   static const String sections = 'sections';
   static const String publications = 'publications';
+  static const String publicationsBySectionView = 'publications_by_section_view';
   static const String contentBlocks = 'content_blocks';
   static const String publicationSections = 'publication_sections';
 }

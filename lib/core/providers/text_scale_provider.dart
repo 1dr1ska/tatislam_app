@@ -17,8 +17,8 @@ enum TextScaleLevel {
   /// Display name localized for the given locale.
   String displayName(AppLocale locale) {
     return switch (this) {
-      TextScaleLevel.compact => 'Компактный',
-      TextScaleLevel.normal => 'Обычный',
+      TextScaleLevel.compact => locale == AppLocale.tatar ? 'Компакт' : 'Компактный',
+      TextScaleLevel.normal => locale == AppLocale.tatar ? 'Гадәти' : 'Обычный',
       TextScaleLevel.large => locale == AppLocale.tatar ? 'Зур' : 'Крупный',
       TextScaleLevel.extraLarge => locale == AppLocale.tatar ? 'Бик зур' : 'Очень крупный',
     };

@@ -244,6 +244,28 @@ class AppLocalizations {
   String urlOpeningError(String error) =>
       _locale == AppLocale.tatar ? 'URL ачу хатасы: $error' : 'Ошибка при открытии URL: $error';
 
+  // ── Audio/File actions (speed / download / share) ──────
+  String get audioSpeedTooltip => _locale == AppLocale.tatar ? 'Тизлек' : 'Скорость';
+  String get audioDownloadTooltip => _locale == AppLocale.tatar ? 'Скачать аудио' : 'Скачать аудио';
+  String get audioShareTooltip => _locale == AppLocale.tatar ? 'Уртаклашу' : 'Поделиться';
+  String get download => _locale == AppLocale.tatar ? 'Төяп алу' : 'Скачать';
+  String get audioDownloading => _locale == AppLocale.tatar ? 'Төялә...' : 'Загрузка...';
+  String get audioPreparingFile => _locale == AppLocale.tatar ? 'Файл әзерләнә...' : 'Подготовка файла...';
+  String get audioDownloaded => _locale == AppLocale.tatar ? 'Аудио сакланды' : 'Аудио сохранено';
+  String get audioDownloadError => _locale == AppLocale.tatar
+      ? 'Аудионы төяп булмады'
+      : 'Не удалось скачать аудио';
+  String get audioShareError => _locale == AppLocale.tatar
+      ? 'Аудионы уртаклашу мөмкин түгел'
+      : 'Не удалось поделиться аудио';
+  String get photoDownloaded => _locale == AppLocale.tatar ? 'Фото сакланды' : 'Фото сохранено';
+  String get photoDownloadError => _locale == AppLocale.tatar
+      ? 'Фотоне төяп булмады'
+      : 'Не удалось скачать фото';
+  String get photoShareError => _locale == AppLocale.tatar
+      ? 'Фотоне уртаклашу мөмкин түгел'
+      : 'Не удалось поделиться фото';
+
   // ── About Screen ────────────────────────────────────────
   String get appDescription => _locale == AppLocale.tatar
       ? 'ТАТИСЛАМ — Раил Фәйзрахмановның татар телендәге ислам дәресләре тупланган кушымта. Монда аудио вәгазьләр, видео вәгазьләр һәм мәкаләләр бер урынга җыелган.'

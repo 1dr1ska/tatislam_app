@@ -188,7 +188,7 @@ class _PublicationsListScreenState
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: () {
-          context.push('/admin/publications/${publication.id}/edit');
+          context.push(_editRouteFor(publication));
         },
         child: Padding(
           padding: const EdgeInsets.all(12),
@@ -196,7 +196,7 @@ class _PublicationsListScreenState
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Top row: icon + title + menu
+              // Main row: icon + title + menu
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -232,9 +232,7 @@ class _PublicationsListScreenState
                   PopupMenuButton<String>(
                     onSelected: (value) {
                       if (value == 'edit') {
-                        context.push(
-                          '/admin/publications/${publication.id}/edit',
-                        );
+                        context.push(_editRouteFor(publication));
                       } else if (value == 'delete') {
                         _confirmDelete(context, publication);
                       }
@@ -318,9 +316,19 @@ class _PublicationsListScreenState
         return _TypeInfo(Icons.play_circle, AppColors.videoColor, 'Видео');
       case 'audio':
         return _TypeInfo(Icons.audiotrack, AppColors.audioColor, 'Аудио');
+      case 'photo':
+        return _TypeInfo(Icons.photo, AppColors.photoColor, 'Фото');
       default:
         return _TypeInfo(Icons.article, AppColors.articleColor, 'Статья');
     }
+  }
+
+  /// Photo publications use their own editor; everything else uses the
+  /// generic publication editor.
+  String _editRouteFor(Publication publication) {
+    return publication.type == 'photo'
+        ? '/admin/photos/${publication.id}/edit'
+        : '/admin/publications/${publication.id}/edit';
   }
 
   _StatusInfo _getStatusInfo(String status) {

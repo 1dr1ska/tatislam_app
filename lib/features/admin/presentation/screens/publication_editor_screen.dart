@@ -66,6 +66,7 @@ class _PublicationEditorScreenState
   String? _primarySectionId;
   List<ContentBlock> _contentBlocks = [];
   Set<String> _selectedSectionIds = {};
+  bool _hasAdditionalSections = false;
   String _status = 'draft';
   DateTime? _publishedAt;
 
@@ -86,6 +87,17 @@ class _PublicationEditorScreenState
   bool _iconValidationAttempted = false;
   bool _sectionValidationAttempted = false;
   String _initialStatus = 'draft';
+
+  // Track the publication created during the current save attempt, plus any
+  // files uploaded so far, so a failed create can be rolled back (compensated)
+  // instead of leaving orphaned rows/files.
+  String? _createdPublicationId;
+  final Set<String> _uploadedFilePathsThisSave = {};
+
+  // Old block files being replaced. Deleted only AFTER the DB successfully
+  // references the new ones, so a failed save never leaves a block pointing at
+  // a removed file.
+  final Set<String> _oldFilePathsToDeleteThisSave = {};
 
   @override
   void initState() {
@@ -121,6 +133,7 @@ class _PublicationEditorScreenState
       _primarySectionId = detail.publication.primarySectionId;
       _contentBlocks = List.from(detail.blocks);
       _selectedSectionIds = Set.from(detail.sectionIds);
+      _hasAdditionalSections = detail.publication.hasAdditionalSections;
       _status = detail.publication.status ?? 'draft';
       _publishedAt = detail.publication.publishedAt;
       _dateController.text = _formatDate(_publishedAt!);
@@ -221,13 +234,10 @@ class _PublicationEditorScreenState
       );
 
       final s3Key = await storageRepository.upload(path, bytes);
+      _uploadedFilePathsThisSave.add(s3Key);
 
       if (currentImagePath.isNotEmpty && currentImagePath != s3Key) {
-        try {
-          await storageRepository.delete([currentImagePath]);
-        } catch (e) {
-          // Ignore delete errors
-        }
+        _oldFilePathsToDeleteThisSave.add(currentImagePath);
       }
 
       return s3Key;
@@ -259,13 +269,10 @@ class _PublicationEditorScreenState
         path,
         selectedAudioFile.bytes,
       );
+      _uploadedFilePathsThisSave.add(s3Key);
 
       if (currentAudioPath.isNotEmpty && currentAudioPath != s3Key) {
-        try {
-          await storageRepository.delete([currentAudioPath]);
-        } catch (e) {
-          // Ignore delete errors
-        }
+        _oldFilePathsToDeleteThisSave.add(currentAudioPath);
       }
 
       return s3Key;
@@ -375,6 +382,7 @@ class _PublicationEditorScreenState
   }
 
   Future<void> _savePublication() async {
+    if (_isSaving) return; // Prevent overlapping save attempts.
     if (!_formKey.currentState!.validate()) {
       return;
     }
@@ -412,6 +420,11 @@ class _PublicationEditorScreenState
       _currentSaveStep = _SaveStep.savingMetadata;
     });
 
+    // Reset rollback tracking for this save attempt.
+    _createdPublicationId = null;
+    _uploadedFilePathsThisSave.clear();
+    _oldFilePathsToDeleteThisSave.clear();
+
     try {
       final title = _titleController.text.trim();
       final repository = ref.read(publicationRepositoryProvider);
@@ -425,7 +438,9 @@ class _PublicationEditorScreenState
           publishedAt: _publishedAt ?? DateTime.now(),
           status: _status,
           primarySectionId: _primarySectionId ?? '',
+          hasAdditionalSections: _hasAdditionalSections,
         );
+        _createdPublicationId = publication.id;
 
         setState(() {
           _currentSaveStep = _SaveStep.uploadingFiles;
@@ -439,7 +454,7 @@ class _PublicationEditorScreenState
 
         await repository.setSections(
           publication.id,
-          _selectedSectionIds.toList(),
+          _sectionIdsToSave(),
         );
 
         setState(() {
@@ -447,6 +462,10 @@ class _PublicationEditorScreenState
         });
 
         await repository.replaceBlocks(publication.id, updatedBlocks);
+        await _deleteReplacedFiles();
+        // All blocks are committed — newly uploaded files are no longer
+        // temporary and must not be cleaned up by a later failure.
+        _uploadedFilePathsThisSave.clear();
 
         setState(() {
           _currentSaveStep = _SaveStep.done;
@@ -472,6 +491,7 @@ class _PublicationEditorScreenState
           type: 'article',
           status: _status,
           primarySectionId: _primarySectionId ?? '',
+          hasAdditionalSections: _hasAdditionalSections,
         );
 
         setState(() {
@@ -486,7 +506,7 @@ class _PublicationEditorScreenState
 
         await repository.setSections(
           widget.publicationId!,
-          _selectedSectionIds.toList(),
+          _sectionIdsToSave(),
         );
 
         setState(() {
@@ -494,6 +514,10 @@ class _PublicationEditorScreenState
         });
 
         await repository.replaceBlocks(widget.publicationId!, updatedBlocks);
+        await _deleteReplacedFiles();
+        // All blocks are committed — newly uploaded files are no longer
+        // temporary and must not be cleaned up by a later failure.
+        _uploadedFilePathsThisSave.clear();
 
         setState(() {
           _hasUnsavedChanges = false;
@@ -512,6 +536,30 @@ class _PublicationEditorScreenState
         }
       }
     } catch (e) {
+      // Roll back a partially created publication and clean up files uploaded
+      // during this attempt. A failed save must not leave duplicate rows or
+      // orphaned storage objects behind.
+      try {
+        final storage = ref.read(mediaStorageRepositoryProvider);
+        if (_uploadedFilePathsThisSave.isNotEmpty) {
+          try {
+            await storage.delete(_uploadedFilePathsThisSave.toList());
+          } catch (_) {
+            // Best-effort cleanup; ignore storage errors.
+          }
+        }
+        if (_createdPublicationId != null) {
+          try {
+            final repository = ref.read(publicationRepositoryProvider);
+            await repository.deletePublication(_createdPublicationId!);
+          } catch (_) {
+            // The row may already have been cleaned by cascades; ignore.
+          }
+        }
+      } catch (_) {
+        // Entire rollback failed — leave objects for manual cleanup.
+      }
+
       setState(() {
         _currentSaveStep = _SaveStep.error;
       });
@@ -531,6 +579,31 @@ class _PublicationEditorScreenState
           }
         });
       });
+    }
+  }
+
+  /// Section memberships to persist. When additional sections are disabled,
+  /// the publication is shown only in its primary section.
+  List<String> _sectionIdsToSave() {
+    if (!_hasAdditionalSections) {
+      final primary = _primarySectionId;
+      return primary == null || primary.isEmpty ? const [] : [primary];
+    }
+    return _selectedSectionIds.toList();
+  }
+
+  /// Removes storage files that were replaced during this save. Called after
+  /// the DB successfully saved the new blocks, so old files are freed only
+  /// once nothing references them anymore.
+  Future<void> _deleteReplacedFiles() async {
+    if (_oldFilePathsToDeleteThisSave.isEmpty) return;
+    try {
+      final storage = ref.read(mediaStorageRepositoryProvider);
+      await storage.delete(_oldFilePathsToDeleteThisSave.toList());
+    } catch (_) {
+      // Best-effort cleanup; ignore storage errors.
+    } finally {
+      _oldFilePathsToDeleteThisSave.clear();
     }
   }
 
@@ -692,6 +765,7 @@ class _PublicationEditorScreenState
               onPressed: _isSaving ? null : _savePublication,
             ),
           ],
+          bottom: _buildStatusBar(),
         ),
         body: Column(
           children: [
@@ -834,137 +908,108 @@ class _PublicationEditorScreenState
                                   },
                                 ),
                                 const SizedBox(height: 12),
-                                // Additional sections (multi-select)
-                                FutureBuilder<List<Section>>(
-                                  future: _sectionsFuture,
-                                  builder: (context, snapshot) {
-                                    if (snapshot.connectionState ==
-                                        ConnectionState.waiting) {
-                                      return const Padding(
-                                        padding: EdgeInsets.symmetric(
-                                          vertical: 8,
-                                        ),
-                                        child: LinearProgressIndicator(),
-                                      );
-                                    }
-
-                                    if (snapshot.hasError) {
-                                      return Text(
-                                        loc.AppLocalizations.admin.sectionLoadError(
-                                          '${snapshot.error}',
-                                        ),
-                                      );
-                                    }
-
-                                    if (!snapshot.hasData ||
-                                        snapshot.data!.isEmpty) {
-                                      return Text(
-                                        loc.AppLocalizations.admin.noSectionsAvailable,
-                                      );
-                                    }
-
-                                    final sections = snapshot.data!;
-                                    return Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          loc.AppLocalizations.admin.additionalSections,
-                                          style: TextStyle(
-                                            fontSize: 14,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 8),
-                                        Wrap(
-                                          spacing: 6.0,
-                                          runSpacing: 6.0,
-                                          children: sections.map((section) {
-                                            final isPrimary =
-                                                section.id == _primarySectionId;
-                                            return FilterChip(
-                                              label: Text(
-                                                section.name,
-                                                style: const TextStyle(
-                                                  fontSize: 12,
-                                                ),
-                                              ),
-                                              selected: _selectedSectionIds
-                                                  .contains(section.id),
-                                              onSelected: isPrimary
-                                                  ? null
-                                                  : (selected) {
-                                                      setState(() {
-                                                        if (selected) {
-                                                          _selectedSectionIds
-                                                              .add(section.id);
-                                                        } else {
-                                                          _selectedSectionIds
-                                                              .remove(
-                                                                section.id,
-                                                              );
-                                                        }
-                                                      });
-                                                      _markUnsaved();
-                                                    },
-                                            );
-                                          }).toList(),
-                                        ),
-                                      ],
-                                    );
-                                  },
-                                ),
-                                const SizedBox(height: 12),
-                                DropdownButtonFormField<String>(
-                                  initialValue: _status,
-                                  decoration: InputDecoration(
-                                    labelText: loc.AppLocalizations.admin.statusField,
-                                    border: const OutlineInputBorder(),
+                                // Additional sections toggle
+                                SwitchListTile(
+                                  dense: true,
+                                  contentPadding: EdgeInsets.zero,
+                                  title: Text(
+                                    loc.AppLocalizations.admin.enableAdditionalSections,
+                                    style: const TextStyle(fontSize: 14),
                                   ),
-                                  items: [
-                                    DropdownMenuItem(
-                                      value: 'draft',
-                                      child: Text(loc.AppLocalizations.admin.statusDraft),
+                                  subtitle: Text(
+                                    loc.AppLocalizations.admin.enableAdditionalSectionsHint,
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      color: AppColors.textSecondary,
                                     ),
-                                    DropdownMenuItem(
-                                      value: 'published',
-                                      child: Text(loc.AppLocalizations.admin.statusPublished),
-                                    ),
-                                  ],
+                                  ),
+                                  value: _hasAdditionalSections,
                                   onChanged: (value) {
-                                    if (value != null) {
-                                      setState(() {
-                                        _status = value;
-                                        // Auto-set date when first publishing
-                                        if (value == 'published' &&
-                                            _publishedAt == null &&
-                                            _initialStatus != 'published') {
-                                          final now = DateTime.now();
-                                          _publishedAt = now;
-                                          _dateController.text = _formatDate(
-                                            now,
-                                          );
-                                        }
-                                      });
-                                      _markUnsaved();
-                                    }
+                                    setState(() {
+                                      _hasAdditionalSections = value;
+                                    });
+                                    _markUnsaved();
                                   },
                                 ),
-                                // Date field — hidden for new drafts, shown for published or when editing
-                                if (_status == 'published' ||
-                                    widget.publicationId != null) ...[
-                                  const SizedBox(height: 12),
-                                  TextFormField(
-                                    controller: _dateController,
-                                    decoration: InputDecoration(
-                                      labelText: loc.AppLocalizations.admin.publishDate,
-                                      border: const OutlineInputBorder(),
-                                      suffixIcon: const Icon(Icons.calendar_today),
-                                    ),
-                                    readOnly: true,
-                                    onTap: _pickDate,
+                                if (_hasAdditionalSections) ...[
+                                  const SizedBox(height: 8),
+                                  FutureBuilder<List<Section>>(
+                                    future: _sectionsFuture,
+                                    builder: (context, snapshot) {
+                                      if (snapshot.connectionState ==
+                                          ConnectionState.waiting) {
+                                        return const Padding(
+                                          padding: EdgeInsets.symmetric(
+                                            vertical: 8,
+                                          ),
+                                          child: LinearProgressIndicator(),
+                                        );
+                                      }
+
+                                      if (snapshot.hasError) {
+                                        return Text(
+                                          loc.AppLocalizations.admin.sectionLoadError(
+                                            '${snapshot.error}',
+                                          ),
+                                        );
+                                      }
+
+                                      if (!snapshot.hasData ||
+                                          snapshot.data!.isEmpty) {
+                                        return Text(
+                                          loc.AppLocalizations.admin.noSectionsAvailable,
+                                        );
+                                      }
+
+                                      final sections = snapshot.data!;
+                                      return Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          const SizedBox(height: 4),
+                                          Wrap(
+                                            spacing: 6.0,
+                                            runSpacing: 6.0,
+                                            children: sections.map((section) {
+                                              final isPrimary =
+                                                  section.id ==
+                                                  _primarySectionId;
+                                              return FilterChip(
+                                                label: Text(
+                                                  section.name,
+                                                  style: const TextStyle(
+                                                    fontSize: 12,
+                                                  ),
+                                                ),
+                                                selected: _selectedSectionIds
+                                                    .contains(section.id),
+                                                onSelected: isPrimary
+                                                    ? null
+                                                    : (selected) {
+                                                        setState(() {
+                                                          if (selected) {
+                                                            _selectedSectionIds
+                                                                .add(
+                                                                  section.id,
+                                                                );
+                                                          } else {
+                                                            _selectedSectionIds
+                                                                .remove(
+                                                                  section.id,
+                                                                );
+                                                          }
+                                                        });
+                                                        _markUnsaved();
+                                                      },
+                                              );
+                                            }).toList(),
+                                          ),
+                                        ],
+                                      );
+                                    },
                                   ),
                                 ],
+                                const SizedBox(height: 12),
                               ],
                             ),
                           ),
@@ -1029,6 +1074,125 @@ class _PublicationEditorScreenState
                 },
               ),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Bottom bar of the AppBar holding the publication status + publish date.
+  PreferredSize _buildStatusBar() {
+    final showDate =
+        _status == 'published' || widget.publicationId != null;
+
+    return PreferredSize(
+      preferredSize: const Size.fromHeight(56),
+      child: Container(
+        color: AppColors.secondary,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+        child: Row(
+          children: [
+            // Status — a full-height tappable pill with a readable tap target.
+            Expanded(
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.18),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<String>(
+                    value: _status,
+                    isDense: true,
+                    isExpanded: true,
+                    dropdownColor: Colors.white,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    iconEnabledColor: Colors.white,
+                    items: [
+                      DropdownMenuItem(
+                        value: 'draft',
+                        child: Text(
+                          loc.AppLocalizations.admin.statusDraft,
+                          style: const TextStyle(
+                            color: Colors.black87,
+                            fontSize: 15,
+                          ),
+                        ),
+                      ),
+                      DropdownMenuItem(
+                        value: 'published',
+                        child: Text(
+                          loc.AppLocalizations.admin.statusPublished,
+                          style: const TextStyle(
+                            color: Colors.black87,
+                            fontSize: 15,
+                          ),
+                        ),
+                      ),
+                    ],
+                    onChanged: _isSaving
+                        ? null
+                        : (value) {
+                            if (value != null) {
+                              setState(() {
+                                _status = value;
+                                if (value == 'published' &&
+                                    _publishedAt == null &&
+                                    _initialStatus != 'published') {
+                                  final now = DateTime.now();
+                                  _publishedAt = now;
+                                  _dateController.text = _formatDate(now);
+                                }
+                              });
+                              _markUnsaved();
+                            }
+                          },
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            // Date — a bigger, easy-to-tap clickable button.
+            if (showDate)
+              GestureDetector(
+                onTap: _isSaving ? null : _pickDate,
+                behavior: HitTestBehavior.opaque,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.18),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.calendar_today,
+                        size: 16,
+                        color: Colors.white,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        _dateController.text.isNotEmpty
+                            ? _dateController.text
+                            : loc.AppLocalizations.admin.publishDate,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
           ],
         ),
       ),

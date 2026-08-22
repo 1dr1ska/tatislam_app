@@ -2,6 +2,9 @@ import 'dart:ui' show ImageFilter;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:tatislam_app/core/storage/storage_providers.dart';
+import 'package:tatislam_app/features/detail/presentation/screens/image_viewer_screen.dart';
 import 'package:tatislam_app/core/constants/app_localizations.dart';
 import 'package:tatislam_app/core/constants/app_colors.dart';
 import 'package:tatislam_app/core/providers/text_scale_provider.dart';
@@ -515,6 +518,8 @@ class _PublicationCard extends ConsumerWidget {
     // Scale bottom padding and spacing with text size so cards don't overflow
     final bottomPadding = (14 * (0.5 + textScale * 0.5)).clamp(14.0, 24.0);
     final titleDateSpacing = (6 * (0.5 + textScale * 0.5)).clamp(6.0, 12.0);
+    final isPhoto =
+        publication.type == 'photo' && publication.photoPath != null;
 
     return TweenAnimationBuilder<double>(
       tween: Tween(begin: 0.0, end: 1.0),
@@ -533,6 +538,15 @@ class _PublicationCard extends ConsumerWidget {
         onTap: () {
           if (publication.type == 'admin') {
             GoRouter.of(context).go('/login');
+          } else if (isPhoto) {
+            final mediaStorage = ref.read(mediaStorageRepositoryProvider);
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (context) => ImageViewerScreen(
+                  imageUrl: mediaStorage.publicUrlFor(publication.photoPath!),
+                ),
+              ),
+            );
           } else {
             GoRouter.of(
               context,
@@ -559,10 +573,12 @@ class _PublicationCard extends ConsumerWidget {
                   ),
                 ],
               ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
+              child: isPhoto
+                  ? _buildPhotoBody(context, ref, isFavorite)
+                  : Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
                   // Icon area
                   Transform.translate(
                     offset: const Offset(0, -8),
@@ -633,6 +649,112 @@ class _PublicationCard extends ConsumerWidget {
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  /// Renders a photo card: the photo fills the fixed-size rectangle while
+  /// preserving its original aspect ratio (BoxFit.contain letterboxes it), with
+  /// the favorite star overlaid on top. Tapping the star toggles the favorite;
+  /// taps anywhere else fall through to the outer card's onTap (fullscreen
+  /// viewer).
+  Widget _buildPhotoBody(
+    BuildContext context,
+    WidgetRef ref,
+    bool isFavorite,
+  ) {
+    final mediaStorage = ref.read(mediaStorageRepositoryProvider);
+    final imageUrl = mediaStorage.publicUrlFor(publication.photoPath!);
+
+    Widget buildImage({required BoxFit fit}) {
+      return CachedNetworkImage(
+        imageUrl: imageUrl,
+        fit: fit,
+        fadeInDuration: const Duration(milliseconds: 300),
+        fadeInCurve: Curves.easeIn,
+        placeholder: (context, url) => Container(
+          width: double.infinity,
+          color: AppColors.photoColor.withValues(alpha: 0.35),
+          child: const Center(child: CircularProgressIndicator()),
+        ),
+        errorWidget: (context, url, error) => const Center(
+          child: Icon(
+            Icons.broken_image,
+            color: Colors.white,
+            size: 48,
+          ),
+        ),
+      );
+    }
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(12),
+      child: Stack(
+        children: [
+          // Blurred cover backdrop — fills the whole card so letterboxed
+          // areas never show the empty glass background.
+          Positioned.fill(
+            child: SizedBox.expand(
+              child: buildImage(fit: BoxFit.cover),
+            ),
+          ),
+          // Dim + blur overlay for a softer, pleasant look.
+          Positioned.fill(
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+              child: Container(
+                width: double.infinity,
+                color: Colors.black.withValues(alpha: 0.28),
+              ),
+            ),
+          ),
+          // The actual photo, preserving its original aspect ratio, inset
+          // from the card edges and softly rounded.
+          Positioned.fill(
+            child: Padding(
+              padding: const EdgeInsets.all(10),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: buildImage(fit: BoxFit.contain),
+              ),
+            ),
+          ),
+          // Favorite star overlay — its own tap handler takes precedence.
+          Positioned(
+            top: 8,
+            right: 8,
+            child: GestureDetector(
+              onTap: () async {
+                final toggleFavorite = ref.read(toggleFavoriteProvider);
+                await toggleFavorite(publication.id);
+                Future.microtask(() {
+                  ref.invalidate(favoritesProvider);
+                  ref.invalidate(mainPublicationsProvider);
+                });
+              },
+              child: Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.35),
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.30),
+                      blurRadius: 8,
+                    ),
+                  ],
+                ),
+                child: Icon(
+                  isFavorite ? Icons.star : Icons.star_border,
+                  color: isFavorite
+                      ? Colors.amber
+                      : Colors.white.withValues(alpha: 0.90),
+                  size: 20,
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

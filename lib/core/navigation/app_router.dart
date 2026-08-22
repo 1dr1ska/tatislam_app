@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:tatislam_app/features/about/presentation/screens/about_screen.dart';
 import 'package:tatislam_app/features/admin/presentation/screens/admin_screen.dart';
+import 'package:tatislam_app/features/admin/presentation/screens/photo_publication_editor_screen.dart';
 import 'package:tatislam_app/features/admin/presentation/screens/publication_editor_screen.dart';
 import 'package:tatislam_app/features/admin/presentation/screens/section_editor_screen.dart';
 import 'package:tatislam_app/features/auth/presentation/screens/login_screen.dart';
@@ -72,6 +73,20 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             path: 'publications/new',
             name: 'newPublication',
             builder: (context, state) => const PublicationEditorScreen(),
+          ),
+          GoRoute(
+            path: 'photos/new',
+            name: 'newPhoto',
+            builder: (context, state) =>
+                const PhotoPublicationEditorScreen(),
+          ),
+          GoRoute(
+            path: 'photos/:id/edit',
+            name: 'editPhoto',
+            builder: (context, state) {
+              final id = state.pathParameters['id']!;
+              return PhotoPublicationEditorScreen(publicationId: id);
+            },
           ),
           GoRoute(
             path: 'publications/:id/edit',

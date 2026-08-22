@@ -47,6 +47,8 @@ class AppLocalizations {
   String get sectionsTitle => _locale == AppLocale.tatar ? 'Бүлекләр' : 'Разделы';
   String get newPublicationTitle => _locale == AppLocale.tatar ? 'Яңа башма' : 'Новая публикация';
   String get editPublicationTitle => _locale == AppLocale.tatar ? 'Башманы үзгәртү' : 'Редактировать публикацию';
+  String get newPhotoTitle => _locale == AppLocale.tatar ? 'Яңа фото' : 'Новая фотопубликация';
+  String get editPhotoTitle => _locale == AppLocale.tatar ? 'Фотоне үзгәртү' : 'Редактировать фотопубликацию';
   String get createSectionTitle => _locale == AppLocale.tatar ? 'Бүлек булдыру' : 'Создать раздел';
   String get editSectionTitle => _locale == AppLocale.tatar ? 'Бүлекне үзгәртү' : 'Редактировать раздел';
   String get deleteSectionTitle => _locale == AppLocale.tatar ? 'Бүлекне бетерү' : 'Удалить раздел';
@@ -105,11 +107,20 @@ class AppLocalizations {
   String get metadata => _locale == AppLocale.tatar ? 'Мәгълүматлар' : 'Метаданные';
   String get titleField => _locale == AppLocale.tatar ? 'Исем' : 'Заголовок';
   String get enterTitle => _locale == AppLocale.tatar ? 'Исем керү' : 'Введите заголовок';
+  String get photoTitleOptional => _locale == AppLocale.tatar
+      ? 'Җибәрегез буша — файл исеме куелачак'
+      : 'Можно оставить пустым — подставится имя файла';
   String get iconField => _locale == AppLocale.tatar ? 'Иконка *' : 'Иконка *';
   String get selectIcon => _locale == AppLocale.tatar ? 'Иконка сайлагыз' : 'Выберите иконку';
   String get primarySection => _locale == AppLocale.tatar ? 'Төп бүлек (мәҗбүри)' : 'Основной раздел (обязательно)';
   String get selectPrimarySection => _locale == AppLocale.tatar ? 'Төп бүлекне сайлагыз' : 'Выберите основной раздел';
   String get additionalSections => _locale == AppLocale.tatar ? 'Өстәмә бүлекләр' : 'Дополнительные разделы';
+  String get enableAdditionalSections => _locale == AppLocale.tatar
+      ? 'Өстәмә бүлекләрдә күрсәтергә'
+      : 'Показывать в дополнительных разделах';
+  String get enableAdditionalSectionsHint => _locale == AppLocale.tatar
+      ? 'Сүндерелсә, басма тик төп бүлектә күрсәтеләчәк'
+      : 'Если выключено, публикация будет отображаться только в основном разделе';
   String get publishDate => _locale == AppLocale.tatar ? 'Басылу датасы' : 'Дата публикации';
   String get contentBlocks => _locale == AppLocale.tatar ? 'Эчтәлек блоклары' : 'Блоки контента';
   String get addBlock => _locale == AppLocale.tatar ? 'Блок өстәү' : 'Добавить блок';
@@ -126,6 +137,11 @@ class AppLocalizations {
   String get platformField => _locale == AppLocale.tatar ? 'Урлык' : 'Платформа';
   String get selectImage => _locale == AppLocale.tatar ? 'Сайларга' : 'Выбрать';
   String get replaceImage => _locale == AppLocale.tatar ? 'Алмаштырырга' : 'Заменить';
+  String get photoField => _locale == AppLocale.tatar ? 'Фото' : 'Фотография';
+  String get selectPhoto => _locale == AppLocale.tatar ? 'Фотоне сайларга' : 'Выбрать фото';
+  String get replacePhoto => _locale == AppLocale.tatar ? 'Фотоне алмаштырырга' : 'Заменить фото';
+  String get selectPhotoRequired => _locale == AppLocale.tatar ? 'Фотоне сайлагыз' : 'Выберите фотографию';
+  String get newPhotoTooltip => _locale == AppLocale.tatar ? 'Яңа фото басма' : 'Новая фотопубликация';
   String get selectFile => _locale == AppLocale.tatar ? 'Файл сайларга' : 'Выбрать файл';
   String get replaceFile => _locale == AppLocale.tatar ? 'Алмаштырырга' : 'Заменить';
 

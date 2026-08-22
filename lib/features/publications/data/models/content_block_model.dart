@@ -91,13 +91,14 @@ class ContentBlockModel {
 
   /// Builds a map suitable for Supabase insert/update.
   ///
-  /// The `id` column is omitted so the DB auto-generates a UUID. The caller
-  /// can upsert existing blocks (kept id) alongside new ones (fresh uuid).
+  /// The block `id` is preserved so callers can upsert by it; new blocks get
+  /// a fresh uuid at creation time.
   static Map<String, dynamic> toInsertJson(
     ContentBlock block,
     String publicationId,
   ) {
     return {
+      'id': block.id,
       'publication_id': publicationId,
       'type': _typeOf(block),
       'order_index': block.orderIndex,

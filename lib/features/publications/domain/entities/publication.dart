@@ -20,6 +20,14 @@ class Publication extends Equatable {
   /// (background, icon, etc.).
   final String primarySectionId;
 
+  /// Storage *path* of the single photo backing a `photo` type publication.
+  /// Null for article/audio/video publications. Stored as a path, never a URL.
+  final String? photoPath;
+
+  /// Whether the additional-sections feature is enabled for this publication.
+  /// When false, the publication appears only in its primary section.
+  final bool hasAdditionalSections;
+
   const Publication({
     required this.id,
     required this.title,
@@ -30,6 +38,8 @@ class Publication extends Equatable {
     required this.type,
     this.status,
     required this.primarySectionId,
+    this.photoPath,
+    this.hasAdditionalSections = false,
   });
 
   Publication copyWith({
@@ -41,6 +51,8 @@ class Publication extends Equatable {
     String? type,
     String? status,
     String? primarySectionId,
+    String? photoPath,
+    bool? hasAdditionalSections,
   }) {
     return Publication(
       id: id,
@@ -52,6 +64,9 @@ class Publication extends Equatable {
       type: type ?? this.type,
       status: status ?? this.status,
       primarySectionId: primarySectionId ?? this.primarySectionId,
+      photoPath: photoPath ?? this.photoPath,
+      hasAdditionalSections:
+          hasAdditionalSections ?? this.hasAdditionalSections,
     );
   }
 
@@ -66,5 +81,7 @@ class Publication extends Equatable {
     type,
     status,
     primarySectionId,
+    photoPath,
+    hasAdditionalSections,
   ];
 }

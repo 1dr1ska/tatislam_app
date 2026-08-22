@@ -41,13 +41,21 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
         ),
         title: Text(_selectedIndex == 0 ? AppLocalizations.admin.publicationsTitle : AppLocalizations.admin.sectionsTitle),
         actions: [
-          if (_selectedIndex == 0)
+          if (_selectedIndex == 0) ...[
+            IconButton(
+              icon: const Icon(Icons.add_photo_alternate),
+              tooltip: AppLocalizations.admin.newPhotoTooltip,
+              onPressed: () {
+                context.push('/admin/photos/new');
+              },
+            ),
             IconButton(
               icon: const Icon(Icons.add),
               onPressed: () {
                 context.push('/admin/publications/new');
               },
             ),
+          ],
           if (_selectedIndex == 1)
             IconButton(
               icon: const Icon(Icons.add),

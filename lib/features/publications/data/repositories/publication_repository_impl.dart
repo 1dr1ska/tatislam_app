@@ -57,6 +57,8 @@ class PublicationRepositoryImpl implements PublicationRepository {
     required String type,
     String? status,
     required String primarySectionId,
+    String? photoPath,
+    bool hasAdditionalSections = false,
   }) async {
     final now = DateTime.now();
     final model = PublicationModel(
@@ -69,6 +71,8 @@ class PublicationRepositoryImpl implements PublicationRepository {
       type: type,
       status: status,
       primarySectionId: primarySectionId,
+      photoPath: photoPath,
+      hasAdditionalSections: hasAdditionalSections,
     );
     final created = await _remote.createPublication(model);
     return created.toEntity();
@@ -83,6 +87,8 @@ class PublicationRepositoryImpl implements PublicationRepository {
     required String type,
     String? status,
     required String primarySectionId,
+    String? photoPath,
+    bool? hasAdditionalSections,
   }) async {
     final previous = await _remote.getPublicationDetail(id);
     final now = DateTime.now();
@@ -96,6 +102,9 @@ class PublicationRepositoryImpl implements PublicationRepository {
       type: type,
       status: status ?? previous.publication.status,
       primarySectionId: primarySectionId,
+      photoPath: photoPath ?? previous.publication.photoPath,
+      hasAdditionalSections:
+          hasAdditionalSections ?? previous.publication.hasAdditionalSections,
     );
     final updated = await _remote.updatePublication(id, model);
     return updated.toEntity();
@@ -105,7 +114,10 @@ class PublicationRepositoryImpl implements PublicationRepository {
   Future<void> deletePublication(String id) async {
     final detail = await _remote.getPublicationDetail(id);
     await _remote.deletePublication(id);
-    await _storage.delete([..._storagePathsIn(detail.blocks)]);
+    await _storage.delete([
+      ..._storagePathsIn(detail.blocks),
+      ?detail.publication.photoPath,
+    ]);
   }
 
   @override

@@ -40,6 +40,8 @@ abstract class PublicationRepository {
     required String type,
     String? status,
     required String primarySectionId,
+    String? photoPath,
+    bool hasAdditionalSections = false,
   });
 
   Future<Publication> updatePublication({
@@ -50,6 +52,8 @@ abstract class PublicationRepository {
     required String type,
     String? status,
     required String primarySectionId,
+    String? photoPath,
+    bool? hasAdditionalSections,
   });
 
   /// Deletes the publication and, via DB cascade, its blocks and section

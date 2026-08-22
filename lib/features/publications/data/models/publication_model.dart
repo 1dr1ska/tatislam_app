@@ -11,6 +11,8 @@ class PublicationModel {
   final String type;
   final String? status;
   final String primarySectionId;
+  final String? photoPath;
+  final bool hasAdditionalSections;
 
   const PublicationModel({
     required this.id,
@@ -22,6 +24,8 @@ class PublicationModel {
     required this.type,
     this.status,
     required this.primarySectionId,
+    this.photoPath,
+    this.hasAdditionalSections = false,
   });
 
   factory PublicationModel.fromJson(Map<String, dynamic> json) {
@@ -41,6 +45,9 @@ class PublicationModel {
       type: json['type'] as String? ?? 'article',
       status: json['status'] as String?,
       primarySectionId: json['primary_section_id'] as String? ?? '',
+      photoPath: json['photo_path'] as String?,
+      hasAdditionalSections:
+          json['has_additional_sections'] as bool? ?? false,
     );
   }
 
@@ -49,8 +56,10 @@ class PublicationModel {
     'published_at': publishedAt.toUtc().toIso8601String(),
     'type': type,
     'primary_section_id': primarySectionId,
+    'has_additional_sections': hasAdditionalSections,
     if (icon != null) 'icon': icon,
     if (status != null) 'status': status,
+    if (photoPath != null) 'photo_path': photoPath,
   };
 
   Publication toEntity() => Publication(
@@ -63,5 +72,7 @@ class PublicationModel {
     type: type,
     status: status,
     primarySectionId: primarySectionId,
+    photoPath: photoPath,
+    hasAdditionalSections: hasAdditionalSections,
   );
 }

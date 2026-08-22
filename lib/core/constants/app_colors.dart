@@ -37,6 +37,7 @@ class AppColors {
   static const Color articleColor = gold;
   static const Color videoColor = Color(0xFF1976D2);
   static const Color audioColor = Color(0xFF7B1FA2);
+  static const Color photoColor = Color(0xFF00897B);
 
   // Social Media Colors
   static const Color youtube = Color(0xFFFF0000);

@@ -194,25 +194,44 @@ class PublicationRemoteDataSource {
     }
   }
 
-  /// Full replace: delete every existing block for [publicationId], then
-  /// insert [blocks] as given. Nothing else references `content_blocks.id`,
-  /// so this is safe and far simpler than diffing individual block edits.
+  /// Crash-safe replace of every content block for [publicationId].
+  ///
+  /// Writes the new/edited blocks first (upsert by id) and only then removes
+  /// blocks that are no longer present. If the write fails, the previous
+  /// blocks stay intact instead of being wiped out first. Nothing else
+  /// references `content_blocks.id`, so upserting by id is safe.
   Future<void> replaceBlocks(
     String publicationId,
     List<ContentBlock> blocks,
   ) async {
     try {
-      await _client
-          .from(SupabaseTables.contentBlocks)
-          .delete()
-          .eq('publication_id', publicationId);
+      final newIds =
+          blocks.map((block) => block.id).where((id) => id.isNotEmpty).toSet();
 
-      if (blocks.isEmpty) return;
+      if (blocks.isNotEmpty) {
+        final rows = blocks
+            .map((block) => ContentBlockModel.toInsertJson(block, publicationId))
+            .toList();
+        await _client
+            .from(SupabaseTables.contentBlocks)
+            .upsert(rows, onConflict: 'id');
+      }
 
-      final rows = blocks
-          .map((block) => ContentBlockModel.toInsertJson(block, publicationId))
-          .toList();
-      await _client.from(SupabaseTables.contentBlocks).insert(rows);
+      if (newIds.isEmpty) {
+        // Nothing kept — remove every block for this publication.
+        if (blocks.isEmpty) {
+          await _client
+              .from(SupabaseTables.contentBlocks)
+              .delete()
+              .eq('publication_id', publicationId);
+        }
+      } else {
+        await _client
+            .from(SupabaseTables.contentBlocks)
+            .delete()
+            .eq('publication_id', publicationId)
+            .not('id', 'in', newIds.toList());
+      }
     } catch (e) {
       throw ServerException('Failed to save content blocks: $e');
     }

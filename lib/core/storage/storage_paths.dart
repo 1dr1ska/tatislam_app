@@ -32,6 +32,14 @@ class StoragePaths {
   }) =>
       'blocks/$publicationId/audio/${blockId ?? _uuid.v4()}.${_clean(extension)}';
 
+  /// Path for the full-bleed photo backing a `photo` type publication.
+  static String photo(
+    String publicationId,
+    String extension, {
+    String? photoId,
+  }) =>
+      'photos/$publicationId/${photoId ?? _uuid.v4()}.${_clean(extension)}';
+
   static String _clean(String extension) =>
       extension.replaceFirst('.', '').toLowerCase();
 }

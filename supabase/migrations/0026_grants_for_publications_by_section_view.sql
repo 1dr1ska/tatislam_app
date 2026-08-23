@@ -1,0 +1,11 @@
+-- =============================================================================
+-- Migration 0026: Grant SELECT on publications_by_section_view
+-- =============================================================================
+-- On Supabase, tables in the public schema get default grants for anon /
+-- authenticated, but views created by a migration do NOT. PostgREST therefore
+-- answers "permission denied for view publications_by_section_view" (or a 404)
+-- whenever a section filter is used, while the plain "All publications" query
+-- against the base table keeps working.
+--
+-- Grant explicit read access to all roles that read the publications list.
+grant select on publications_by_section_view to anon, authenticated, service_role;

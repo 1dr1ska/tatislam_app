@@ -36,37 +36,81 @@ class PublicationRemoteDataSource {
         false, // New parameter to include all statuses for admin
   }) async {
     try {
-      // If filtering by section, use a dedicated view that joins
-      // publications ↔ publication_sections, so ORDER BY + LIMIT/OFFSET are
-      // applied inside Postgres — only the requested page is fetched even for
-      // sections with thousands of publications.
+      // If filtering by section.
       if (sectionId != null) {
-        var query = _client
-            .from(SupabaseTables.publicationsBySectionView)
-            .select()
-            .eq('section_id', sectionId);
+        // Admin path (includeAllStatuses): drafts must be visible too, but the
+        // publications_by_section_view only exposes published rows — fall back
+        // to the base-table query with an id filter.
+        if (includeAllStatuses) {
+          final sectionPublications = await _client
+              .from(SupabaseTables.publicationSections)
+              .select('publication_id')
+              .eq('section_id', sectionId);
 
-        // Only filter by status if not including all statuses (for admin access).
-        // The view already excludes drafts for public callers; for admin we
-        // query the base table path instead (see below).
-        if (!includeAllStatuses) {
-          // Public: view already filters status=published.
+          final publicationIds = sectionPublications
+              .map((row) => row['publication_id'] as String)
+              .toList();
+
+          if (publicationIds.isEmpty) {
+            return [];
+          }
+
+          var query = _client
+              .from(SupabaseTables.publications)
+              .select()
+              .inFilter('id', publicationIds);
+
+          if (searchQuery != null && searchQuery.trim().isNotEmpty) {
+            final escaped = searchQuery.trim().replaceAll(',', ' ');
+            query = query.or('title.ilike.%$escaped%');
+          }
+
+          if (type != null && type.isNotEmpty) {
+            query = query.eq('type', type);
+          }
+
+          final response = await query
+              .order('published_at', ascending: false)
+              .range(offset, offset + limit - 1);
+
+          return response.map((row) => PublicationModel.fromJson(row)).toList();
         }
 
-        if (searchQuery != null && searchQuery.trim().isNotEmpty) {
-          final escaped = searchQuery.trim().replaceAll(',', ' ');
-          query = query.or('title.ilike.%$escaped%');
+        // Public path: prefer the view that joins publications ↔ sections and
+        // exposes section_id, so ORDER BY + LIMIT/OFFSET run inside Postgres.
+        // If the view is missing or not granted to the current role (e.g. the
+        // DB migrations weren't applied yet), fall back to the base-table
+        // query via publication_sections id lookup so sections keep working.
+        try {
+          var query = _client
+              .from(SupabaseTables.publicationsBySectionView)
+              .select()
+              .eq('section_id', sectionId);
+
+          if (searchQuery != null && searchQuery.trim().isNotEmpty) {
+            final escaped = searchQuery.trim().replaceAll(',', ' ');
+            query = query.or('title.ilike.%$escaped%');
+          }
+
+          if (type != null && type.isNotEmpty) {
+            query = query.eq('type', type);
+          }
+
+          final response = await query
+              .order('published_at', ascending: false)
+              .range(offset, offset + limit - 1);
+
+          return response.map((row) => PublicationModel.fromJson(row)).toList();
+        } catch (_) {
+          // View unavailable (missing migration / grants) — use the id lookup.
+          return _getPublicationsBySectionFallback(
+            sectionId,
+            searchQuery: searchQuery,
+            type: type,
+            limit: limit,
+            offset: offset,
+          );
         }
-
-        if (type != null && type.isNotEmpty) {
-          query = query.eq('type', type);
-        }
-
-        final response = await query
-            .order('published_at', ascending: false)
-            .range(offset, offset + limit - 1);
-
-        return response.map((row) => PublicationModel.fromJson(row)).toList();
       } else {
         // No section filter, use regular query
         var query = _client.from(SupabaseTables.publications).select();
@@ -94,6 +138,53 @@ class PublicationRemoteDataSource {
     } catch (e) {
       throw ServerException('Failed to load publications: $e');
     }
+  }
+
+  /// Fallback used when `publications_by_section_view` is unavailable (missing
+  /// migration or grants). Looks up publication ids for a section and queries
+  /// the base `publications` table with an `IN` filter — functionally
+  /// equivalent, at the cost of fetching the section's id list first.
+  Future<List<PublicationModel>> _getPublicationsBySectionFallback(
+    String sectionId, {
+    String? searchQuery,
+    String? type,
+    int limit = 20,
+    int offset = 0,
+  }) async {
+    final sectionPublications = await _client
+        .from(SupabaseTables.publicationSections)
+        .select('publication_id')
+        .eq('section_id', sectionId);
+
+    final publicationIds = sectionPublications
+        .map((row) => row['publication_id'] as String)
+        .toList();
+
+    if (publicationIds.isEmpty) {
+      return [];
+    }
+
+    var query = _client
+        .from(SupabaseTables.publications)
+        .select()
+        .inFilter('id', publicationIds);
+
+    if (searchQuery != null && searchQuery.trim().isNotEmpty) {
+      final escaped = searchQuery.trim().replaceAll(',', ' ');
+      query = query.or('title.ilike.%$escaped%');
+    }
+
+    if (type != null && type.isNotEmpty) {
+      query = query.eq('type', type);
+    }
+
+    query = query.eq('status', 'published');
+
+    final response = await query
+        .order('published_at', ascending: false)
+        .range(offset, offset + limit - 1);
+
+    return response.map((row) => PublicationModel.fromJson(row)).toList();
   }
 
   Future<List<PublicationModel>> getPublicationsByIds(List<String> ids) async {

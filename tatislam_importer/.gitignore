@@ -1,0 +1,14 @@
+# Секреты — никогда не коммитим
+.env
+
+# Сессия Telegram (содержит данные авторизации)
+*.session
+
+# Лог ошибок импорта
+errors.jsonl
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/

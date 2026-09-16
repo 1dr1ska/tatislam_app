@@ -156,6 +156,25 @@ class AppLocalizations {
   String uploadingFileProgress(int uploaded, int total) =>
       _locale == AppLocale.tatar ? 'Файллар төяү $uploaded/$total...' : 'Загрузка файлов $uploaded/$total...';
 
+  // ── Admin: Upload Queue ─────────────────────────────────
+  String get uploadsTitle => _locale == AppLocale.tatar ? 'Төяүләр' : 'Загрузки';
+  String get uploadsEmpty => _locale == AppLocale.tatar ? 'Актив төяүләр юк' : 'Нет активных загрузок';
+  String get uploadsQueued => _locale == AppLocale.tatar ? 'Чиратта' : 'В очереди';
+  String get uploadsUploading => _locale == AppLocale.tatar ? 'Төялә...' : 'Загружается...';
+  String get uploadsDone => _locale == AppLocale.tatar ? 'Әзер' : 'Готово';
+  String get uploadsError => _locale == AppLocale.tatar ? 'Хата' : 'Ошибка';
+  String get uploadsCanceled => _locale == AppLocale.tatar ? 'Бетерлгән' : 'Отменено';
+  String get uploadsRetry => _locale == AppLocale.tatar ? 'Кабатлау' : 'Повторить';
+  String get uploadsCancel => _locale == AppLocale.tatar ? 'Бетерү' : 'Отменить';
+  String get uploadsClearFinished => _locale == AppLocale.tatar ? 'Әзерләрне бетерү' : 'Очистить завершённые';
+  String uploadsActiveCount(int count) => _locale == AppLocale.tatar ? 'Актив: $count' : 'Активных: $count';
+  String get uploadsQueuedMessage => _locale == AppLocale.tatar
+      ? 'Саклау чиратына куелды'
+      : 'Поставлено в очередь на сохранение';
+  String get uploadsAlreadyQueued => _locale == AppLocale.tatar
+      ? 'Бу язма инде саклау чиратында'
+      : 'Эта публикация уже в очереди на сохранение';
+
   // ── Admin: Confirmation Dialogs ─────────────────────────
   String get deleteConfirmation => _locale == AppLocale.tatar ? 'Бетерүне раслау' : 'Подтверждение удаления';
   String deleteConfirmationMessage(String title) =>

@@ -9,12 +9,11 @@ import 'package:uuid/uuid.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:tatislam_app/core/constants/app_colors.dart';
 import 'package:tatislam_app/core/constants/app_localizations.dart' as loc;
-import 'package:tatislam_app/core/services/media_optimization_service.dart';
+import 'package:tatislam_app/features/admin/queue/publication_save_payload.dart';
+import 'package:tatislam_app/features/admin/queue/queue_providers.dart';
 import 'package:tatislam_app/core/constants/app_icons.dart';
-import 'package:tatislam_app/core/storage/storage_paths.dart';
 import 'package:tatislam_app/core/storage/storage_providers.dart';
 import 'package:tatislam_app/features/publications/data/publication_providers.dart';
-import 'package:tatislam_app/features/publications/presentation/providers/publications_providers.dart';
 import 'package:tatislam_app/features/publications/domain/entities/audio_source_type.dart';
 import 'package:tatislam_app/features/publications/domain/entities/content_block.dart';
 import 'package:tatislam_app/features/publications/domain/entities/publication_detail.dart';
@@ -29,17 +28,6 @@ class _SelectedFile {
   final String name;
 
   const _SelectedFile({required this.bytes, required this.name});
-}
-
-/// Tracks the current step of the save process for UI feedback.
-enum _SaveStep {
-  idle,
-  savingMetadata,
-  uploadingFiles,
-  savingSections,
-  savingBlocks,
-  done,
-  error,
 }
 
 class PublicationEditorScreen extends ConsumerStatefulWidget {
@@ -79,25 +67,10 @@ class _PublicationEditorScreenState
   // Track which blocks are expanded/collapsed
   final Set<String> _collapsedBlockIds = {};
 
-  bool _isSaving = false;
-  _SaveStep _currentSaveStep = _SaveStep.idle;
-  int _uploadedFileCount = 0;
-  int _totalFileCount = 0;
   bool _hasUnsavedChanges = false;
   bool _iconValidationAttempted = false;
   bool _sectionValidationAttempted = false;
   String _initialStatus = 'draft';
-
-  // Track the publication created during the current save attempt, plus any
-  // files uploaded so far, so a failed create can be rolled back (compensated)
-  // instead of leaving orphaned rows/files.
-  String? _createdPublicationId;
-  final Set<String> _uploadedFilePathsThisSave = {};
-
-  // Old block files being replaced. Deleted only AFTER the DB successfully
-  // references the new ones, so a failed save never leaves a block pointing at
-  // a removed file.
-  final Set<String> _oldFilePathsToDeleteThisSave = {};
 
   @override
   void initState() {
@@ -151,7 +124,11 @@ class _PublicationEditorScreenState
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('${loc.AppLocalizations.admin.publicationLoadErrorDetail}$e')),
+          SnackBar(
+            content: Text(
+              '${loc.AppLocalizations.admin.publicationLoadErrorDetail}$e',
+            ),
+          ),
         );
       }
       return null;
@@ -180,7 +157,11 @@ class _PublicationEditorScreenState
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('${loc.AppLocalizations.admin.imageSelectionError}$e')),
+          SnackBar(
+            content: Text(
+              '${loc.AppLocalizations.admin.imageSelectionError}$e',
+            ),
+          ),
         );
       }
     }
@@ -201,153 +182,6 @@ class _PublicationEditorScreenState
         );
         _hasUnsavedChanges = true;
       });
-    }
-  }
-
-  Future<String> _uploadBlockImage(
-    String blockId,
-    String currentImagePath,
-  ) async {
-    final selectedImageFile = _selectedBlockImageFiles[blockId];
-
-    if (selectedImageFile == null) {
-      return currentImagePath;
-    }
-
-    try {
-      final storageRepository = ref.read(mediaStorageRepositoryProvider);
-
-      // Optimize image before upload (resize to 1920px max, JPEG quality 90)
-      final optimizationService = const MediaOptimizationService();
-      final result = await optimizationService.optimizeImage(
-        originalBytes: selectedImageFile.bytes,
-        originalFileName: selectedImageFile.name,
-      );
-
-      final bytes = result.bytes;
-      final extension = result.fileName.split('.').last;
-
-      final path = StoragePaths.blockImage(
-        widget.publicationId ?? _uuid.v4(),
-        extension,
-        blockId: blockId,
-      );
-
-      final s3Key = await storageRepository.upload(path, bytes);
-      _uploadedFilePathsThisSave.add(s3Key);
-
-      if (currentImagePath.isNotEmpty && currentImagePath != s3Key) {
-        _oldFilePathsToDeleteThisSave.add(currentImagePath);
-      }
-
-      return s3Key;
-    } catch (e) {
-      throw Exception('Ошибка загрузки изображения: $e');
-    }
-  }
-
-  Future<String> _uploadBlockAudio(
-    String blockId,
-    String currentAudioPath,
-  ) async {
-    final selectedAudioFile = _selectedBlockAudioFiles[blockId];
-
-    if (selectedAudioFile == null) {
-      return currentAudioPath;
-    }
-
-    try {
-      final storageRepository = ref.read(mediaStorageRepositoryProvider);
-      final extension = selectedAudioFile.name.split('.').last;
-      final path = StoragePaths.blockAudio(
-        widget.publicationId ?? _uuid.v4(),
-        extension,
-        blockId: blockId,
-      );
-
-      final s3Key = await storageRepository.upload(
-        path,
-        selectedAudioFile.bytes,
-      );
-      _uploadedFilePathsThisSave.add(s3Key);
-
-      if (currentAudioPath.isNotEmpty && currentAudioPath != s3Key) {
-        _oldFilePathsToDeleteThisSave.add(currentAudioPath);
-      }
-
-      return s3Key;
-    } catch (e) {
-      throw Exception('Ошибка загрузки аудио: $e');
-    }
-  }
-
-  Future<List<ContentBlock>> _updateBlocksWithImagePaths(
-    String publicationId,
-  ) async {
-    final updatedBlocks = <ContentBlock>[];
-
-    _totalFileCount = 0;
-    for (final block in _contentBlocks) {
-      if (block is ImageContentBlock &&
-          _selectedBlockImageFiles.containsKey(block.id)) {
-        _totalFileCount++;
-      } else if (block is AudioContentBlock &&
-          _selectedBlockAudioFiles.containsKey(block.id)) {
-        _totalFileCount++;
-      }
-    }
-    _uploadedFileCount = 0;
-
-    for (final block in _contentBlocks) {
-      if (block is ImageContentBlock) {
-        final imagePath = await _uploadBlockImage(block.id, block.imagePath);
-        final updatedBlock = block.copyWith(imagePath: imagePath);
-        updatedBlocks.add(updatedBlock);
-        _uploadedFileCount++;
-        _updateSaveStep();
-      } else if (block is AudioContentBlock) {
-        final audioPath = await _uploadBlockAudio(
-          block.id,
-          block.audioPath ?? '',
-        );
-        final updatedBlock = block.copyWith(audioPath: audioPath);
-        updatedBlocks.add(updatedBlock);
-        _uploadedFileCount++;
-        _updateSaveStep();
-      } else {
-        updatedBlocks.add(block);
-      }
-    }
-
-    return updatedBlocks;
-  }
-
-  void _updateSaveStep() {
-    setState(() {
-      // Trigger rebuild to show updated progress
-    });
-  }
-
-    String _saveStepLabel() {
-    final t = loc.AppLocalizations.admin;
-    switch (_currentSaveStep) {
-      case _SaveStep.idle:
-        return '';
-      case _SaveStep.savingMetadata:
-        return t.savingMetadata;
-      case _SaveStep.uploadingFiles:
-        if (_totalFileCount > 0) {
-          return t.uploadingFileProgress(_uploadedFileCount, _totalFileCount);
-        }
-        return t.uploadingFiles;
-      case _SaveStep.savingSections:
-        return t.savingSections;
-      case _SaveStep.savingBlocks:
-        return t.savingBlocks;
-      case _SaveStep.done:
-        return t.saved;
-      case _SaveStep.error:
-        return t.saveError;
     }
   }
 
@@ -381,8 +215,10 @@ class _PublicationEditorScreenState
     });
   }
 
+  /// Validates the form, snapshots it into a [PublicationSavePayload] and puts
+  /// it into the background upload queue. The editor closes immediately; the
+  /// publication is saved and uploaded by the queue in the background.
   Future<void> _savePublication() async {
-    if (_isSaving) return; // Prevent overlapping save attempts.
     if (!_formKey.currentState!.validate()) {
       return;
     }
@@ -393,7 +229,9 @@ class _PublicationEditorScreenState
         _iconValidationAttempted = true;
       });
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(loc.AppLocalizations.admin.selectPublicationIcon)),
+        SnackBar(
+          content: Text(loc.AppLocalizations.admin.selectPublicationIcon),
+        ),
       );
       return;
     }
@@ -403,183 +241,75 @@ class _PublicationEditorScreenState
       setState(() {
         _sectionValidationAttempted = true;
       });
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(loc.AppLocalizations.admin.selectPrimarySectionRequired)));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            loc.AppLocalizations.admin.selectPrimarySectionRequired,
+          ),
+        ),
+      );
       return;
     }
 
     // Auto-set date if publishing for the first time
     _ensureDateOnPublish();
 
-    // Remove empty blocks before saving
+    // Remove empty blocks before building the payload
     _removeEmptyBlocks();
 
+    final payload = _buildSavePayload();
+    final queue = ref.read(publicationUploadQueueProvider);
+    if (!queue.enqueue(payload)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(loc.AppLocalizations.admin.uploadsAlreadyQueued),
+        ),
+      );
+      return;
+    }
+
     setState(() {
-      _isSaving = true;
-      _currentSaveStep = _SaveStep.savingMetadata;
+      _hasUnsavedChanges = false;
     });
 
-    // Reset rollback tracking for this save attempt.
-    _createdPublicationId = null;
-    _uploadedFilePathsThisSave.clear();
-    _oldFilePathsToDeleteThisSave.clear();
-
-    try {
-      final title = _titleController.text.trim();
-      final repository = ref.read(publicationRepositoryProvider);
-
-      if (widget.publicationId == null) {
-        // Create new publication
-        final publication = await repository.createPublication(
-          title: title,
-          icon: _selectedIcon,
-          type: 'article',
-          publishedAt: _publishedAt ?? DateTime.now(),
-          status: _status,
-          primarySectionId: _primarySectionId ?? '',
-          hasAdditionalSections: _hasAdditionalSections,
-        );
-        _createdPublicationId = publication.id;
-
-        setState(() {
-          _currentSaveStep = _SaveStep.uploadingFiles;
-        });
-
-        final updatedBlocks = await _updateBlocksWithImagePaths(publication.id);
-
-        setState(() {
-          _currentSaveStep = _SaveStep.savingSections;
-        });
-
-        await repository.setSections(
-          publication.id,
-          _sectionIdsToSave(),
-        );
-
-        setState(() {
-          _currentSaveStep = _SaveStep.savingBlocks;
-        });
-
-        await repository.replaceBlocks(publication.id, updatedBlocks);
-        await _deleteReplacedFiles();
-        // All blocks are committed — newly uploaded files are no longer
-        // temporary and must not be cleaned up by a later failure.
-        _uploadedFilePathsThisSave.clear();
-
-        setState(() {
-          _currentSaveStep = _SaveStep.done;
-        });
-
-        if (mounted) {
-          final messenger = ScaffoldMessenger.of(context);
-          await Future.delayed(const Duration(milliseconds: 500));
-          messenger.showSnackBar(
-            SnackBar(content: Text(loc.AppLocalizations.admin.publicationCreated)),
-          );
-          ref.invalidate(publicationRepositoryProvider);
-          ref.read(publicationListVersionProvider.notifier).state++;
-          if (mounted) context.pop(true);
-        }
-      } else {
-        // Update existing publication
-        final publication = await repository.updatePublication(
-          id: widget.publicationId!,
-          title: title,
-          icon: _selectedIcon,
-          publishedAt: _publishedAt ?? DateTime.now(),
-          type: 'article',
-          status: _status,
-          primarySectionId: _primarySectionId ?? '',
-          hasAdditionalSections: _hasAdditionalSections,
-        );
-
-        setState(() {
-          _currentSaveStep = _SaveStep.uploadingFiles;
-        });
-
-        final updatedBlocks = await _updateBlocksWithImagePaths(publication.id);
-
-        setState(() {
-          _currentSaveStep = _SaveStep.savingSections;
-        });
-
-        await repository.setSections(
-          widget.publicationId!,
-          _sectionIdsToSave(),
-        );
-
-        setState(() {
-          _currentSaveStep = _SaveStep.savingBlocks;
-        });
-
-        await repository.replaceBlocks(widget.publicationId!, updatedBlocks);
-        await _deleteReplacedFiles();
-        // All blocks are committed — newly uploaded files are no longer
-        // temporary and must not be cleaned up by a later failure.
-        _uploadedFilePathsThisSave.clear();
-
-        setState(() {
-          _hasUnsavedChanges = false;
-          _currentSaveStep = _SaveStep.done;
-        });
-
-        if (mounted) {
-          final messenger = ScaffoldMessenger.of(context);
-          await Future.delayed(const Duration(milliseconds: 500));
-          messenger.showSnackBar(
-            SnackBar(content: Text(loc.AppLocalizations.admin.publicationUpdated)),
-          );
-          ref.invalidate(publicationRepositoryProvider);
-          ref.read(publicationListVersionProvider.notifier).state++;
-          if (mounted) context.pop(true);
-        }
-      }
-    } catch (e) {
-      // Roll back a partially created publication and clean up files uploaded
-      // during this attempt. A failed save must not leave duplicate rows or
-      // orphaned storage objects behind.
-      try {
-        final storage = ref.read(mediaStorageRepositoryProvider);
-        if (_uploadedFilePathsThisSave.isNotEmpty) {
-          try {
-            await storage.delete(_uploadedFilePathsThisSave.toList());
-          } catch (_) {
-            // Best-effort cleanup; ignore storage errors.
-          }
-        }
-        if (_createdPublicationId != null) {
-          try {
-            final repository = ref.read(publicationRepositoryProvider);
-            await repository.deletePublication(_createdPublicationId!);
-          } catch (_) {
-            // The row may already have been cleaned by cascades; ignore.
-          }
-        }
-      } catch (_) {
-        // Entire rollback failed — leave objects for manual cleanup.
-      }
-
-      setState(() {
-        _currentSaveStep = _SaveStep.error;
-      });
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('${loc.AppLocalizations.admin.publicationSaveError}$e')));
-      }
-    } finally {
-      setState(() {
-        _isSaving = false;
-        Future.delayed(const Duration(seconds: 2), () {
-          if (mounted) {
-            setState(() {
-              _currentSaveStep = _SaveStep.idle;
-            });
-          }
-        });
-      });
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(loc.AppLocalizations.admin.uploadsQueuedMessage),
+        ),
+      );
+      context.pop(true);
     }
+  }
+
+  /// Snapshots the current form state (including picked file bytes) into an
+  /// immutable [PublicationSavePayload] for the background queue.
+  PublicationSavePayload _buildSavePayload() {
+    final images = <String, SelectedMediaFile>{};
+    for (final entry in _selectedBlockImageFiles.entries) {
+      final file = entry.value;
+      images[entry.key] = SelectedMediaFile(bytes: file.bytes, name: file.name);
+    }
+    final audios = <String, SelectedMediaFile>{};
+    for (final entry in _selectedBlockAudioFiles.entries) {
+      final file = entry.value;
+      audios[entry.key] = SelectedMediaFile(bytes: file.bytes, name: file.name);
+    }
+    return PublicationSavePayload(
+      publicationId: widget.publicationId,
+      isPhoto: false,
+      title: _titleController.text.trim(),
+      icon: _selectedIcon,
+      type: 'article',
+      publishedAt: _publishedAt ?? DateTime.now(),
+      status: _status,
+      primarySectionId: _primarySectionId ?? '',
+      hasAdditionalSections: _hasAdditionalSections,
+      sectionIds: _sectionIdsToSave(),
+      contentBlocks: _contentBlocks.toList(),
+      newBlockImages: images,
+      newBlockAudios: audios,
+    );
   }
 
   /// Section memberships to persist. When additional sections are disabled,
@@ -595,17 +325,6 @@ class _PublicationEditorScreenState
   /// Removes storage files that were replaced during this save. Called after
   /// the DB successfully saved the new blocks, so old files are freed only
   /// once nothing references them anymore.
-  Future<void> _deleteReplacedFiles() async {
-    if (_oldFilePathsToDeleteThisSave.isEmpty) return;
-    try {
-      final storage = ref.read(mediaStorageRepositoryProvider);
-      await storage.delete(_oldFilePathsToDeleteThisSave.toList());
-    } catch (_) {
-      // Best-effort cleanup; ignore storage errors.
-    } finally {
-      _oldFilePathsToDeleteThisSave.clear();
-    }
-  }
 
   void _moveBlockUp(int index) {
     if (index > 0) {
@@ -690,7 +409,7 @@ class _PublicationEditorScreenState
   /// Shows exit confirmation dialog if there are unsaved changes.
   /// If no changes, exits immediately.
   Future<bool> _onWillPop() async {
-    if (!_hasUnsavedChanges || _isSaving) return true;
+    if (!_hasUnsavedChanges) return true;
 
     final result = await showDialog<String>(
       context: context,
@@ -762,15 +481,13 @@ class _PublicationEditorScreenState
           actions: [
             IconButton(
               icon: const Icon(Icons.save),
-              onPressed: _isSaving ? null : _savePublication,
+              onPressed: _savePublication,
             ),
           ],
           bottom: _buildStatusBar(),
         ),
         body: Column(
           children: [
-            if (_currentSaveStep != _SaveStep.idle)
-              _buildSaveProgressIndicator(),
             Expanded(
               child: FutureBuilder<PublicationDetail?>(
                 future: _publicationFuture,
@@ -796,12 +513,16 @@ class _PublicationEditorScreenState
                                 TextFormField(
                                   controller: _titleController,
                                   decoration: InputDecoration(
-                                    labelText: loc.AppLocalizations.admin.titleField,
+                                    labelText:
+                                        loc.AppLocalizations.admin.titleField,
                                     border: const OutlineInputBorder(),
                                   ),
                                   validator: (value) {
                                     if (value == null || value.isEmpty) {
-                                      return loc.AppLocalizations.admin.enterTitle;
+                                      return loc
+                                          .AppLocalizations
+                                          .admin
+                                          .enterTitle;
                                     }
                                     return null;
                                   },
@@ -828,16 +549,20 @@ class _PublicationEditorScreenState
 
                                     if (snapshot.hasError) {
                                       return Text(
-                                        loc.AppLocalizations.admin.sectionLoadError(
-                                          '${snapshot.error}',
-                                        ),
+                                        loc.AppLocalizations.admin
+                                            .sectionLoadError(
+                                              '${snapshot.error}',
+                                            ),
                                       );
                                     }
 
                                     if (!snapshot.hasData ||
                                         snapshot.data!.isEmpty) {
                                       return Text(
-                                        loc.AppLocalizations.admin.noSectionsAvailable,
+                                        loc
+                                            .AppLocalizations
+                                            .admin
+                                            .noSectionsAvailable,
                                       );
                                     }
 
@@ -847,7 +572,10 @@ class _PublicationEditorScreenState
                                           CrossAxisAlignment.start,
                                       children: [
                                         Text(
-                                          loc.AppLocalizations.admin.primarySection,
+                                          loc
+                                              .AppLocalizations
+                                              .admin
+                                              .primarySection,
                                           style: TextStyle(
                                             fontSize: 14,
                                             fontWeight: FontWeight.bold,
@@ -896,7 +624,10 @@ class _PublicationEditorScreenState
                                                     .isEmpty)) ...[
                                           const SizedBox(height: 4),
                                           Text(
-                                            loc.AppLocalizations.admin.selectPrimarySection,
+                                            loc
+                                                .AppLocalizations
+                                                .admin
+                                                .selectPrimarySection,
                                             style: TextStyle(
                                               fontSize: 12,
                                               color: Colors.red[700],
@@ -913,11 +644,17 @@ class _PublicationEditorScreenState
                                   dense: true,
                                   contentPadding: EdgeInsets.zero,
                                   title: Text(
-                                    loc.AppLocalizations.admin.enableAdditionalSections,
+                                    loc
+                                        .AppLocalizations
+                                        .admin
+                                        .enableAdditionalSections,
                                     style: const TextStyle(fontSize: 14),
                                   ),
                                   subtitle: Text(
-                                    loc.AppLocalizations.admin.enableAdditionalSectionsHint,
+                                    loc
+                                        .AppLocalizations
+                                        .admin
+                                        .enableAdditionalSectionsHint,
                                     style: const TextStyle(
                                       fontSize: 12,
                                       color: AppColors.textSecondary,
@@ -948,16 +685,20 @@ class _PublicationEditorScreenState
 
                                       if (snapshot.hasError) {
                                         return Text(
-                                          loc.AppLocalizations.admin.sectionLoadError(
-                                            '${snapshot.error}',
-                                          ),
+                                          loc.AppLocalizations.admin
+                                              .sectionLoadError(
+                                                '${snapshot.error}',
+                                              ),
                                         );
                                       }
 
                                       if (!snapshot.hasData ||
                                           snapshot.data!.isEmpty) {
                                         return Text(
-                                          loc.AppLocalizations.admin.noSectionsAvailable,
+                                          loc
+                                              .AppLocalizations
+                                              .admin
+                                              .noSectionsAvailable,
                                         );
                                       }
 
@@ -1024,11 +765,18 @@ class _PublicationEditorScreenState
                                 // Blocks list
                                 if (_contentBlocks.isEmpty)
                                   Padding(
-                                    padding: const EdgeInsets.symmetric(vertical: 16),
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 16,
+                                    ),
                                     child: Center(
                                       child: Text(
-                                        loc.AppLocalizations.admin.addFirstBlock,
-                                        style: const TextStyle(color: Colors.grey),
+                                        loc
+                                            .AppLocalizations
+                                            .admin
+                                            .addFirstBlock,
+                                        style: const TextStyle(
+                                          color: Colors.grey,
+                                        ),
                                       ),
                                     ),
                                   )
@@ -1082,8 +830,7 @@ class _PublicationEditorScreenState
 
   /// Bottom bar of the AppBar holding the publication status + publish date.
   PreferredSize _buildStatusBar() {
-    final showDate =
-        _status == 'published' || widget.publicationId != null;
+    final showDate = _status == 'published' || widget.publicationId != null;
 
     return PreferredSize(
       preferredSize: const Size.fromHeight(56),
@@ -1134,23 +881,21 @@ class _PublicationEditorScreenState
                         ),
                       ),
                     ],
-                    onChanged: _isSaving
-                        ? null
-                        : (value) {
-                            if (value != null) {
-                              setState(() {
-                                _status = value;
-                                if (value == 'published' &&
-                                    _publishedAt == null &&
-                                    _initialStatus != 'published') {
-                                  final now = DateTime.now();
-                                  _publishedAt = now;
-                                  _dateController.text = _formatDate(now);
-                                }
-                              });
-                              _markUnsaved();
-                            }
-                          },
+                    onChanged: (value) {
+                      if (value != null) {
+                        setState(() {
+                          _status = value;
+                          if (value == 'published' &&
+                              _publishedAt == null &&
+                              _initialStatus != 'published') {
+                            final now = DateTime.now();
+                            _publishedAt = now;
+                            _dateController.text = _formatDate(now);
+                          }
+                        });
+                        _markUnsaved();
+                      }
+                    },
                   ),
                 ),
               ),
@@ -1159,7 +904,7 @@ class _PublicationEditorScreenState
             // Date — a bigger, easy-to-tap clickable button.
             if (showDate)
               GestureDetector(
-                onTap: _isSaving ? null : _pickDate,
+                onTap: _pickDate,
                 behavior: HitTestBehavior.opaque,
                 child: Container(
                   padding: const EdgeInsets.symmetric(
@@ -1392,47 +1137,6 @@ class _PublicationEditorScreenState
           ),
         ],
       ],
-    );
-  }
-
-  Widget _buildSaveProgressIndicator() {
-    final label = _saveStepLabel();
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      color: _currentSaveStep == _SaveStep.error
-          ? Colors.red.shade50
-          : _currentSaveStep == _SaveStep.done
-          ? Colors.green.shade50
-          : Colors.blue.shade50,
-      child: Row(
-        children: [
-          if (_currentSaveStep == _SaveStep.done)
-            const Icon(Icons.check_circle, color: Colors.green, size: 18)
-          else if (_currentSaveStep == _SaveStep.error)
-            const Icon(Icons.error, color: Colors.red, size: 18)
-          else
-            const SizedBox(
-              width: 18,
-              height: 18,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              label,
-              style: TextStyle(
-                fontSize: 13,
-                color: _currentSaveStep == _SaveStep.error
-                    ? Colors.red.shade800
-                    : _currentSaveStep == _SaveStep.done
-                    ? Colors.green.shade800
-                    : Colors.blue.shade800,
-              ),
-            ),
-          ),
-        ],
-      ),
     );
   }
 

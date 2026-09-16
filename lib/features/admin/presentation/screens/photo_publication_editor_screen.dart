@@ -7,12 +7,11 @@ import 'package:image_picker/image_picker.dart';
 
 import 'package:tatislam_app/core/constants/app_colors.dart';
 import 'package:tatislam_app/core/constants/app_localizations.dart' as loc;
-import 'package:tatislam_app/core/services/media_optimization_service.dart';
-import 'package:tatislam_app/core/storage/storage_paths.dart';
 import 'package:tatislam_app/core/storage/storage_providers.dart';
+import 'package:tatislam_app/features/admin/queue/publication_save_payload.dart';
+import 'package:tatislam_app/features/admin/queue/queue_providers.dart';
 import 'package:tatislam_app/features/publications/data/publication_providers.dart';
 import 'package:tatislam_app/features/publications/domain/entities/publication_detail.dart';
-import 'package:tatislam_app/features/publications/presentation/providers/publications_providers.dart';
 import 'package:tatislam_app/features/sections/data/section_providers.dart';
 import 'package:tatislam_app/features/sections/domain/entities/section.dart';
 
@@ -57,16 +56,9 @@ class _PhotoPublicationEditorScreenState
   String? _existingPhotoPath;
   _SelectedPhoto? _pickedPhoto;
 
-  bool _isSaving = false;
   bool _hasUnsavedChanges = false;
   bool _sectionValidationAttempted = false;
   String _initialStatus = 'draft';
-
-  // Track the publication created during the current save attempt, plus any
-  // photo uploaded so far, so a failed create/edit can be rolled back instead
-  // of leaving orphaned rows/files.
-  String? _createdPublicationId;
-  final Set<String> _uploadedFilePathsThisSave = {};
 
   @override
   void initState() {
@@ -118,14 +110,18 @@ class _PhotoPublicationEditorScreenState
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('${loc.AppLocalizations.admin.publicationLoadErrorDetail}$e')),
+          SnackBar(
+            content: Text(
+              '${loc.AppLocalizations.admin.publicationLoadErrorDetail}$e',
+            ),
+          ),
         );
       }
       return null;
     }
   }
 
-Future<void> _pickPhoto() async {
+  Future<void> _pickPhoto() async {
     try {
       final picker = ImagePicker();
       final pickedFile = await picker.pickImage(
@@ -147,37 +143,13 @@ Future<void> _pickPhoto() async {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('${loc.AppLocalizations.admin.imageSelectionError}$e')),
+          SnackBar(
+            content: Text(
+              '${loc.AppLocalizations.admin.imageSelectionError}$e',
+            ),
+          ),
         );
       }
-    }
-  }
-
-  /// Uploads the currently selected photo (if any) and returns its Storage
-  /// path. Does not touch the previous photo — callers decide when to remove
-  /// the old file (only after the DB successfully references the new one),
-  /// so a failed save never leaves a publication pointing at a deleted file.
-  Future<String> _uploadPhoto(String publicationId) async {
-    if (_pickedPhoto == null) {
-      return '';
-    }
-    try {
-      final storageRepository = ref.read(mediaStorageRepositoryProvider);
-      final optimizationService = const MediaOptimizationService();
-      final result = await optimizationService.optimizeImage(
-        originalBytes: _pickedPhoto!.bytes,
-        originalFileName: _pickedPhoto!.name,
-      );
-
-      final bytes = result.bytes;
-      final extension = result.fileName.split('.').last;
-      final path = StoragePaths.photo(publicationId, extension);
-
-      final s3Key = await storageRepository.upload(path, bytes);
-      _uploadedFilePathsThisSave.add(s3Key);
-      return s3Key;
-    } catch (e) {
-      throw Exception('Не удалось загрузить фотографию: $e');
     }
   }
 
@@ -189,8 +161,10 @@ Future<void> _pickPhoto() async {
     return fileName;
   }
 
+  /// Validates the form, snapshots it into a [PublicationSavePayload] and puts
+  /// it into the background upload queue. The editor closes immediately; the
+  /// publication is saved and uploaded by the queue in the background.
   Future<void> _savePublication() async {
-    if (_isSaving) return; // Prevent overlapping save attempts.
     if (!_formKey.currentState!.validate()) {
       return;
     }
@@ -200,170 +174,75 @@ Future<void> _pickPhoto() async {
       setState(() {
         _sectionValidationAttempted = true;
       });
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(loc.AppLocalizations.admin.selectPrimarySectionRequired)));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            loc.AppLocalizations.admin.selectPrimarySectionRequired,
+          ),
+        ),
+      );
       return;
     }
 
     // A photo is required for new publications.
     final hasExistingPhoto = _existingPhotoPath?.isNotEmpty ?? false;
     if (_pickedPhoto == null && !hasExistingPhoto) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(loc.AppLocalizations.admin.selectPhotoRequired)));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(loc.AppLocalizations.admin.selectPhotoRequired)),
+      );
+      return;
+    }
+
+    final payload = _buildSavePayload();
+    final queue = ref.read(publicationUploadQueueProvider);
+    if (!queue.enqueue(payload)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(loc.AppLocalizations.admin.uploadsAlreadyQueued),
+        ),
+      );
       return;
     }
 
     setState(() {
-      _isSaving = true;
+      _hasUnsavedChanges = false;
     });
 
-    // Reset rollback tracking for this save attempt.
-    _createdPublicationId = null;
-    _uploadedFilePathsThisSave.clear();
-
-    try {
-      final rawTitle = _titleController.text.trim();
-      final title = rawTitle.isEmpty
-          ? (_pickedPhoto != null
-                ? _stripExtension(_pickedPhoto!.name)
-                : 'Фото')
-          : rawTitle;
-      final publishedAt = _publishedAt ?? DateTime.now();
-      final repository = ref.read(publicationRepositoryProvider);
-
-      if (widget.publicationId == null) {
-        // Create the row first to obtain its id, then upload the photo into a
-        // path keyed by that id and persist the resulting path.
-        final publication = await repository.createPublication(
-          title: title,
-          type: 'photo',
-          publishedAt: publishedAt,
-          status: _status,
-          primarySectionId: _primarySectionId ?? '',
-          hasAdditionalSections: _hasAdditionalSections,
-        );
-        _createdPublicationId = publication.id;
-
-        final photoPath = await _uploadPhoto(publication.id);
-
-        await repository.updatePublication(
-          id: publication.id,
-          title: title,
-          type: 'photo',
-          publishedAt: publishedAt,
-          status: _status,
-          primarySectionId: _primarySectionId ?? '',
-          photoPath: photoPath,
-          hasAdditionalSections: _hasAdditionalSections,
-        );
-        // The photo is now committed by the DB — don't treat it as a temp
-        // upload to be cleaned up if a later step fails.
-        if (photoPath.isNotEmpty) {
-          _uploadedFilePathsThisSave.remove(photoPath);
-        }
-
-        await repository.setSections(
-          publication.id,
-          _sectionIdsToSave(),
-        );
-
-        if (mounted) {
-          final messenger = ScaffoldMessenger.of(context);
-          await Future.delayed(const Duration(milliseconds: 500));
-          messenger.showSnackBar(
-            SnackBar(content: Text(loc.AppLocalizations.admin.publicationCreated)),
-          );
-          ref.invalidate(publicationRepositoryProvider);
-          ref.read(publicationListVersionProvider.notifier).state++;
-          if (mounted) context.pop(true);
-        }
-      } else {
-        // Upload the new photo first (keeping the old one intact), then point
-        // the DB at the new file and only afterwards free the old file.
-        final newPath = await _uploadPhoto(widget.publicationId!);
-
-        await repository.updatePublication(
-          id: widget.publicationId!,
-          title: title,
-          type: 'photo',
-          publishedAt: publishedAt,
-          status: _status,
-          primarySectionId: _primarySectionId ?? '',
-          photoPath: newPath.isNotEmpty
-              ? newPath
-              : (_existingPhotoPath ?? ''),
-          hasAdditionalSections: _hasAdditionalSections,
-        );
-        // The new photo is now committed by the DB — don't treat it as a temp
-        // upload to be cleaned up if a later step fails.
-        if (newPath.isNotEmpty) {
-          _uploadedFilePathsThisSave.remove(newPath);
-        }
-
-        if (newPath.isNotEmpty && _existingPhotoPath != null && _existingPhotoPath!.isNotEmpty && _existingPhotoPath != newPath) {
-          try {
-            await ref
-                .read(mediaStorageRepositoryProvider)
-                .delete([_existingPhotoPath!]);
-          } catch (_) {
-            // Best-effort cleanup; ignore storage errors.
-          }
-          _existingPhotoPath = newPath;
-        }
-
-        await repository.setSections(
-          widget.publicationId!,
-          _sectionIdsToSave(),
-        );
-
-        if (mounted) {
-          final messenger = ScaffoldMessenger.of(context);
-          await Future.delayed(const Duration(milliseconds: 500));
-          messenger.showSnackBar(
-            SnackBar(content: Text(loc.AppLocalizations.admin.publicationUpdated)),
-          );
-          ref.invalidate(publicationRepositoryProvider);
-          ref.read(publicationListVersionProvider.notifier).state++;
-          if (mounted) context.pop(true);
-        }
-      }
-    } catch (e) {
-      // Roll back a partially created publication and clean up any photo
-      // uploaded during this attempt, so a failed save never leaves duplicate
-      // rows or orphaned files behind.
-      try {
-        final storage = ref.read(mediaStorageRepositoryProvider);
-        if (_uploadedFilePathsThisSave.isNotEmpty) {
-          try {
-            await storage.delete(_uploadedFilePathsThisSave.toList());
-          } catch (_) {
-            // Best-effort cleanup; ignore storage errors.
-          }
-        }
-        if (_createdPublicationId != null) {
-          try {
-            final repository = ref.read(publicationRepositoryProvider);
-            await repository.deletePublication(_createdPublicationId!);
-          } catch (_) {
-            // The row may already have been cleaned by cascades; ignore.
-          }
-        }
-      } catch (_) {
-        // Entire rollback failed — leave objects for manual cleanup.
-      }
-
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('${loc.AppLocalizations.admin.publicationSaveError}$e')));
-      }
-    } finally {
-      setState(() {
-        _isSaving = false;
-      });
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(loc.AppLocalizations.admin.uploadsQueuedMessage),
+        ),
+      );
+      context.pop(true);
     }
+  }
+
+  /// Snapshots the current form state (including picked photo bytes) into an
+  /// immutable [PublicationSavePayload] for the background queue.
+  PublicationSavePayload _buildSavePayload() {
+    final rawTitle = _titleController.text.trim();
+    final title = rawTitle.isEmpty
+        ? (_pickedPhoto != null ? _stripExtension(_pickedPhoto!.name) : 'Фото')
+        : rawTitle;
+    return PublicationSavePayload(
+      publicationId: widget.publicationId,
+      isPhoto: true,
+      title: title,
+      type: 'photo',
+      publishedAt: _publishedAt ?? DateTime.now(),
+      status: _status,
+      primarySectionId: _primarySectionId ?? '',
+      hasAdditionalSections: _hasAdditionalSections,
+      sectionIds: _sectionIdsToSave(),
+      newPhoto: _pickedPhoto == null
+          ? null
+          : SelectedMediaFile(
+              bytes: _pickedPhoto!.bytes,
+              name: _pickedPhoto!.name,
+            ),
+      existingPhotoPath: _existingPhotoPath,
+    );
   }
 
   String _formatDate(DateTime date) {
@@ -386,7 +265,13 @@ Future<void> _pickPhoto() async {
       );
       if (timePicked != null && mounted) {
         setState(() {
-          _publishedAt = DateTime(date.year, date.month, date.day, timePicked.hour, timePicked.minute);
+          _publishedAt = DateTime(
+            date.year,
+            date.month,
+            date.day,
+            timePicked.hour,
+            timePicked.minute,
+          );
           _dateController.text = _formatDate(_publishedAt!);
           _hasUnsavedChanges = true;
         });
@@ -396,7 +281,7 @@ Future<void> _pickPhoto() async {
 
   /// Shows exit confirmation dialog if there are unsaved changes.
   Future<bool> _onWillPop() async {
-    if (!_hasUnsavedChanges || _isSaving) return true;
+    if (!_hasUnsavedChanges) return true;
 
     final result = await showDialog<String>(
       context: context,
@@ -467,7 +352,7 @@ Future<void> _pickPhoto() async {
           actions: [
             IconButton(
               icon: const Icon(Icons.save),
-              onPressed: _isSaving ? null : _savePublication,
+              onPressed: _savePublication,
             ),
           ],
           bottom: _buildStatusBar(),
@@ -516,13 +401,15 @@ Future<void> _pickPhoto() async {
                             dense: true,
                             contentPadding: EdgeInsets.zero,
                             title: Text(
-                              loc.AppLocalizations
+                              loc
+                                  .AppLocalizations
                                   .admin
                                   .enableAdditionalSections,
                               style: const TextStyle(fontSize: 14),
                             ),
                             subtitle: Text(
-                              loc.AppLocalizations
+                              loc
+                                  .AppLocalizations
                                   .admin
                                   .enableAdditionalSectionsHint,
                               style: const TextStyle(
@@ -568,8 +455,7 @@ Future<void> _pickPhoto() async {
 
   /// Bottom bar of the AppBar holding the publication status + publish date.
   PreferredSize _buildStatusBar() {
-    final showDate =
-        _status == 'published' || widget.publicationId != null;
+    final showDate = _status == 'published' || widget.publicationId != null;
 
     return PreferredSize(
       preferredSize: const Size.fromHeight(56),
@@ -620,23 +506,21 @@ Future<void> _pickPhoto() async {
                         ),
                       ),
                     ],
-                    onChanged: _isSaving
-                        ? null
-                        : (value) {
-                            if (value != null) {
-                              setState(() {
-                                _status = value;
-                                if (value == 'published' &&
-                                    _publishedAt == null &&
-                                    _initialStatus != 'published') {
-                                  final now = DateTime.now();
-                                  _publishedAt = now;
-                                  _dateController.text = _formatDate(now);
-                                }
-                              });
-                              _markUnsaved();
-                            }
-                          },
+                    onChanged: (value) {
+                      if (value != null) {
+                        setState(() {
+                          _status = value;
+                          if (value == 'published' &&
+                              _publishedAt == null &&
+                              _initialStatus != 'published') {
+                            final now = DateTime.now();
+                            _publishedAt = now;
+                            _dateController.text = _formatDate(now);
+                          }
+                        });
+                        _markUnsaved();
+                      }
+                    },
                   ),
                 ),
               ),
@@ -645,7 +529,7 @@ Future<void> _pickPhoto() async {
             // Date — a bigger, easy-to-tap clickable button.
             if (showDate)
               GestureDetector(
-                onTap: _isSaving ? null : _pickDate,
+                onTap: _pickDate,
                 behavior: HitTestBehavior.opaque,
                 child: Container(
                   padding: const EdgeInsets.symmetric(
@@ -687,8 +571,7 @@ Future<void> _pickPhoto() async {
 
   Widget _buildPhotoPicker() {
     final hasLocal = _pickedPhoto != null;
-    final hasRemote =
-        !hasLocal && (_existingPhotoPath?.isNotEmpty ?? false);
+    final hasRemote = !hasLocal && (_existingPhotoPath?.isNotEmpty ?? false);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -713,10 +596,10 @@ Future<void> _pickPhoto() async {
                       child: Image.memory(
                         _pickedPhoto!.bytes,
                         fit: BoxFit.contain,
-                        errorBuilder:
-                            (context, error, stackTrace) => const Center(
-                          child: Icon(Icons.broken_image, size: 32),
-                        ),
+                        errorBuilder: (context, error, stackTrace) =>
+                            const Center(
+                              child: Icon(Icons.broken_image, size: 32),
+                            ),
                       ),
                     ),
                   ),
@@ -735,8 +618,8 @@ Future<void> _pickPhoto() async {
                             .read(mediaStorageRepositoryProvider)
                             .publicUrlFor(_existingPhotoPath!),
                         fit: BoxFit.contain,
-                        errorBuilder:
-                            (context, error, stackTrace) => const Center(
+                        errorBuilder: (context, error, stackTrace) =>
+                            const Center(
                               child: Icon(Icons.broken_image, size: 32),
                             ),
                       ),
@@ -756,7 +639,7 @@ Future<void> _pickPhoto() async {
                 ),
               const SizedBox(height: 8),
               ElevatedButton(
-                onPressed: _isSaving ? null : _pickPhoto,
+                onPressed: _pickPhoto,
                 style: ElevatedButton.styleFrom(elevation: 0),
                 child: Text(
                   hasLocal || hasRemote
@@ -795,19 +678,13 @@ Future<void> _pickPhoto() async {
           children: [
             Text(
               loc.AppLocalizations.admin.primarySection,
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
-              ),
+              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 4),
             ...sections.map((section) {
               final isPrimary = _primarySectionId == section.id;
               return ListTile(
-                title: Text(
-                  section.name,
-                  style: const TextStyle(fontSize: 14),
-                ),
+                title: Text(section.name, style: const TextStyle(fontSize: 14)),
                 leading: Icon(
                   isPrimary
                       ? Icons.radio_button_checked
@@ -866,10 +743,7 @@ Future<void> _pickPhoto() async {
           children: [
             Text(
               loc.AppLocalizations.admin.additionalSections,
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
-              ),
+              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
             Wrap(

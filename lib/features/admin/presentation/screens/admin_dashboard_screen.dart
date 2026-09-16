@@ -5,6 +5,8 @@ import 'package:tatislam_app/core/constants/app_colors.dart';
 import 'package:tatislam_app/core/constants/app_localizations.dart';
 import 'package:tatislam_app/features/admin/presentation/screens/publications_list_screen.dart';
 import 'package:tatislam_app/features/admin/presentation/screens/sections_management_screen.dart';
+import 'package:tatislam_app/features/admin/presentation/screens/uploads_queue_screen.dart';
+import 'package:tatislam_app/features/admin/queue/queue_providers.dart';
 
 class AdminDashboardScreen extends ConsumerStatefulWidget {
   const AdminDashboardScreen({super.key});
@@ -20,6 +22,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
   static const List<Widget> _widgetOptions = <Widget>[
     PublicationsListScreen(),
     SectionsManagementScreen(),
+    UploadsQueueScreen(),
   ];
 
   void _onItemTapped(int index) {
@@ -30,6 +33,13 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final queue = ref.watch(publicationUploadQueueProvider);
+    ref.watch(publicationUploadQueueVersionProvider);
+    final activeCount = queue.activeCount;
+    final uploadsLabel = activeCount > 0
+        ? '${AppLocalizations.admin.uploadsTitle} ($activeCount)'
+        : AppLocalizations.admin.uploadsTitle;
+
     return Scaffold(
       appBar: AppBar(
         backgroundColor: AppColors.secondary,
@@ -39,7 +49,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
             context.go('/');
           },
         ),
-        title: Text(_selectedIndex == 0 ? AppLocalizations.admin.publicationsTitle : AppLocalizations.admin.sectionsTitle),
+        title: Text(_titleForIndex(_selectedIndex)),
         actions: [
           if (_selectedIndex == 0) ...[
             IconButton(
@@ -90,8 +100,24 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
             selectedIcon: const Icon(Icons.category),
             label: AppLocalizations.admin.sectionsTitle,
           ),
+          NavigationDestination(
+            icon: const Icon(Icons.cloud_upload_outlined),
+            selectedIcon: const Icon(Icons.cloud_upload),
+            label: uploadsLabel,
+          ),
         ],
       ),
     );
+  }
+
+  String _titleForIndex(int index) {
+    switch (index) {
+      case 0:
+        return AppLocalizations.admin.publicationsTitle;
+      case 1:
+        return AppLocalizations.admin.sectionsTitle;
+      default:
+        return AppLocalizations.admin.uploadsTitle;
+    }
   }
 }

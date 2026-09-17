@@ -43,6 +43,16 @@ const DEFAULT_NOTIFICATION_TITLE = "Новая публикация";
 const DEFAULT_NOTIFICATION_BODY_PREFIX =
   "В приложение добавлена новая публикация: ";
 
+// CORS: функция вызывается не только сервером (импортёр/curl), но и из
+// браузерной (web) версии админ-редактора, поэтому нужны те же заголовки,
+// что и в upload-media/delete-media.
+const CORS_HEADERS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Headers":
+    "apikey, Authorization, Content-Type",
+};
+
 // ---------------------------------------------------------------------------
 // Small helpers
 // ---------------------------------------------------------------------------
@@ -50,7 +60,10 @@ const DEFAULT_NOTIFICATION_BODY_PREFIX =
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      ...CORS_HEADERS,
+      "Content-Type": "application/json",
+    },
   });
 }
 
@@ -321,6 +334,14 @@ async function setNotificationStatus(
 // ---------------------------------------------------------------------------
 
 Deno.serve(async (req) => {
+  // CORS preflight — обязателен для вызовов из браузерной (web) админки.
+  if (req.method === "OPTIONS") {
+    return new Response(null, {
+      status: 204,
+      headers: CORS_HEADERS,
+    });
+  }
+
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
   const serviceAccountRaw = Deno.env.get(SERVICE_ACCOUNT_SECRET);

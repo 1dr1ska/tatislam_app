@@ -55,7 +55,7 @@ class _PublicationEditorScreenState
   List<ContentBlock> _contentBlocks = [];
   Set<String> _selectedSectionIds = {};
   bool _hasAdditionalSections = false;
-  String _status = 'draft';
+  String _status = 'published';
   DateTime? _publishedAt;
 
   // Map to store selected image files for each content block
@@ -107,7 +107,7 @@ class _PublicationEditorScreenState
       _contentBlocks = List.from(detail.blocks);
       _selectedSectionIds = Set.from(detail.sectionIds);
       _hasAdditionalSections = detail.publication.hasAdditionalSections;
-      _status = detail.publication.status ?? 'draft';
+      _status = detail.publication.status ?? 'published';
       _publishedAt = detail.publication.publishedAt;
       _dateController.text = _formatDate(_publishedAt!);
 

@@ -1,12 +1,12 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:tatislam_app/core/services/local_storage_service.dart';
-import 'package:tatislam_app/features/detail/presentation/providers/audio_player_provider.dart';
 
-/// Playback speed choices shared by all audio blocks.
+/// Playback speed choices shared by all audio UI.
 const List<double> audioSpeedOptions = [
   0.5,
   0.75,
   1.0,
+  1.1,
   1.25,
   1.5,
   1.75,
@@ -15,8 +15,9 @@ const List<double> audioSpeedOptions = [
 
 /// Human-readable speed label, e.g. `1.25` → `1.25×`.
 String formatAudioSpeed(double speed) {
-  final normalized =
-      speed == speed.roundToDouble() ? speed.round().toString() : '$speed';
+  final normalized = speed == speed.roundToDouble()
+      ? speed.round().toString()
+      : '$speed';
   return '$normalized×';
 }
 
@@ -45,8 +46,10 @@ class AudioPlaybackSpeedNotifier extends Notifier<double> {
     return defaultSpeed;
   }
 
-  /// Sets a new global speed, persists it and applies it to the shared
-  /// player immediately so currently playing audio keeps in sync.
+  /// Sets a new global speed, persists it and immediately closes the loop with
+  /// the running playback: the shared [AudioPlayerService] listens to this
+  /// provider and applies the change to the currently loaded track right away
+  /// (see `audioPlayerServiceProvider`). New tracks apply the value on load.
   void setSpeed(double speed) {
     if (!audioSpeedOptions.contains(speed)) return;
     state = speed;
@@ -58,7 +61,6 @@ class AudioPlaybackSpeedNotifier extends Notifier<double> {
     } catch (_) {
       // Persistence is best-effort.
     }
-    ref.read(audioPlayerProvider).setSpeed(speed);
   }
 }
 

@@ -51,7 +51,7 @@ class _PhotoPublicationEditorScreenState
   String? _primarySectionId;
   final Set<String> _selectedSectionIds = {};
   bool _hasAdditionalSections = false;
-  String _status = 'draft';
+  String _status = 'published';
   DateTime? _publishedAt;
   String? _existingPhotoPath;
   _SelectedPhoto? _pickedPhoto;
@@ -94,7 +94,7 @@ class _PhotoPublicationEditorScreenState
         _selectedSectionIds.add(sectionId);
       }
       _hasAdditionalSections = detail.publication.hasAdditionalSections;
-      _status = detail.publication.status ?? 'draft';
+      _status = detail.publication.status ?? 'published';
       _publishedAt = detail.publication.publishedAt;
       _existingPhotoPath = detail.publication.photoPath;
       _dateController.text = _formatDate(_publishedAt!);

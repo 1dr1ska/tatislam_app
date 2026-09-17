@@ -1,17 +1,24 @@
 // =============================================================================
-// notify-new-publication — отправка push-уведомления о НОВОЙ публикации.
+// notify-new-publication — push-уведомление при ПЕРВОЙ ПУБЛИКАЦИИ.
 //
-// Вызывается импортёром сразу после успешного создания публикации:
+// Вызывается после успешного сохранения публикации в статусе "published":
+//   - импортёром (сразу после INSERT, PUBLICATION_STATUS=published по умолчанию);
+//   - админ-редактором приложения (PublicationSaveJob) — при создании
+//     опубликованной публикации или переходе черновик → опубликовано;
 //   POST {SUPABASE_URL}/functions/v1/notify-new-publication
 //   Authorization: Bearer <project JWT: anon или service_role>
 //   body: { "publication_id": "uuid" }
 //
-// Идемпотентность (защита от повторных уведомлений):
-//   1. Сама публикация не дублируется при повторном импорте — уникальный
-//      индекс publications.telegram_message_id (миграция 0027).
-//   2. На уровне функции — RPC claim_publication_notification(): строка в
+// Семантика «первая публикация» и идемпотентность:
+//   1. Если публикация ещё НЕ в статусе published (черновик) — функция
+//      возвращает skipped, ничего не резервируя. Уведомление уйдёт при первом
+//      вызове уже после публикации.
+//   2. При published вызывается RPC claim_publication_notification(): строка в
 //      publication_notifications вставляется ON CONFLICT (publication_id)
-//      DO NOTHING. Повторный вызов возвращает false и НЕ шлёт ничего.
+//      DO NOTHING. Только первый вызов отправляет push; повторные возвращают
+//      duplicate (даже если импортёр/редактор случайно вызовутся дважды).
+//   3. Сама публикация не дублируется при повторном импорте — уникальный
+//      индекс publications.telegram_message_id (миграция 0027).
 //
 // Credentials Firebase НЕ живут в приложении и НЕ коммитятся в Git:
 //   А. service account JSON лежит в секрете Edge Function
@@ -338,42 +345,38 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: "publication_id is required" }, 400);
     }
 
-    // ---- 1. Идемпотентный «замок»: повторный вызов ничего не отправляет. --
-    const claimed = await claimPublication(supabaseUrl, serviceKey, publicationId);
-    if (!claimed) {
-      return jsonResponse(
-        { ok: true, duplicate: true, message: "already_notified" },
-        200
-      );
-    }
-
-    // ---- 2. Публикация существует и опубликована? --------------------------
-    const publication = await fetchPublication(supabaseUrl, serviceKey, publicationId);
+    // ---- 1. Публикация должна быть действительно опубликована. --------------
+    // Статус проверяется ДО claim: создание со статусом draft (вспомогательный)
+    // не «сжигает» право на уведомление — push уйдёт при первом переходе в
+    // published (создание сразу опубликованным или черновик → опубликовано).
+    const publication = await fetchPublication(
+      supabaseUrl,
+      serviceKey,
+      publicationId
+    );
     if (!publication) {
-      await setNotificationStatus(
-        supabaseUrl,
-        serviceKey,
-        publicationId,
-        "failed",
-        "publication not found",
-        1
-      );
       return jsonResponse({ ok: false, error: "publication_not_found" }, 404);
     }
 
     if (publication.status !== "published") {
-      // Черновики не рассылаем, но «считаем обработанным» — повторно push не
-      // уйдёт даже после публикации (требование: только первое создание).
-      await setNotificationStatus(
-        supabaseUrl,
-        serviceKey,
-        publicationId,
-        "failed",
-        `status=${publication.status}`,
-        1
-      );
+      // Черновик/архив: не рассылаем и НЕ резервируем уведомление — поздний
+      // вызов (после публикации) сможет отправить его.
       return jsonResponse(
         { ok: true, skipped: true, reason: `status=${publication.status}` },
+        200
+      );
+    }
+
+    // ---- 2. Идемпотентный «замок»: только первый вызов для этой публикации
+    // отправляет push, повторные возвращают duplicate. ------------------------
+    const claimed = await claimPublication(
+      supabaseUrl,
+      serviceKey,
+      publicationId
+    );
+    if (!claimed) {
+      return jsonResponse(
+        { ok: true, duplicate: true, message: "already_notified" },
         200
       );
     }

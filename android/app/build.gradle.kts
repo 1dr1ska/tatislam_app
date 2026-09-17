@@ -4,12 +4,17 @@ import java.io.FileInputStream
 plugins {
     id("com.android.application")
     id("dev.flutter.flutter-gradle-plugin")
-    // Firebase: applied only when google-services.json is present so the
-    // project still builds before Firebase is configured. Add the file from
-    // the Firebase console to android/app/google-services.json to enable FCM.
-    if (file("google-services.json").exists()) {
-        id("com.google.gms.google-services")
-    }
+}
+
+// Firebase Cloud Messaging.
+// Плагин google-services применяется через `apply` (а не `plugins {}`), потому
+// что в блоке `plugins {}` недоступен `file()` для условного применения.
+// Условие по наличию google-services.json позволяет проекту собираться ДО
+// настройки Firebase: без файла приложение запускается, но FCM-инициализация
+// в Dart-коде корректно пропускается. Добавьте файл из Firebase Console в
+// android/app/google-services.json — и FCM включится без правок кода.
+if (file("google-services.json").exists()) {
+    apply(plugin = "com.google.gms.google-services")
 }
 
 val keystorePropertiesFile = rootProject.file("key.properties")

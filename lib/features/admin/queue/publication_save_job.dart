@@ -1,5 +1,9 @@
+import 'dart:async';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:tatislam_app/core/services/media_optimization_service.dart';
+import 'package:tatislam_app/core/services/supabase_service.dart';
 import 'package:tatislam_app/core/storage/media_storage_repository.dart';
 import 'package:tatislam_app/core/storage/storage_paths.dart';
 import 'package:tatislam_app/core/storage/storage_providers.dart';
@@ -69,6 +73,18 @@ class PublicationSaveJob {
       // Fully committed — refresh the admin list and the detail cache.
       ref.invalidate(publicationRepositoryProvider);
       ref.read(publicationListVersionProvider.notifier).state++;
+
+      // Push-уведомление при ПЕРВОЙ публикации. Вызываем Edge Function для
+      // любого сохранения со статусом published (создание сразу опубликованным
+      // или переход черновик → опубликовано). Повторные вызовы безопасны:
+      // Edge Function идемпотентна (claim по publication_id) и при повторе
+      // просто вернёт duplicate.
+      if (payload.status == 'published') {
+        final publicationId = createdPublicationId ?? payload.publicationId;
+        if (publicationId != null) {
+          unawaited(_notifyNewPublication(publicationId));
+        }
+      }
     } catch (e) {
       // Roll back a partially created publication and clean up every file
       // uploaded during this attempt, so nothing orphaned is left behind.
@@ -91,6 +107,19 @@ class PublicationSaveJob {
         // Entire rollback failed — leave objects for manual cleanup.
       }
       rethrow;
+    }
+  }
+
+  /// Fire-and-forget: просит Edge Function `notify-new-publication` разослать
+  /// push о первой публикации. Ошибка никогда не блокирует сохранение.
+  static Future<void> _notifyNewPublication(String publicationId) async {
+    try {
+      await SupabaseService.client.functions.invoke(
+        'notify-new-publication',
+        body: {'publication_id': publicationId},
+      );
+    } catch (e) {
+      debugPrint('PublicationSaveJob: push notify skipped ($publicationId): $e');
     }
   }
 

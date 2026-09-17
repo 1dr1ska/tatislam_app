@@ -66,6 +66,7 @@ class _PublicationDetailScreenState
   Widget _buildContentBlock(
     ContentBlock block,
     MediaStorageRepository mediaStorage,
+    String? trackTitle,
   ) {
     final child = switch (block) {
       TextContentBlock() => TextContentWidget(block: block),
@@ -78,6 +79,7 @@ class _PublicationDetailScreenState
       AudioContentBlock() => AudioContentWidget(
         block: block,
         mediaStorage: mediaStorage,
+        trackTitle: trackTitle,
       ),
     };
 
@@ -306,7 +308,11 @@ class _PublicationDetailScreenState
                     const SizedBox(height: 20),
                     // Content blocks
                     ...publication.blocks.map(
-                      (block) => _buildContentBlock(block, mediaStorage),
+                      (block) => _buildContentBlock(
+                        block,
+                        mediaStorage,
+                        publication.publication.title,
+                      ),
                     ),
                   ],
                 ),

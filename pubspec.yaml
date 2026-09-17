@@ -29,6 +29,11 @@ dependencies:
   
   # Audio
   just_audio: ^0.10.6
+  # Background audio + media notifications (Android media session / iOS lock
+  # screen). audio_service powers the system notification; a thin app-side
+  # handler (BackgroundAudioHandler) wires the single shared just_audio
+  # player into it — no second player.
+  audio_service: ^0.18.19
   
   # UI & Network
   cached_network_image: ^3.3.1

@@ -83,8 +83,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: 'photos/new',
             name: 'newPhoto',
-            builder: (context, state) =>
-                const PhotoPublicationEditorScreen(),
+            builder: (context, state) => const PhotoPublicationEditorScreen(),
           ),
           GoRoute(
             path: 'photos/:id/edit',

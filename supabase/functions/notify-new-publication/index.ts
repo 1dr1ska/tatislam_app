@@ -45,12 +45,14 @@ const DEFAULT_NOTIFICATION_BODY_PREFIX =
 
 // CORS: функция вызывается не только сервером (импортёр/curl), но и из
 // браузерной (web) версии админ-редактора, поэтому нужны те же заголовки,
-// что и в upload-media/delete-media.
+// что и в upload-media/delete-media. Обязательно включаем x-client-info —
+// supabase_flutter добавляет этот заголовок ко ВСЕМ запросам, и без
+// разрешения в preflight браузер блокирует вызов из web.
 const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
   "Access-Control-Allow-Headers":
-    "apikey, Authorization, Content-Type",
+    "authorization, apikey, content-type, x-client-info",
 };
 
 // ---------------------------------------------------------------------------

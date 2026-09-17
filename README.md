@@ -122,6 +122,81 @@ flutter test
   переносит публикации Telegram-канала в ту же схему данных. Подробности:
   [tatislam_importer/README.md](tatislam_importer/README.md).
 
+## Push-уведомления о новых публикациях (FCM)
+
+Flutter-приложение отправляет FCM-токен устройства в Supabase (таблица
+`notification_devices`, идемпотентный upsert по `fcm_token`). Когда импортёр
+создаёт новую публикацию, он вызывает Edge Function `notify-new-publication`,
+которая рассылает push зарегистрированным активным устройствам.
+
+```
+Flutter app (FCM token)
+    ↓ register_notification_device (RPC)
+Supabase: notification_devices
+    ↓ при INSERT публикации
+импортёр → Edge Function notify-new-publication
+    ↓ FCM HTTP v1 (service account — секрет сервера)
+Android / iOS
+```
+
+Ключевые свойства:
+
+- **Идемпотентность.** Повторный запуск импортёра не создаёт дубликат
+  (unique-индекс `publications.telegram_message_id`), а повторный вызов Edge
+  Function не шлёт повторный push (RPC `claim_publication_notification`:
+  `insert … on conflict (publication_id) do nothing`).
+- **Payload уведомления:** `type=new_publication`, `publication_id`,
+  `publication_type`, `publication_title`. По тапу приложение открывает
+  `/publication/:id` (существующий go_router).
+- **Настройка «Уведомления о новых публикациях»** (экран «О приложении»):
+  выключение переводит `notification_devices.is_active = false`, включение —
+  регистрирует токен заново.
+- **Секреты** (Firebase service account, ключи) живут только на backend.
+- Невалидные FCM-токены автоматически деактивируются Edge Function.
+
+### Настройка (делается вручную)
+
+1. **Firebase Console**: создайте проект Firebase (или используйте
+   существующий); добавьте Android-приложение (пакет `com.example.tatislam_app`)
+   и скачайте `google-services.json` → положите в `android/app/google-services.json`.
+2. **Android 13+**: разрешение `POST_NOTIFICATIONS` уже объявлено в
+   `AndroidManifest.xml`; запрос выполняется автоматически при старте.
+3. **Service account** (Firebase Console → Project settings → Service accounts →
+   Generate new private key) → JSON одним значением в секрет Edge Function:
+   `supabase secrets set --env-file ...` или Dashboard → Edge Functions →
+   `notify-new-publication` → Secrets: `FIREBASE_SERVICE_ACCOUNT_JSON` (весь JSON
+   одной строкой). Опционально `NOTIFICATION_TITLE` и `NOTIFICATION_BODY_PREFIX`.
+4. **Применить миграцию**: из директории `supabase/` выполнить
+   `supabase db push` (миграция `0028_push_notifications.sql`).
+5. **Задеплоить функцию**: `supabase functions deploy notify-new-publication`.
+6. **iOS** (отдельно): см. ниже.
+
+### Ручной тест (Android)
+
+1. Установить приложение, разрешить уведомления.
+2. Проверить в Supabase (SQL Editor):
+   `select * from notification_devices;` — должна появиться строка с
+   `is_active = true` и вашим FCM-токеном.
+3. Запустить импортёр для новой публикации.
+4. Убедиться, что push пришёл, и нажать его → открывается экран публикации.
+5. Повторно запустить импортёр — второй push НЕ приходит (строка уже есть в
+   `publication_notifications`).
+6. Выключить настройку «Уведомления о новых публикациях», импортировать ещё одну
+   публикацию — push не приходит; `is_active` для устройства стал `false`.
+7. Включить настройку обратно — `is_active = true`, push снова приходят.
+
+### iOS (что потребуется)
+
+- `GoogleService-Info.plist` из Firebase Console (iOS-приложение в том же
+  проекте Firebase) → добавить в Xcode в таргет `Runner`.
+- Xcode → Runner target → Signing & Capabilities:
+  - **Push Notifications**;
+  - **Background Modes → Remote notifications**.
+- В Apple Developer Console: создать APNs Auth Key (или APNs certificate),
+  загрузить его в Firebase Console (Cloud Messaging → iOS app settings → APNs).
+- В `Info.plist` ничего специального не требуется (код уже вызывает
+  `FirebaseApp.configure()` в `AppDelegate.swift`).
+
 ## CI/CD
 
 GitHub Actions (`.github/workflows/`): при пуше в `main` собирается

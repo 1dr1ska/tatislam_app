@@ -11,6 +11,8 @@ class SupabaseTables {
   static const String publicationsBySectionView = 'publications_by_section_view';
   static const String contentBlocks = 'content_blocks';
   static const String publicationSections = 'publication_sections';
+  static const String notificationDevices = 'notification_devices';
+  static const String publicationNotifications = 'publication_notifications';
 }
 
 class SupabaseBuckets {

@@ -38,6 +38,7 @@ class Settings:
     default_channel: str | None
     default_section_slug: str
     publication_status: str
+    push_notifications_enabled: bool
     yandex_bucket: str
     yandex_endpoint: str
     yandex_region: str
@@ -67,6 +68,16 @@ class Settings:
                 f"PUBLICATION_STATUS должно быть 'draft' или 'published', получено: {status}"
             )
 
+        push_raw = (_env("PUSH_NOTIFICATIONS_ENABLED") or "true").strip().lower()
+        if push_raw in ("1", "true", "yes", "on"):
+            push_enabled = True
+        elif push_raw in ("0", "false", "no", "off"):
+            push_enabled = False
+        else:
+            raise ConfigError(
+                f"PUSH_NOTIFICATIONS_ENABLED должно быть true/false, получено: {push_raw}"
+            )
+
         return Settings(
             telegram_api_id=api_id,
             telegram_api_hash=_required("TELEGRAM_API_HASH"),
@@ -78,6 +89,7 @@ class Settings:
             default_channel=_env("TELEGRAM_CHANNEL"),
             default_section_slug=_env("DEFAULT_SECTION_SLUG") or "articles",
             publication_status=status,
+            push_notifications_enabled=push_enabled,
             yandex_bucket=_env("YANDEX_BUCKET") or "tatislam-media",
             yandex_endpoint=_env("YANDEX_ENDPOINT") or "https://storage.yandexcloud.net",
             yandex_region=_env("YANDEX_REGION") or "ru-central1",

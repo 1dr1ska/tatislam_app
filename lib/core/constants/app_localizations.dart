@@ -60,6 +60,18 @@ class AppLocalizations {
   String get tatarLanguageLabel => 'Татарча';
   String get russianLanguageLabel => 'Русский';
 
+  // ── Push Notifications ─────────────────────────────────
+  String get notificationToggleTitle => _locale == AppLocale.tatar
+      ? 'Яңа башмалар турында белдермәләр'
+      : 'Уведомления о новых публикациях';
+  String get notificationToggleSubtitle => _locale == AppLocale.tatar
+      ? 'Яңа башма өстәлгәндә хәбәр итү'
+      : 'Сообщать, когда в приложении появляется новая публикация';
+  String get notificationOpenAction => _locale == AppLocale.tatar ? 'Ачу' : 'Открыть';
+  String get notificationNewPublicationTitle => _locale == AppLocale.tatar
+      ? 'Яңа башма'
+      : 'Новая публикация';
+
   // ── Search ──────────────────────────────────────────────
   String get searchHint => _locale == AppLocale.tatar ? 'Эзләү...' : 'Поиск...';
   String get noPublicationsFound => _locale == AppLocale.tatar ? 'Язмалар табылмады' : 'Публикации не найдены';
@@ -174,6 +186,9 @@ class AppLocalizations {
   String get uploadsAlreadyQueued => _locale == AppLocale.tatar
       ? 'Бу язма инде саклау чиратында'
       : 'Эта публикация уже в очереди на сохранение';
+  String get uploadsStillSaving => _locale == AppLocale.tatar
+      ? 'Басма әле фонда саклана. Төяүләрне көтегез'
+      : 'Публикация ещё сохраняется в фоне. Дождитесь окончания загрузки';
 
   // ── Admin: Confirmation Dialogs ─────────────────────────
   String get deleteConfirmation => _locale == AppLocale.tatar ? 'Бетерүне раслау' : 'Подтверждение удаления';

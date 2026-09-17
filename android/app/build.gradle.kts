@@ -4,6 +4,12 @@ import java.io.FileInputStream
 plugins {
     id("com.android.application")
     id("dev.flutter.flutter-gradle-plugin")
+    // Firebase: applied only when google-services.json is present so the
+    // project still builds before Firebase is configured. Add the file from
+    // the Firebase console to android/app/google-services.json to enable FCM.
+    if (file("google-services.json").exists()) {
+        id("com.google.gms.google-services")
+    }
 }
 
 val keystorePropertiesFile = rootProject.file("key.properties")

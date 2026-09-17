@@ -5,12 +5,42 @@ Service role key используется только здесь — в сер�
 """
 from __future__ import annotations
 
+import httpx
 from supabase import create_client
 
 
 class SupabaseClient:
     def __init__(self, url: str, service_role_key: str) -> None:
+        self._url = url
+        self._service_role_key = service_role_key
         self._client = create_client(url, service_role_key)
+
+    # ----------------------------------------------------------
+    # Push-уведомления
+    # ----------------------------------------------------------
+
+    def notify_new_publication(self, publication_id: str) -> None:
+        """Триггерит Edge Function notify-new-publication.
+
+        Функция сама идемпотентна: строка в publication_notifications
+        атомарно «занимается» ON CONFLICT DO NOTHING, поэтому повторные
+        вызовы для одной публикации не шлют повторный push.
+        """
+        url = f"{self._url}/functions/v1/notify-new-publication"
+        response = httpx.post(
+            url,
+            json={"publication_id": publication_id},
+            headers={
+                "Authorization": f"Bearer {self._service_role_key}",
+                "Content-Type": "application/json",
+            },
+            timeout=60.0,
+        )
+        if response.status_code >= 400:
+            raise RuntimeError(
+                f"notify-new-publication вернул {response.status_code}: "
+                f"{response.text[:500]}"
+            )
 
     # ----------------------------------------------------------
     # Чтение

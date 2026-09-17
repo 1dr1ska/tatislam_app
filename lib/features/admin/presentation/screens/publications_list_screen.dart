@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:tatislam_app/core/constants/app_colors.dart';
 import 'package:tatislam_app/core/constants/app_icons.dart';
 import 'package:tatislam_app/core/constants/app_localizations.dart';
+import 'package:tatislam_app/features/admin/queue/queue_providers.dart';
 import 'package:tatislam_app/features/publications/data/publication_providers.dart';
 import 'package:tatislam_app/features/publications/domain/entities/publication.dart';
 import 'package:tatislam_app/features/publications/presentation/providers/publications_providers.dart';
@@ -116,7 +117,9 @@ class _PublicationsListScreenState
                     children: [
                       const Icon(Icons.error, size: 64, color: Colors.red),
                       const SizedBox(height: 16),
-                      Text('${AppLocalizations.admin.publicationLoadError}${snapshot.error}'),
+                      Text(
+                        '${AppLocalizations.admin.publicationLoadError}${snapshot.error}',
+                      ),
                       const SizedBox(height: 16),
                       ElevatedButton(
                         onPressed: _refreshPublications,
@@ -188,6 +191,9 @@ class _PublicationsListScreenState
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: () {
+          if (_editBlockedByBackgroundSave(context, publication)) {
+            return;
+          }
           context.push(_editRouteFor(publication));
         },
         child: Padding(
@@ -232,8 +238,20 @@ class _PublicationsListScreenState
                   PopupMenuButton<String>(
                     onSelected: (value) {
                       if (value == 'edit') {
+                        if (_editBlockedByBackgroundSave(
+                          context,
+                          publication,
+                        )) {
+                          return;
+                        }
                         context.push(_editRouteFor(publication));
                       } else if (value == 'delete') {
+                        if (_editBlockedByBackgroundSave(
+                          context,
+                          publication,
+                        )) {
+                          return;
+                        }
                         _confirmDelete(context, publication);
                       }
                     },
@@ -331,6 +349,23 @@ class _PublicationsListScreenState
         : '/admin/publications/${publication.id}/edit';
   }
 
+  /// Prevents opening the editor or deleting a publication while a background
+  /// save job for it is still running, so the admin never edits or deletes
+  /// stale data while a save is in flight. Returns true when blocked.
+  bool _editBlockedByBackgroundSave(
+    BuildContext context,
+    Publication publication,
+  ) {
+    final queue = ref.read(publicationUploadQueueProvider);
+    if (!queue.hasActiveJobFor(publication.id)) {
+      return false;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(AppLocalizations.admin.uploadsStillSaving)),
+    );
+    return true;
+  }
+
   _StatusInfo _getStatusInfo(String status) {
     switch (status) {
       case 'draft':
@@ -355,7 +390,9 @@ class _PublicationsListScreenState
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: Text(AppLocalizations.admin.deleteConfirmation),
-        content: Text(AppLocalizations.admin.deleteConfirmationMessage(publication.title)),
+        content: Text(
+          AppLocalizations.admin.deleteConfirmationMessage(publication.title),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext),
@@ -385,15 +422,17 @@ class _PublicationsListScreenState
       _refreshPublications();
 
       if (context.mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(AppLocalizations.admin.publicationDeleted)));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(AppLocalizations.admin.publicationDeleted)),
+        );
       }
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('${AppLocalizations.admin.publicationDeleteError}$e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${AppLocalizations.admin.publicationDeleteError}$e'),
+          ),
+        );
       }
     }
   }

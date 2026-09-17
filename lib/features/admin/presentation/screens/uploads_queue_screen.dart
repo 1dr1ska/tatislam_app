@@ -137,6 +137,7 @@ class UploadsQueueScreen extends ConsumerWidget {
   Widget _buildJobCard(QueuedPublication job, WidgetRef ref) {
     final t = loc.AppLocalizations.admin;
     final style = _statusStyle(job.status);
+    final typeInfo = _typeInfoFor(job.type);
 
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
@@ -151,7 +152,18 @@ class UploadsQueueScreen extends ConsumerWidget {
             Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                Icon(style.icon, size: 18, color: style.color),
+                Container(
+                  width: 40,
+                  height: 40,
+                  clipBehavior: Clip.antiAlias,
+                  decoration: BoxDecoration(
+                    color: typeInfo.color.withValues(alpha: 0.15),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Center(
+                    child: Icon(typeInfo.icon, size: 22, color: typeInfo.color),
+                  ),
+                ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
@@ -179,6 +191,8 @@ class UploadsQueueScreen extends ConsumerWidget {
                     ],
                   ),
                 ),
+                Icon(style.icon, size: 18, color: style.color),
+                const SizedBox(width: 6),
                 if (job.status == UploadJobStatus.queued ||
                     job.status == UploadJobStatus.uploading)
                   IconButton(
@@ -307,15 +321,15 @@ class UploadsQueueScreen extends ConsumerWidget {
   _TypeInfo _typeInfoFor(String type) {
     switch (type) {
       case 'article':
-        return _TypeInfo('Статья', AppColors.articleColor);
+        return _TypeInfo(Icons.article, 'Статья', AppColors.articleColor);
       case 'audio':
-        return _TypeInfo('Аудио', AppColors.audioColor);
+        return _TypeInfo(Icons.audiotrack, 'Аудио', AppColors.audioColor);
       case 'video':
-        return _TypeInfo('Видео', AppColors.videoColor);
+        return _TypeInfo(Icons.play_circle, 'Видео', AppColors.videoColor);
       case 'photo':
-        return _TypeInfo('Фото', AppColors.photoColor);
+        return _TypeInfo(Icons.photo, 'Фото', AppColors.photoColor);
       default:
-        return _TypeInfo('Статья', AppColors.articleColor);
+        return _TypeInfo(Icons.article, 'Статья', AppColors.articleColor);
     }
   }
 }
@@ -327,7 +341,8 @@ class _JobStatusStyle {
 }
 
 class _TypeInfo {
+  final IconData icon;
   final String label;
   final Color color;
-  const _TypeInfo(this.label, this.color);
+  const _TypeInfo(this.icon, this.label, this.color);
 }

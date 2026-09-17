@@ -13,6 +13,12 @@ import 'package:tatislam_app/features/auth/providers/auth_provider.dart';
 import 'package:tatislam_app/features/detail/presentation/screens/publication_detail_screen_new.dart';
 import 'package:tatislam_app/features/publications/presentation/screens/main_screen.dart';
 
+/// App-wide [ScaffoldMessenger] key.
+///
+/// Used by non-widget code (push notification banner) that has no
+/// screen-bound [BuildContext]. Wired into `MaterialApp` in `main.dart`.
+final appScaffoldMessengerKey = GlobalKey<ScaffoldMessengerState>();
+
 /// App router configuration using go_router.
 ///
 /// Navigation structure:

@@ -52,6 +52,11 @@ dependencies:
   # Localization
   flutter_localizations:
     sdk: flutter
+
+  # Push notifications (Firebase Cloud Messaging, Android + iOS)
+  firebase_core: ^4.15.0
+  firebase_messaging: ^16.7.0
+
   mime: ^2.0.0
   webview_flutter_web: ^0.2.3+4
   web: ^1.1.1

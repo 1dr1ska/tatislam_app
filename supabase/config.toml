@@ -10,3 +10,9 @@ enabled = true
 verify_jwt = true
 import_map = "./functions/upload-media/deno.json"
 entrypoint = "./functions/delete-media/index.ts"
+
+[functions.notify-new-publication]
+enabled = true
+# Проверка JWT: вызывается импортёром с project JWT (anon или service_role).
+verify_jwt = true
+entrypoint = "./functions/notify-new-publication/index.ts"

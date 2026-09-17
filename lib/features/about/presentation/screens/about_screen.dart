@@ -9,6 +9,7 @@ import 'package:tatislam_app/core/providers/locale_provider.dart';
 import 'package:tatislam_app/core/providers/text_scale_provider.dart';
 import 'package:tatislam_app/core/utils/responsive.dart';
 import 'package:tatislam_app/features/auth/providers/auth_provider.dart';
+import 'package:tatislam_app/features/notifications/data/notification_providers.dart';
 import 'package:tatislam_app/features/publications/presentation/widgets/app_background.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -540,7 +541,55 @@ class _AboutScreenState extends ConsumerState<AboutScreen> {
             );
           },
         ),
+        const SizedBox(height: 8),
+        _buildNotificationsSwitch(appLocale, scale),
       ],
+    );
+  }
+
+  /// "Уведомления о новых публикациях" — аккуратный glassmorphism-переключатель.
+  ///
+  /// Включение/выключение синхронизируется с `notification_devices.is_active`
+  /// через [NotificationSettingsNotifier] (см. notification_providers.dart).
+  Widget _buildNotificationsSwitch(AppLocale appLocale, double scale) {
+    final t = AppLocalizations.fromLocale(appLocale);
+    final enabled = ref.watch(notificationSettingsProvider);
+    return _buildGlassCard(
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  t.notificationToggleTitle,
+                  style: TextStyle(
+                    color: const Color(0xFF1A1A2E).withValues(alpha: 0.90),
+                    fontSize: (14 * scale).roundToDouble(),
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  t.notificationToggleSubtitle,
+                  style: TextStyle(
+                    color: const Color(0xFF1A1A2E).withValues(alpha: 0.55),
+                    fontSize: (12 * scale).roundToDouble(),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          Switch(
+            value: enabled,
+            activeThumbColor: _goldAccent,
+            activeTrackColor: _goldAccent.withValues(alpha: 0.30),
+            onChanged: (value) =>
+                ref.read(notificationSettingsProvider.notifier).setEnabled(value),
+          ),
+        ],
+      ),
     );
   }
 

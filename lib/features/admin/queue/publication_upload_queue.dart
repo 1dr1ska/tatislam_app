@@ -98,6 +98,10 @@ class PublicationUploadQueue {
             : 0),
   );
 
+  /// Whether [publicationId] currently has a queued or uploading job.
+  bool hasActiveJobFor(String publicationId) =>
+      _activeJobFor(publicationId) != null;
+
   bool get hasFinishedItems => _items.any((job) => _isFinished(job.status));
 
   /// Puts [payload] into the queue and starts the background worker.

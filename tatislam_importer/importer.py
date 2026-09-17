@@ -235,6 +235,22 @@ class Importer:
                 await asyncio.to_thread(db.delete_publication, publication_id)
                 raise
 
+            # 5. Push-уведомление о новой публикации (ТОЧКА ИНТЕГРАЦИИ).
+            # Edge Function сама идемпотентна (claim по publication_id),
+            # поэтому даже при повторном запуске импортёра push уйдёт только
+            # один раз. Ошибка рассылки НЕ откатывает импорт.
+            if self.settings.push_notifications_enabled:
+                try:
+                    await asyncio.to_thread(
+                        db.notify_new_publication, publication_id
+                    )
+                except Exception as notify_exc:
+                    logger.warning(
+                        "[WARN] message %s: push notify failed: %s",
+                        parsed.message_id,
+                        notify_exc,
+                    )
+
             logger.info("[OK] Imported message %s", parsed.message_id)
             self.imported += 1
         except Exception as exc:

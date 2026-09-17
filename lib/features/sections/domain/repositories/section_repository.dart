@@ -34,6 +34,13 @@ abstract class SectionRepository {
   /// Pass null to clear the background (use default).
   Future<Section> setBackgroundImage(String id, String? backgroundImage);
 
+  /// Marks [id] as the single default primary section for new photo
+  /// publications. Any previously marked section is cleared.
+  Future<Section> setDefaultForPhoto(String id);
+
+  /// Clears the current default-for-photo section (none preselected).
+  Future<void> clearDefaultForPhoto();
+
   /// Returns sections from the local cache only, without any network call.
   /// Returns an empty list if nothing is cached.
   Future<List<Section>> getCachedSections({bool includeHidden = false});

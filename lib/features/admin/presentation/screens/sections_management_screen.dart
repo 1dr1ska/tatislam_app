@@ -18,6 +18,7 @@ class SectionsManagementScreen extends ConsumerStatefulWidget {
 class _SectionsManagementScreenState
     extends ConsumerState<SectionsManagementScreen> {
   late Future<List<Section>> _sectionsFuture;
+  bool _isSettingDefault = false;
 
   @override
   void initState() {
@@ -42,6 +43,36 @@ class _SectionsManagementScreenState
     );
     if (result == true && mounted) {
       _refreshSections();
+    }
+  }
+
+  Future<void> _setPhotoDefault(String? sectionId) async {
+    if (_isSettingDefault) return;
+    setState(() => _isSettingDefault = true);
+    try {
+      final repository = ref.read(sectionRepositoryProvider);
+      if (sectionId == null) {
+        await repository.clearDefaultForPhoto();
+      } else {
+        await repository.setDefaultForPhoto(sectionId);
+      }
+      await _refreshSections();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(AppLocalizations.admin.photoDefaultSectionSaved)),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${AppLocalizations.admin.photoDefaultSectionError}$e'),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isSettingDefault = false);
     }
   }
 
@@ -249,13 +280,108 @@ class _SectionsManagementScreenState
           onRefresh: _refreshSections,
           child: ListView.builder(
             padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
-            itemCount: sections.length,
+            itemCount: sections.length + 1,
             itemBuilder: (context, index) {
-              return _buildSectionTile(sections[index], index, sections.length);
+              if (index == 0) {
+                return _buildDefaultPhotoSectionSelector(sections);
+              }
+              final sectionIndex = index - 1;
+              return _buildSectionTile(
+                sections[sectionIndex],
+                sectionIndex,
+                sections.length,
+              );
             },
           ),
         );
       },
+    );
+  }
+
+  /// Picker for the admin-chosen default primary section of new photo
+  /// publications. Sections are dynamic, so the "default" is just a flag on
+  /// one of the sections rows the admin picks here.
+  Widget _buildDefaultPhotoSectionSelector(List<Section> sections) {
+    final defaultId = sections
+        .where((s) => s.isDefaultForPhoto)
+        .map((s) => s.id)
+        .firstOrNull;
+
+    return Card(
+      key: const Key('default-photo-section-card'),
+      margin: const EdgeInsets.only(bottom: 8),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      clipBehavior: Clip.antiAlias,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(
+                  Icons.photo_library_outlined,
+                  size: 18,
+                  color: AppColors.secondary,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    AppLocalizations.admin.defaultPhotoSection,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            DropdownButtonHideUnderline(
+              child: DropdownButton<String?>(
+                key: const Key('default-photo-section-dropdown'),
+                value: defaultId,
+                isExpanded: true,
+                isDense: true,
+                dropdownColor: Colors.white,
+                items: [
+                  DropdownMenuItem<String?>(
+                    value: null,
+                    child: Text(
+                      AppLocalizations.admin.noDefaultPhotoSection,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: AppColors.textLight,
+                      ),
+                    ),
+                  ),
+                  ...sections.map(
+                    (s) => DropdownMenuItem<String?>(
+                      value: s.id,
+                      child: Text(
+                        s.name,
+                        style: const TextStyle(fontSize: 13),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ),
+                ],
+                onChanged: _isSettingDefault
+                    ? null
+                    : (value) {
+                        if (value == defaultId) return;
+                        _setPhotoDefault(value);
+                      },
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              AppLocalizations.admin.defaultPhotoSectionHint,
+              style: const TextStyle(fontSize: 12, color: AppColors.textLight),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -320,6 +446,28 @@ class _SectionsManagementScreenState
                       color: AppColors.textLight,
                     ),
                   ),
+                  if (section.isDefaultForPhoto) ...[
+                    const SizedBox(height: 2),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.photo_library_outlined,
+                          size: 11,
+                          color: AppColors.secondary,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          AppLocalizations.admin.defaultForPhotoBadge,
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: AppColors.secondary,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ],
               ),
             ),

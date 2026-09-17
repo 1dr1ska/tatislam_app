@@ -240,6 +240,23 @@ class AppLocalizations {
   String sectionLoadError(String error) =>
       _locale == AppLocale.tatar ? 'Бүлекләрне төяү хатасы: $error' : 'Ошибка загрузки разделов: $error';
 
+  // ── Admin: Default Section for Photos ───────────────────
+  String get defaultPhotoSection =>
+      _locale == AppLocale.tatar ? 'Фото өчен гадәти бүлек' : 'Раздел по умолчанию для фото';
+  String get defaultPhotoSectionHint => _locale == AppLocale.tatar
+      ? 'Бу бүлек яңа фото басмалар өчен төп бүлек итеп алдан сайланачак'
+      : 'Этот раздел будет автоматически выбран основным для новых фотопубликаций';
+  String get noDefaultPhotoSection =>
+      _locale == AppLocale.tatar ? 'Сайланмаган' : 'Не выбран';
+  String get defaultForPhotoBadge =>
+      _locale == AppLocale.tatar ? 'Фото өчен гадәти' : 'По умолчанию для фото';
+  String get photoDefaultSectionSaved => _locale == AppLocale.tatar
+      ? 'Фото өчен гадәти бүлек сакланды'
+      : 'Раздел по умолчанию для фото сохранён';
+  String get photoDefaultSectionError => _locale == AppLocale.tatar
+      ? 'Гадәти бүлекне саклау хатасы: '
+      : 'Ошибка сохранения раздела по умолчанию: ';
+
   // ── Auth ────────────────────────────────────────────────
   String get email => 'Email';
   String get password => _locale == AppLocale.tatar ? 'Серле сүз' : 'Пароль';
@@ -310,7 +327,7 @@ class AppLocalizations {
   String get featureArticles => _locale == AppLocale.tatar ? 'Мәкаләләр' : 'Статьи';
   String get featureSearch => _locale == AppLocale.tatar ? 'Эзләү' : 'Поиск';
   String get featureFavorites => _locale == AppLocale.tatar ? 'Сайланганнар' : 'Избранное';
-  String get featureFilters => _locale == AppLocale.tatar ? 'Сөзгечләр' : 'Фильтры';
+  String get featureImages => _locale == AppLocale.tatar ? 'Рәсемнәр' : 'Изображения';
   String get links => _locale == AppLocale.tatar ? 'Сылтамалар:' : 'Ссылки:';
   String get contacts => _locale == AppLocale.tatar ? 'Контактлар:' : 'Контакты:';
   String get linkOurSite => _locale == AppLocale.tatar ? 'Безнең сайт' : 'Наш сайт';

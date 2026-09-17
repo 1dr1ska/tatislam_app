@@ -103,4 +103,13 @@ class SectionRepositoryImpl implements SectionRepository {
     final model = await _remote.updateBackground(id, backgroundImage);
     return model.toEntity();
   }
+
+  @override
+  Future<Section> setDefaultForPhoto(String id) async {
+    final model = await _remote.setDefaultForPhoto(id);
+    return model.toEntity();
+  }
+
+  @override
+  Future<void> clearDefaultForPhoto() => _remote.clearDefaultForPhoto();
 }

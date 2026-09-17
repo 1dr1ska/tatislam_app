@@ -3,6 +3,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:flutter/services.dart' show MethodChannel;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:tatislam_app/core/navigation/app_router.dart';
@@ -78,6 +79,17 @@ void main() async {
         ),
       );
       BackgroundAudioHandler.enable();
+
+      // Bridge for the native notification watcher (MediaListenerService):
+      // when the SYSTEM removes our media notification while audio is playing,
+      // the service asks Dart to restore it via this channel.
+      const MethodChannel('tatislam/notification').setMethodCallHandler((
+        call,
+      ) async {
+        if (call.method == 'restoreNotification') {
+          await BackgroundAudioHandler.instance.restoreNotification();
+        }
+      });
     } catch (e) {
       // AudioService init must never block the app launch: on any platform
       // config problem we keep the app alive without the media notification.

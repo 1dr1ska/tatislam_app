@@ -119,6 +119,36 @@ class SectionRemoteDataSource {
     }
   }
 
+  /// Marks [id] as the single default primary section for new photo
+  /// publications, clearing any previous default. The partial unique index
+  /// enforces "at most one default", so the previous flag is cleared first.
+  Future<SectionModel> setDefaultForPhoto(String id) async {
+    try {
+      await clearDefaultForPhoto();
+      final row = await _client
+          .from(SupabaseTables.sections)
+          .update({'is_default_for_photo': true})
+          .eq('id', id)
+          .select()
+          .single();
+      return SectionModel.fromJson(row);
+    } catch (e) {
+      throw ServerException('Failed to set default photo section: $e');
+    }
+  }
+
+  /// Clears the current default-for-photo section (none preselected).
+  Future<void> clearDefaultForPhoto() async {
+    try {
+      await _client
+          .from(SupabaseTables.sections)
+          .update({'is_default_for_photo': false})
+          .eq('is_default_for_photo', true);
+    } catch (e) {
+      throw ServerException('Failed to clear default photo section: $e');
+    }
+  }
+
   Future<void> reorderSections(List<String> orderedIds) async {
     try {
       for (var i = 0; i < orderedIds.length; i++) {

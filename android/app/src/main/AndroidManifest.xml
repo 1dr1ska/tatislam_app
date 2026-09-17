@@ -58,6 +58,21 @@
                 <action android:name="android.intent.action.MEDIA_BUTTON" />
             </intent-filter>
         </receiver>
+        <!-- Watches the system for REMOVAL of our media notification and, while
+             audio is still playing, restores it immediately (Android 13+ lets
+             users swipe media notifications; this makes the player effectively
+             non-closable during playback). Requires "Notification access" for
+             the app in Android settings; without it the listener is inert and
+             the app falls back to the standard re-posting behaviour. -->
+        <service
+            android:name=".MediaListenerService"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE"
+            android:exported="true"
+            tools:ignore="Instantiatable">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
+        </service>
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data

@@ -75,23 +75,27 @@ void main() {
       expect(handler.mediaItem.value?.duration, const Duration(seconds: 60));
     });
 
-    test(
-      'swiping the notification while playing does NOT stop the player',
-      () async {
-        await player.play();
+    test('swiping the notification while playing schedules the restore pulse '
+        'and does NOT stop the player', () async {
+      await player.play();
 
-        final rePosts = <MediaItem?>[];
-        final sub = handler.mediaItem.listen(rePosts.add);
-        addTearDown(sub.cancel);
+      final states = <bool>[];
+      final sub = handler.playbackState.listen((s) => states.add(s.playing));
+      addTearDown(sub.cancel);
 
-        await handler.onNotificationDeleted();
+      await handler.onNotificationDeleted();
 
-        // The notification was re-posted and playback kept running.
-        expect(rePosts.where((m) => m != null), isNotEmpty);
-        expect(player.playing, isTrue);
-        expect(player._stopped, isFalse);
-      },
-    );
+      // The restore pulse immediately publishes a paused edge...
+      expect(states.last, isFalse);
+      expect(player.playing, isTrue);
+      expect(player._stopped, isFalse);
+
+      // ...then (after the short delay) re-activates playback notification.
+      await Future<void>.delayed(const Duration(milliseconds: 250));
+      expect(states, contains(false));
+      expect(states.where((p) => p).isNotEmpty, isTrue);
+      expect(player.playing, isTrue);
+    });
 
     test(
       'swiping the notification while paused stops and closes the player',

@@ -14,6 +14,10 @@ class Section extends Equatable {
   final DateTime updatedAt;
   final String? backgroundImage;
 
+  /// When true, new photo publications get this section preselected as their
+  /// primary section. Only one section can be the default at a time.
+  final bool isDefaultForPhoto;
+
   const Section({
     required this.id,
     required this.name,
@@ -23,6 +27,7 @@ class Section extends Equatable {
     required this.createdAt,
     required this.updatedAt,
     this.backgroundImage,
+    this.isDefaultForPhoto = false,
   });
 
   Section copyWith({
@@ -31,6 +36,7 @@ class Section extends Equatable {
     bool? isVisible,
     int? sortOrder,
     String? backgroundImage,
+    bool? isDefaultForPhoto,
   }) {
     return Section(
       id: id,
@@ -41,6 +47,7 @@ class Section extends Equatable {
       createdAt: createdAt,
       updatedAt: updatedAt,
       backgroundImage: backgroundImage ?? this.backgroundImage,
+      isDefaultForPhoto: isDefaultForPhoto ?? this.isDefaultForPhoto,
     );
   }
 
@@ -54,5 +61,6 @@ class Section extends Equatable {
     createdAt,
     updatedAt,
     backgroundImage,
+    isDefaultForPhoto,
   ];
 }

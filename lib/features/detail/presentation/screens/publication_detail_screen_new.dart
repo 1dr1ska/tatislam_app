@@ -257,89 +257,109 @@ class _PublicationDetailScreenState
     MediaStorageRepository mediaStorage,
     double horizontalPadding,
   ) {
-    return SingleChildScrollView(
-      physics: const AlwaysScrollableScrollPhysics(),
-      padding: EdgeInsets.symmetric(
-        horizontal: horizontalPadding,
-        vertical: 24,
-      ),
-      child: Align(
-        alignment: Alignment.topCenter,
-        child: ConstrainedBox(
-          constraints: BoxConstraints(
-            maxWidth: 860,
-            minHeight: MediaQuery.of(context).size.height,
+    const double verticalPadding = 24;
+
+    return LayoutBuilder(
+      builder: (context, viewportConstraints) {
+        // The glass panel hugs its content instead of stretching to the full
+        // screen height. The minimum height below only guarantees that short
+        // publications still fill a scrollable viewport (so that
+        // pull-to-refresh works), while the panel itself stays compact and
+        // gets vertically centered on the screen.
+        final remainingHeight =
+            viewportConstraints.maxHeight - verticalPadding * 2;
+        final minHeight = remainingHeight > 0 ? remainingHeight : 0.0;
+
+        return SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: EdgeInsets.symmetric(
+            horizontal: horizontalPadding,
+            vertical: verticalPadding,
           ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(_detailGlassRadius),
-            child: BackdropFilter(
-              filter: ImageFilter.blur(
-                sigmaX: _detailGlassBlur,
-                sigmaY: _detailGlassBlur,
-              ),
-              child: Container(
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: _detailGlassOpacity),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: minHeight),
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 860),
+                child: ClipRRect(
                   borderRadius: BorderRadius.circular(_detailGlassRadius),
-                  border: Border.all(
-                    color: Colors.white.withValues(
-                      alpha: _detailGlassBorderOpacity,
+                  child: BackdropFilter(
+                    filter: ImageFilter.blur(
+                      sigmaX: _detailGlassBlur,
+                      sigmaY: _detailGlassBlur,
                     ),
-                    width: _detailGlassBorderWidth,
-                  ),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Title and date keep the card's horizontal
-                    // padding; media blocks span edge-to-edge.
-                    Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: _detailPadding,
+                    child: Container(
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(
+                          alpha: _detailGlassOpacity,
+                        ),
+                        borderRadius: BorderRadius.circular(_detailGlassRadius),
+                        border: Border.all(
+                          color: Colors.white.withValues(
+                            alpha: _detailGlassBorderOpacity,
+                          ),
+                          width: _detailGlassBorderWidth,
+                        ),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // Full title — always visible, not truncated
-                          SelectableText(
-                            publication.publication.title,
-                            style: Theme.of(context).textTheme.headlineSmall
-                                ?.copyWith(
-                                  color: const Color(0xFFFEFEF7),
-                                  fontWeight: FontWeight.w600,
-                                ),
-                          ),
-                          const SizedBox(height: 8),
-                          // Publication date
-                          Text(
-                            formatRelativeDate(
-                              publication.publication.publishedAt,
+                          // Title and date keep the card's horizontal
+                          // padding; media blocks span edge-to-edge.
+                          Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: _detailPadding,
                             ),
-                            style: Theme.of(context).textTheme.bodySmall
-                                ?.copyWith(
-                                  color: Colors.white.withValues(alpha: 0.75),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                // Full title — always visible, not truncated
+                                SelectableText(
+                                  publication.publication.title,
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .headlineSmall
+                                      ?.copyWith(
+                                        color: const Color(0xFFFEFEF7),
+                                        fontWeight: FontWeight.w600,
+                                      ),
                                 ),
+                                const SizedBox(height: 8),
+                                // Publication date
+                                Text(
+                                  formatRelativeDate(
+                                    publication.publication.publishedAt,
+                                  ),
+                                  style: Theme.of(context).textTheme.bodySmall
+                                      ?.copyWith(
+                                        color: Colors.white.withValues(
+                                          alpha: 0.75,
+                                        ),
+                                      ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 20),
+                          // Content blocks
+                          ...publication.blocks.map(
+                            (block) => _buildContentBlock(
+                              block,
+                              mediaStorage,
+                              publication.publication.title,
+                            ),
                           ),
                         ],
                       ),
                     ),
-                    const SizedBox(height: 20),
-                    // Content blocks
-                    ...publication.blocks.map(
-                      (block) => _buildContentBlock(
-                        block,
-                        mediaStorage,
-                        publication.publication.title,
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
               ),
             ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 }

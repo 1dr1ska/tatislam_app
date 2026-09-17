@@ -323,8 +323,8 @@ class _AboutScreenState extends ConsumerState<AboutScreen> {
             const SizedBox(width: 10),
             Expanded(
               child: _buildFeatureCard(
-                icon: Icons.filter_alt,
-                label: AppLocalizations.of(ref).featureFilters,
+                icon: Icons.image,
+                label: AppLocalizations.of(ref).featureImages,
               ),
             ),
           ],

@@ -10,6 +10,7 @@ class SectionModel {
   final DateTime createdAt;
   final DateTime updatedAt;
   final String? backgroundImage;
+  final bool isDefaultForPhoto;
 
   const SectionModel({
     required this.id,
@@ -20,6 +21,7 @@ class SectionModel {
     required this.createdAt,
     required this.updatedAt,
     this.backgroundImage,
+    this.isDefaultForPhoto = false,
   });
 
   factory SectionModel.fromJson(Map<String, dynamic> json) {
@@ -32,6 +34,7 @@ class SectionModel {
       createdAt: DateTime.parse(json['created_at'] as String),
       updatedAt: DateTime.parse(json['updated_at'] as String),
       backgroundImage: json['background_image'] as String?,
+      isDefaultForPhoto: json['is_default_for_photo'] as bool? ?? false,
     );
   }
 
@@ -45,6 +48,7 @@ class SectionModel {
     'created_at': createdAt.toIso8601String(),
     'updated_at': updatedAt.toIso8601String(),
     if (backgroundImage != null) 'background_image': backgroundImage,
+    'is_default_for_photo': isDefaultForPhoto,
   };
 
   /// Minimal JSON for insert (no id, no timestamps — server fills them).
@@ -54,6 +58,7 @@ class SectionModel {
     'is_visible': isVisible,
     'sort_order': sortOrder,
     if (backgroundImage != null) 'background_image': backgroundImage,
+    'is_default_for_photo': isDefaultForPhoto,
   };
 
   Section toEntity() => Section(
@@ -65,5 +70,6 @@ class SectionModel {
     createdAt: createdAt,
     updatedAt: updatedAt,
     backgroundImage: backgroundImage,
+    isDefaultForPhoto: isDefaultForPhoto,
   );
 }

@@ -2,8 +2,14 @@ import 'dart:async';
 
 import 'package:audio_service/audio_service.dart';
 import 'package:flutter/foundation.dart' show debugPrint;
+import 'package:flutter/services.dart' show MethodChannel;
 import 'package:just_audio/just_audio.dart'
     show AudioPlayer, PlayerState, ProcessingState;
+
+/// Bridge to the native media-notification watcher (see MediaListenerService).
+const MethodChannel _mediaNotificationChannel = MethodChannel(
+  'tatislam/notification',
+);
 
 /// Bridges the single shared just_audio player to the system media session
 /// (Android notification / iOS Control Center & lock screen).
@@ -75,11 +81,15 @@ class BackgroundAudioHandler extends BaseAudioHandler with SeekHandler {
   AudioProcessingState? _lastProcessingState;
 
   // Android 13+ lets the user swipe the media notification away (no API to
-  // block the gesture). While the audio is actually playing we keep a quiet
-  // heartbeat that re-publishes the state, so a dismissed notification
-  // reappears within a few seconds and playback is never interrupted.
+  // block the gesture). While audio is actually playing we keep a heartbeat
+  // that re-publishes the state with CHANGING content, so a dismissed
+  // notification reappears within a few seconds and playback is never
+  // interrupted. Varying content matters: Android's flood protection swallows
+  // identical updates to a notification the user just dismissed, but a
+  // genuinely new notification (changed extras) is re-posted.
   Timer? _keepAliveTicker;
-  static final Duration _keepAliveInterval = const Duration(seconds: 8);
+  static final Duration _keepAliveInterval = Duration(seconds: 6);
+  int _keepAliveTick = 0;
 
   /// Connects the shared player: after this, player events drive the media
   /// session. Idempotent — call it once per player; later calls (e.g. after a
@@ -164,14 +174,17 @@ class BackgroundAudioHandler extends BaseAudioHandler with SeekHandler {
   @override
   Future<void> onNotificationDeleted() async {
     // Called when the system removed the notification (swipe / clear / X).
-    //  - audio playing → keep playing and re-post the notification above;
-    //  - paused → close the player, which also hides the Mini Player
-    //    (the shared player goes idle → AudioSnapshot clears the track).
+    //  - audio playing → restore via a fresh foreground cycle (see
+    //    restoreNotification) — playback is never interrupted;
+    //  - paused → close the player, which also hides the Mini Player.
     debugPrint(
       'BackgroundAudioHandler.onNotificationDeleted '
       '(playing: ${_attachedPlayer?.playing ?? false})',
     );
-    await stop();
+    await restoreNotification();
+    if (!(_attachedPlayer?.playing ?? false)) {
+      await stop();
+    }
   }
 
   void _broadcastState() {
@@ -207,10 +220,50 @@ class BackgroundAudioHandler extends BaseAudioHandler with SeekHandler {
     );
   }
 
+  Future<void> restoreNotification() async {
+    if (!supported || !(_attachedPlayer?.playing ?? false)) return;
+    // Force a fresh foreground notification cycle. audio_service only calls
+    // the Android plugin's enterPlayingState() (which START-FOREGROUNDs a new,
+    // re-shown notification) on a playing:false → playing:true rising edge.
+    // A plain updateNotification() does NOT bring back a dismissed card.
+    playbackState.add(
+      BackgroundAudioHandler.notificationState(
+        playing: false,
+        processingState: AudioProcessingState.ready,
+      ),
+    );
+    _keepAliveTicker?.cancel();
+    _keepAliveTicker = null;
+    Future<void>.delayed(const Duration(milliseconds: 150), () {
+      if (!supported || !(_attachedPlayer?.playing ?? false)) return;
+      _broadcastState();
+      playbackState.add(
+        BackgroundAudioHandler.notificationState(
+          playing: true,
+          processingState: AudioProcessingState.ready,
+        ),
+      );
+      _updateKeepAliveTicker();
+    });
+  }
+
+  /// Keeps the native watcher's «is playing» flag in sync so it can decide to
+  /// restore the notification when the system removes it.
+  Future<void> _publishPlayingFlag(bool playing) async {
+    try {
+      await _mediaNotificationChannel.invokeMethod('setPlaying', {
+        'playing': playing,
+      });
+    } catch (_) {
+      // Channel/missing platform — best effort only.
+    }
+  }
+
   /// Starts/stops the heartbeat that re-posts a swiped notification while the
-  /// audio is running.
+  /// audio is running, and keeps the native watcher's «is playing» flag in sync.
   void _updateKeepAliveTicker() {
     final playing = _attachedPlayer?.playing ?? false;
+    _publishPlayingFlag(playing);
     if (playing && _keepAliveTicker == null) {
       _keepAliveTicker = Timer.periodic(_keepAliveInterval, (_) {
         _keepAlive();
@@ -223,8 +276,16 @@ class BackgroundAudioHandler extends BaseAudioHandler with SeekHandler {
 
   void _keepAlive() {
     if (!supported) return;
+    final item = _mediaItem;
+    if (item != null) {
+      _keepAliveTick++;
+      // Re-publish with a *changing* extras value: identical content is
+      // swallowed as a flood-protected duplicate right after a swipe, while a
+      // changed notification is treated as new and re-shown by the system.
+      mediaItem.add(item.copyWith(extras: {'keepAlive': _keepAliveTick}));
+    }
     // A fresh PlaybackState forces audio_service to re-post the notification
-    // even if every value is unchanged.
+    // even if every visible value is unchanged.
     playbackState.add(
       playbackState.value.copyWith(speed: playbackState.value.speed),
     );

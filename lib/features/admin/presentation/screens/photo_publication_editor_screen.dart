@@ -80,7 +80,22 @@ class _PhotoPublicationEditorScreenState
 
   Future<List<Section>> _loadSections() async {
     final repository = ref.read(sectionRepositoryProvider);
-    return repository.getSections(includeHidden: true);
+    final sections = await repository.getSections(includeHidden: true);
+
+    // For a brand-new photo publication, preselect the admin-chosen default
+    // section (if any) so the primary section doesn't have to be picked every
+    // time. Editing an existing publication keeps its saved primary section.
+    if (widget.publicationId == null && _primarySectionId == null) {
+      final defaultSection = sections
+          .where((s) => s.isDefaultForPhoto)
+          .firstOrNull;
+      if (defaultSection != null) {
+        _primarySectionId = defaultSection.id;
+        _selectedSectionIds.add(defaultSection.id);
+      }
+    }
+
+    return sections;
   }
 
   Future<PublicationDetail?> _loadPublication(String id) async {

@@ -14,10 +14,16 @@ class ImageViewerScreen extends ConsumerStatefulWidget {
   /// Suggested file name for download/share; derived from [imageUrl] when null.
   final String? fileName;
 
+  /// Optional custom close handler. Defaults to `Navigator.pop` (used when the
+  /// viewer is pushed onto the Navigator directly, e.g. from the grid card).
+  /// Pass a go_router-aware callback when the viewer is hosted inside a route.
+  final VoidCallback? onClose;
+
   const ImageViewerScreen({
     super.key,
     required this.imageUrl,
     this.fileName,
+    this.onClose,
   });
 
   @override
@@ -177,7 +183,7 @@ class _ImageViewerScreenState extends ConsumerState<ImageViewerScreen> {
                       color: Colors.white,
                       size: 28,
                     ),
-                    onTap: () => Navigator.of(context).pop(),
+                    onTap: widget.onClose ?? () => Navigator.of(context).pop(),
                   ),
                 ],
               ),

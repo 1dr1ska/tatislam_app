@@ -12,9 +12,11 @@ import 'package:tatislam_app/core/utils/date_format.dart';
 import 'package:tatislam_app/core/utils/responsive.dart';
 import 'package:tatislam_app/features/favorites/providers/favorites_provider.dart';
 import 'package:tatislam_app/features/publications/domain/entities/content_block.dart';
+import 'package:tatislam_app/features/publications/domain/entities/publication.dart';
 import 'package:tatislam_app/features/publications/presentation/widgets/app_background.dart';
 import 'package:tatislam_app/features/publications/providers/publications_provider.dart';
 import 'package:tatislam_app/features/publications/providers/section_background_provider.dart';
+import 'package:tatislam_app/features/detail/presentation/screens/image_viewer_screen.dart';
 import 'package:tatislam_app/features/detail/presentation/widgets/text_content_widget.dart';
 import 'package:tatislam_app/features/detail/presentation/widgets/image_content_widget.dart';
 import 'package:tatislam_app/features/detail/presentation/widgets/video_content_widget.dart';
@@ -139,12 +141,29 @@ class _PublicationDetailScreenState
 
     String? backgroundImage;
     String? publicationTitle;
+    Publication? photoPublication;
     if (asyncPublication is AsyncData && asyncPublication.value != null) {
       final publication = asyncPublication.value!.publication;
       publicationTitle = publication.title;
       backgroundImage = ref
           .watch(sectionByIdProvider(publication.primarySectionId))
           ?.backgroundImage;
+      // У фото-публикаций нет контент-блоков — они всегда открываются
+      // полноэкранным просмотрщиком (как из сетки, так и с push-тапа).
+      if (publication.type == 'photo' &&
+          publication.photoPath != null &&
+          publication.photoPath!.isNotEmpty) {
+        photoPublication = publication;
+      }
+    }
+
+    if (photoPublication != null) {
+      final photoPath = photoPublication.photoPath!;
+      return ImageViewerScreen(
+        imageUrl: mediaStorage.publicUrlFor(photoPath),
+        fileName: photoPath.split('/').last,
+        onClose: () => _navigateBackSafely(context),
+      );
     }
 
     return Stack(

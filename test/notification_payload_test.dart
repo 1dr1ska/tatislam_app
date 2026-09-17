@@ -9,11 +9,26 @@ void main() {
         'publication_id': 'pub-1',
         'publication_type': 'article',
         'publication_title': 'Татарская мечеть',
+        'publication_photo_path': 'images/abc.png',
       });
 
       expect(payload.publicationId, 'pub-1');
       expect(payload.publicationType, 'article');
       expect(payload.publicationTitle, 'Татарская мечеть');
+      expect(payload.publicationPhotoPath, 'images/abc.png');
+    });
+
+    test('photo publications carry the photo path for the fullscreen viewer', () {
+      final payload = PushPayload.fromData({
+        'type': 'new_publication',
+        'publication_id': 'pub-2',
+        'publication_type': 'photo',
+        'publication_title': 'Фото',
+        'publication_photo_path': 'images/xyz.png',
+      });
+
+      expect(payload.publicationType, 'photo');
+      expect(payload.publicationPhotoPath, 'images/xyz.png');
     });
 
     test('is empty for messages with a different type', () {

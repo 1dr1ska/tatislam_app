@@ -252,12 +252,17 @@ async function fetchPublication(
   supabaseUrl: string,
   serviceKey: string,
   publicationId: string
-): Promise<{ title: string; type: string; status: string | null } | null> {
+): Promise<{
+  title: string;
+  type: string;
+  status: string | null;
+  photoPath: string | null;
+} | null> {
   const encoded = encodeURIComponent(publicationId);
   const response = await supabaseFetch(
     supabaseUrl,
     serviceKey,
-    `/rest/v1/publications?id=eq.${encoded}&select=id,title,type,status`
+    `/rest/v1/publications?id=eq.${encoded}&select=id,title,type,status,photo_path`
   );
   if (!response.ok) {
     throw new Error(`publications fetch failed (${response.status}): ${await response.text()}`);
@@ -268,6 +273,7 @@ async function fetchPublication(
         title: rows[0].title ?? "",
         type: rows[0].type ?? "article",
         status: rows[0].status ?? null,
+        photoPath: rows[0].photo_path ?? null,
       }
     : null;
 }
@@ -436,6 +442,11 @@ Deno.serve(async (req) => {
           publication_id: publicationId,
           publication_type: publication.type,
           publication_title: publication.title,
+          // Нужен на клиенте, чтобы тап по push на фото-публикацию открывал
+          // полноэкранный просмотрщик, а не пустой детальный экран.
+          ...(publication.photoPath != null
+            ? { publication_photo_path: publication.photoPath }
+            : {}),
         },
         android: {
           priority: "HIGH",

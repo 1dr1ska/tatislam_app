@@ -59,6 +59,10 @@ class _InAppNotificationListenerState
   void _handleTap(PushPayload payload) {
     final publicationId = payload.publicationId;
     if (publicationId == null) return;
+
+    // Фото-публикации открываются полноэкранным просмотрщиком автоматически:
+    // детальный экран (/publication/:id) сам рендерит ImageViewerScreen для
+    // type == 'photo' (у них нет контент-блоков).
     final router = ref.read(appRouterProvider);
     final route = '/publication/$publicationId';
     if (router.state.matchedLocation != route) {

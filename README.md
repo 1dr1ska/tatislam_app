@@ -172,14 +172,19 @@ Android / iOS
    `supabase secrets set --env-file ...` или Dashboard → Edge Functions →
    `notify-new-publication` → Secrets: `FIREBASE_SERVICE_ACCOUNT_JSON` (весь JSON
    одной строкой). Опционально `NOTIFICATION_TITLE` и `NOTIFICATION_BODY_PREFIX`
-   (по умолчанию текст уведомления на татарском: «Яңа башма» /
-   «Кушымтага яңа башма өстәлде: <название>»).
+   (по умолчанию текст уведомления на татарском: «Яңа публикация» /
+   «Кушымтага яңа публикация өстәлде: <название>»).
 4. **Иконка системного уведомления Android**: маленькая иконка — белый силуэт
-   иконки приложения на зелёном кружке (`res/drawable-*/ic_stat_notification.png`,
-   цвет `notification_badge_color` в `AndroidManifest.xml`); крупная цветная иконка
-   подключается опционально: загрузите `assets/images/app_icon.png` в публичный
-   бакет (например `https://storage.yandexcloud.net/tatislam-media/app_icon.png`)
-   и задайте секрет `NOTIFICATION_APP_ICON_URL`.
+   иконки приложения на зелёном кружке — задаётся **только** манифестом
+   (`res/drawable-*/ic_stat_notification.png` + `default_notification_icon` /
+   `notification_badge_color` в `AndroidManifest.xml`) и применяется автоматически
+   в новых сборках APK. **Не передавайте этот drawable в payload Edge Function**
+   (`notification.icon`): если ресурс отсутствует в установленной версии
+   приложения, Android бросает ResourceNotFoundException и **уведомление не
+   показывается вовсе**. Крупная цветная иконка подключается опционально:
+   загрузите `assets/images/app_icon.png` в публичный бакет (например
+   `https://storage.yandexcloud.net/tatislam-media/app_icon.png`) и задайте
+   секрет `NOTIFICATION_APP_ICON_URL` (URL должен быть публично доступен).
 5. **Применить миграцию**: из директории `supabase/` выполнить
    `supabase db push` (миграция `0028_push_notifications.sql`).
 6. **Задеплоить функцию**: `supabase functions deploy notify-new-publication`.
@@ -198,6 +203,49 @@ Android / iOS
 6. Выключить настройку «Уведомления о новых публикациях», импортировать ещё одну
    публикацию — push не приходит; `is_active` для устройства стал `false`.
 7. Включить настройку обратно — `is_active = true`, push снова приходят.
+
+### Диагностика «уведомление не приходит»
+
+1. **Убедиться, что задеплоена актуальная версия функции.** Старая версия с полем
+   `notification.icon` (drawable `ic_stat_notification`) **ломает показ на Android**:
+   если ресурса нет в установленном приложении, Android молча не показывает
+   уведомление — при этом FCM-сервер принимает сообщение, поэтому в базе статус
+   будет `sent` без ошибок. Передеплойте функцию из актуального репозитория:
+   `supabase functions deploy notify-new-publication`.
+
+2. **Проверить payload без отправки** (`dry_run`; не резервирует claim):
+   ```bash
+   curl -X POST "$SUPABASE_URL/functions/v1/notify-new-publication" \
+     -H "Authorization: Bearer $SUPABASE_ANON_KEY" \
+     -H "Content-Type: application/json" \
+     -d '{"publication_id":"<id УЖЕ уведомлённой публикации>","dry_run":true}'
+   ```
+   - ответ содержит `"dry_run": true` и `version` → задеплоена новая версия;
+     поле `iconPresent: false` — icon не отправляется; `title`/`body` — татарский
+     текст; `tokenCount` — число активных устройств.
+   - ответ `{"duplicate": true}` или 404 → задеплоена старая версия (dry_run ей
+     неизвестен) — передеплойте.
+
+3. **Проверить отправку на НОВОЙ публикации.** Для уже уведомлённой публикации
+   функция всегда вернёт `duplicate` (идемпотентность) — она не отправит повторно.
+   Тестируйте только на публикации, которая ещё не получала уведомление.
+
+4. **SQL-проверки** (Supabase → SQL Editor):
+   ```sql
+   -- Активные устройства (должна быть хотя бы одна строка с вашим токеном):
+   select id, fcm_token, is_active, updated_at from notification_devices order by updated_at desc limit 10;
+   -- Статус последних уведомлений (status, last_error, attempts):
+   select * from publication_notifications order by created_at desc limit 10;
+   ```
+   Пустой `notification_devices` → устройство отказалось от уведомлений или токен
+   был деактивирован (например, из-за прежних версий). Ненулевой `last_error` —
+   смотрите логи функции (Dashboard → Edge Functions → notify-new-publication →
+   Logs): видно `INVALID_ARGUMENT`/`UNREGISTERED` (битый токен) и т.п.
+
+5. **Проверка на устройстве.** Приложение должно быть в фоне или свёрнуто:
+   в активном (foreground) состоянии система не показывает системный push, вместо
+   него приложение рисует собственный баннер. Проверяйте телефон «заблокированным»
+   или при переключённом приложении.
 
 ### iOS (что потребуется)
 

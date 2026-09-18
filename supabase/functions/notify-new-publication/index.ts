@@ -8,6 +8,10 @@
 //   POST {SUPABASE_URL}/functions/v1/notify-new-publication
 //   Authorization: Bearer <project JWT: anon или service_role>
 //   body: { "publication_id": "uuid" }
+//         { "publication_id": "uuid", "dry_run": true } — собрать и показать
+//           payload (текст, иконки, число получателей) БЕЗ отправки и без
+//           резервирования claim. Диагностика: старая версия функции не знает
+//           dry_run и на уже использованном publication_id вернёт duplicate.
 //
 // Семантика «первая публикация» и идемпотентность:
 //   1. Если публикация ещё НЕ в статусе published (черновик) — функция
@@ -32,6 +36,10 @@
 
 const SERVICE_ACCOUNT_SECRET = "FIREBASE_SERVICE_ACCOUNT_JSON";
 
+// Маркер версии функции для dry_run: помогает отличить задеплоенную версию от
+// кода в репозитории (старая версия не умеет dry_run и не вернёт этот маркер).
+const NOTIFY_FUNCTION_VERSION = "2026-09-18/no-icon/dry-run";
+
 const OAUTH_TOKEN_URL = "https://oauth2.googleapis.com/token";
 const FIREBASE_MESSAGING_SCOPE =
   "https://www.googleapis.com/auth/firebase.messaging";
@@ -39,8 +47,8 @@ const FCM_V1_BASE_URL = "https://fcm.googleapis.com/v1/projects";
 
 // Текст уведомления. Можно переопределить через секреты Edge Function
 // (NOTIFICATION_TITLE, NOTIFICATION_BODY_PREFIX).
-const DEFAULT_NOTIFICATION_TITLE = "Яңа башма";
-const DEFAULT_NOTIFICATION_BODY_PREFIX = "Кушымтага яңа башма өстәлде: ";
+const DEFAULT_NOTIFICATION_TITLE = "Яңа публикация";
+const DEFAULT_NOTIFICATION_BODY_PREFIX = "Кушымтага яңа публикация өстәлде: ";
 
 // CORS: функция вызывается не только сервером (импортёр/curl), но и из
 // браузерной (web) версии админ-редактора, поэтому нужны те же заголовки,
@@ -372,6 +380,7 @@ Deno.serve(async (req) => {
     if (typeof publicationId !== "string" || publicationId.length === 0) {
       return jsonResponse({ error: "publication_id is required" }, 400);
     }
+    const dryRun = body?.dry_run === true;
 
     // ---- 1. Публикация должна быть действительно опубликована. --------------
     // Статус проверяется ДО claim: создание со статусом draft (вспомогательный)
@@ -391,6 +400,50 @@ Deno.serve(async (req) => {
       // вызов (после публикации) сможет отправить его.
       return jsonResponse(
         { ok: true, skipped: true, reason: `status=${publication.status}` },
+        200
+      );
+    }
+
+    // ---- 1.5 (диагностика) dry_run: показать payload без отправки. ----------
+    // Не резервирует claim и ничего не шлёт. Позволяет проверить, какая версия
+    // функции задеплоена (старая не знает dry_run и вернёт duplicate / 404), и
+    // какой именно текст/иконки ушли бы в push. Проверяем заодно возможность
+    // получить OAuth-токен Firebase (слабый признак корректности service account).
+    if (dryRun) {
+      const tokens = await fetchActiveTokens(supabaseUrl, serviceKey);
+      const serviceAccount = parseServiceAccount(serviceAccountRaw);
+      // Проверяем, что OAuth-токен Firebase вообще получается (сломанный
+      // service account даст понятную ошибку прямо в ответе dry_run).
+      await getAccessToken(serviceAccount);
+      const title =
+        Deno.env.get("NOTIFICATION_TITLE") ?? DEFAULT_NOTIFICATION_TITLE;
+      const bodyPrefix =
+        Deno.env.get("NOTIFICATION_BODY_PREFIX") ??
+        DEFAULT_NOTIFICATION_BODY_PREFIX;
+      const appIconUrl = Deno.env.get("NOTIFICATION_APP_ICON_URL");
+      return jsonResponse(
+        {
+          ok: true,
+          dry_run: true,
+          version: NOTIFY_FUNCTION_VERSION,
+          tokenCount: tokens.length,
+          notification: {
+            title,
+            body: `${bodyPrefix}${publication.title}`,
+            // Поле icon намеренно НЕ отправляется: Android уронит показ
+            // уведомления, если drawable отсутствует в установленной сборке.
+            iconPresent: false,
+            imagePresent: appIconUrl != null,
+            image: appIconUrl ?? null,
+          },
+          dataKeys: [
+            "type",
+            "publication_id",
+            "publication_type",
+            "publication_title",
+          ],
+          android: { priority: "HIGH" },
+        },
         200
       );
     }
@@ -440,13 +493,16 @@ Deno.serve(async (req) => {
         notification: {
           title,
           body: `${bodyPrefix}${publication.title}`,
-          // Маленькая иконка Android — белый силуэт иконки приложения на
-          // зелёном кружке (res/drawable-*/ic_stat_notification.png), вместо
-          // «серого кружочка», который Android рисует без default_notification_icon.
-          icon: "ic_stat_notification",
-          // Цветная крупная иконка (реальная иконка приложения), если задан
-          // секрет NOTIFICATION_APP_ICON_URL. На iOS `image` не используется
-          // (иконка берётся из бандла автоматически).
+          // НЕ передаём сюда `icon` (Android drawable): если ресурс
+          // отсутствует в установленной версии приложения (например, старый
+          // APK без res/drawable-*/ic_stat_notification.png), Android бросает
+          // ResourceNotFoundException при построении уведомления и оно НЕ
+          // показывается вообще. Иконка задаётся манифестом приложения:
+          // com.google.firebase.messaging.default_notification_icon — новые
+          // сборки получают иконку автоматически, старые работают как раньше.
+          // Цветная крупная иконка (реальная иконка приложения) — только если
+          // задан секрет NOTIFICATION_APP_ICON_URL; на iOS `image` не
+          // используется (иконка берётся из бандла автоматически).
           ...(appIconUrl != null ? { image: appIconUrl } : {}),
         },
         data: {

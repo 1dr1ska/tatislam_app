@@ -82,8 +82,10 @@
              приложения на зелёном кружке) вместо «серого кружочка» по умолчанию.
              ic_stat_notification генерируется из assets/images/app_icon.png
              (res/drawable-*/ic_stat_notification.png), цвет кружка задаёт
-             notification_badge_color. Дублируется в payload'е Edge Function
-             notify-new-publication (notification.icon). -->
+             notification_badge_color. Работает автоматически для новых сборок —
+             НЕ передавайте этот drawable в payload Edge Function
+             (notification.icon): Android уронит показ уведомления, если ресурс
+             отсутствует в установленной версии приложения. -->
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_icon"
             android:resource="@drawable/ic_stat_notification" />

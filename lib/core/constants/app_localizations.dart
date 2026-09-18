@@ -43,10 +43,16 @@ class AppLocalizations {
   String get registerScreenTitle => _locale == AppLocale.tatar ? 'Теркәлү' : 'Регистрация';
   String get createAccountTitle => _locale == AppLocale.tatar ? 'Аккаунт булдыру' : 'Создать аккаунт';
   String get adminPanelTitle => _locale == AppLocale.tatar ? 'Администратор панеле' : 'Панель администратора';
-  String get publicationsTitle => _locale == AppLocale.tatar ? 'Башмалар' : 'Публикации';
+  String get publicationsTitle => _locale == AppLocale.tatar
+      ? 'Публикацияләр'
+      : 'Публикации';
   String get sectionsTitle => _locale == AppLocale.tatar ? 'Бүлекләр' : 'Разделы';
-  String get newPublicationTitle => _locale == AppLocale.tatar ? 'Яңа башма' : 'Новая публикация';
-  String get editPublicationTitle => _locale == AppLocale.tatar ? 'Башманы үзгәртү' : 'Редактировать публикацию';
+  String get newPublicationTitle => _locale == AppLocale.tatar
+      ? 'Яңа публикация'
+      : 'Новая публикация';
+  String get editPublicationTitle => _locale == AppLocale.tatar
+      ? 'Публикацияне үзгәртү'
+      : 'Редактировать публикацию';
   String get newPhotoTitle => _locale == AppLocale.tatar ? 'Яңа фото' : 'Новая фотопубликация';
   String get editPhotoTitle => _locale == AppLocale.tatar ? 'Фотоне үзгәртү' : 'Редактировать фотопубликацию';
   String get createSectionTitle => _locale == AppLocale.tatar ? 'Бүлек булдыру' : 'Создать раздел';
@@ -62,14 +68,14 @@ class AppLocalizations {
 
   // ── Push Notifications ─────────────────────────────────
   String get notificationToggleTitle => _locale == AppLocale.tatar
-      ? 'Яңа башмалар турында белдермәләр'
+      ? 'Яңа публикацияләр турында белдермәләр'
       : 'Уведомления о новых публикациях';
   String get notificationToggleSubtitle => _locale == AppLocale.tatar
-      ? 'Яңа башма өстәлгәндә хәбәр итү'
+      ? 'Яңа публикация өстәлгәндә хәбәр итү'
       : 'Сообщать, когда в приложении появляется новая публикация';
   String get notificationOpenAction => _locale == AppLocale.tatar ? 'Ачу' : 'Открыть';
   String get notificationNewPublicationTitle => _locale == AppLocale.tatar
-      ? 'Яңа башма'
+      ? 'Яңа публикация'
       : 'Новая публикация';
 
   // ── Search ──────────────────────────────────────────────
@@ -198,7 +204,7 @@ class AppLocalizations {
       _locale == AppLocale.tatar ? 'Сез чыннан да "$name" бүлеген бетерергә телисезме?' : 'Вы уверены, что хотите удалить раздел "$name"?';
   String get cannotDeleteSection => _locale == AppLocale.tatar ? 'Бетереп булмый' : 'Нельзя удалить';
   String sectionHasPublications(String name) => _locale == AppLocale.tatar
-      ? '"$name" бүлегендә башмалар бар.\n\nБашмаларны башка бүлеккә күчерегез яки бетерәлгез.'
+      ? '"$name" бүлегендә публикацияләр бар.\n\nПубликацияләрне башка бүлеккә күчерегез яки бетерәлгез.'
       : 'Раздел "$name" содержит публикации.\n\nСначала переместите публикации в другой раздел или удалите их.';
   String get gotIt => _locale == AppLocale.tatar ? 'Аңладым' : 'Понятно';
 
@@ -221,13 +227,21 @@ class AppLocalizations {
   String get createFirstSection => _locale == AppLocale.tatar
       ? 'Яңа бүлек булдыру өчен + басыгыз'
       : 'Нажмите + для создания нового раздела';
-  String get searchPublications => _locale == AppLocale.tatar ? 'Башмаларны эзләү...' : 'Поиск публикаций...';
+  String get searchPublications => _locale == AppLocale.tatar
+      ? 'Публикацияләрне эзләү...'
+      : 'Поиск публикаций...';
   String get noSectionsAvailable => _locale == AppLocale.tatar ? 'Бүлекләр юк' : 'Нет доступных разделов';
 
   // ── Admin: CRUD Messages ────────────────────────────────
-  String get publicationCreated => _locale == AppLocale.tatar ? 'Башма булдырылды' : 'Публикация создана';
-  String get publicationUpdated => _locale == AppLocale.tatar ? 'Башма яңартылды' : 'Публикация обновлена';
-  String get publicationDeleted => _locale == AppLocale.tatar ? 'Башма бетерелде' : 'Публикация удалена';
+  String get publicationCreated => _locale == AppLocale.tatar
+      ? 'Публикация булдырылды'
+      : 'Публикация создана';
+  String get publicationUpdated => _locale == AppLocale.tatar
+      ? 'Публикация яңартылды'
+      : 'Публикация обновлена';
+  String get publicationDeleted => _locale == AppLocale.tatar
+      ? 'Публикация бетерелде'
+      : 'Публикация удалена';
   String get sectionSaved => _locale == AppLocale.tatar ? 'Бүлек сакланды' : 'Раздел сохранён';
   String get sectionCreated => _locale == AppLocale.tatar ? 'Бүлек булдырылды' : 'Раздел создан';
   String get sectionDeleted => _locale == AppLocale.tatar ? 'Бүлек бетерелде' : 'Раздел удален';
@@ -368,7 +382,9 @@ class AppLocalizations {
   String get selectIconLabel => _locale == AppLocale.tatar ? 'Иконка сайлагыз' : 'Выберите иконку';
 
   // ── Admin: Publication Editor Errors ───────────────────
-  String get publicationLoadErrorDetail => _locale == AppLocale.tatar ? 'Башманы төяү хатасы: ' : 'Ошибка загрузки публикации: ';
+  String get publicationLoadErrorDetail => _locale == AppLocale.tatar
+      ? 'Публикацияне төяү хатасы: '
+      : 'Ошибка загрузки публикации: ';
   String get fileNotFoundError => _locale == AppLocale.tatar ? 'Файл табылмады' : 'Ошибка: файл не найден';
   String get imageSelectionError => _locale == AppLocale.tatar ? 'Рәсем сайлау хатасы: ' : 'Ошибка выбора изображения: ';
 

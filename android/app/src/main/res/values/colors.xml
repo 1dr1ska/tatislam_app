@@ -1,4 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <color name="ic_launcher_background">#FFFFFF</color>
+    <!-- Цвет кружка-подложки под монохромным значком системного push-уведомления
+         (зелёный из иконки приложения). -->
+    <color name="notification_badge_color">#2EAB4B</color>
 </resources>

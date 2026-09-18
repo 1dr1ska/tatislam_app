@@ -3,6 +3,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:tatislam_app/core/services/image_dimensions_service.dart';
 import 'package:tatislam_app/core/storage/media_storage_repository.dart';
 import 'package:tatislam_app/core/widgets/glass_container.dart';
+import 'package:tatislam_app/core/widgets/network_image.dart' show appWebImageRenderMethod;
 import 'package:tatislam_app/features/detail/presentation/screens/image_viewer_screen.dart';
 import 'package:tatislam_app/features/publications/domain/entities/content_block.dart';
 
@@ -64,7 +65,10 @@ class _ImageContentWidgetState extends State<ImageContentWidget> {
   Future<void> _resolveDimensions() async {
     final size = await _dimensionsService.resolve(
       key: _imageKey,
-      provider: CachedNetworkImageProvider(_imageKey),
+      provider: CachedNetworkImageProvider(
+        _imageKey,
+        imageRenderMethodForWeb: appWebImageRenderMethod,
+      ),
     );
     if (!mounted) return;
     if (size != null && size != _imageSize) {
@@ -144,6 +148,7 @@ class _ImageContentWidgetState extends State<ImageContentWidget> {
           child: CachedNetworkImage(
             imageUrl: imageUrl,
             fit: BoxFit.contain,
+            imageRenderMethodForWeb: appWebImageRenderMethod,
             fadeInDuration: const Duration(milliseconds: 300),
             fadeInCurve: Curves.easeIn,
             placeholder: (context, url) => _buildPlaceholder(),

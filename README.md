@@ -171,11 +171,19 @@ Android / iOS
    Generate new private key) → JSON одним значением в секрет Edge Function:
    `supabase secrets set --env-file ...` или Dashboard → Edge Functions →
    `notify-new-publication` → Secrets: `FIREBASE_SERVICE_ACCOUNT_JSON` (весь JSON
-   одной строкой). Опционально `NOTIFICATION_TITLE` и `NOTIFICATION_BODY_PREFIX`.
-4. **Применить миграцию**: из директории `supabase/` выполнить
+   одной строкой). Опционально `NOTIFICATION_TITLE` и `NOTIFICATION_BODY_PREFIX`
+   (по умолчанию текст уведомления на татарском: «Яңа башма» /
+   «Кушымтага яңа башма өстәлде: <название>»).
+4. **Иконка системного уведомления Android**: маленькая иконка — белый силуэт
+   иконки приложения на зелёном кружке (`res/drawable-*/ic_stat_notification.png`,
+   цвет `notification_badge_color` в `AndroidManifest.xml`); крупная цветная иконка
+   подключается опционально: загрузите `assets/images/app_icon.png` в публичный
+   бакет (например `https://storage.yandexcloud.net/tatislam-media/app_icon.png`)
+   и задайте секрет `NOTIFICATION_APP_ICON_URL`.
+5. **Применить миграцию**: из директории `supabase/` выполнить
    `supabase db push` (миграция `0028_push_notifications.sql`).
-5. **Задеплоить функцию**: `supabase functions deploy notify-new-publication`.
-6. **iOS** (отдельно): см. ниже.
+6. **Задеплоить функцию**: `supabase functions deploy notify-new-publication`.
+7. **iOS** (отдельно): см. ниже.
 
 ### Ручной тест (Android)
 

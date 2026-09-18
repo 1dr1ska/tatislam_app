@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:tatislam_app/core/constants/app_localizations.dart';
 import 'package:tatislam_app/core/providers/locale_provider.dart';
+import 'package:tatislam_app/core/widgets/network_image.dart' show appWebImageRenderMethod;
 import 'package:tatislam_app/features/detail/domain/services/file_transfer_service.dart';
 import 'package:tatislam_app/features/detail/presentation/providers/file_transfer_provider.dart';
 
@@ -118,6 +119,7 @@ class _ImageViewerScreenState extends ConsumerState<ImageViewerScreen> {
                 child: CachedNetworkImage(
                   imageUrl: widget.imageUrl,
                   fit: BoxFit.contain,
+                  imageRenderMethodForWeb: appWebImageRenderMethod,
                   placeholder: (context, url) =>
                       const CircularProgressIndicator(),
                   errorWidget: (context, url, error) => const Icon(

@@ -39,9 +39,8 @@ const FCM_V1_BASE_URL = "https://fcm.googleapis.com/v1/projects";
 
 // Текст уведомления. Можно переопределить через секреты Edge Function
 // (NOTIFICATION_TITLE, NOTIFICATION_BODY_PREFIX).
-const DEFAULT_NOTIFICATION_TITLE = "Новая публикация";
-const DEFAULT_NOTIFICATION_BODY_PREFIX =
-  "В приложение добавлена новая публикация: ";
+const DEFAULT_NOTIFICATION_TITLE = "Яңа башма";
+const DEFAULT_NOTIFICATION_BODY_PREFIX = "Кушымтага яңа башма өстәлде: ";
 
 // CORS: функция вызывается не только сервером (импортёр/curl), но и из
 // браузерной (web) версии админ-редактора, поэтому нужны те же заголовки,
@@ -425,6 +424,11 @@ Deno.serve(async (req) => {
       Deno.env.get("NOTIFICATION_TITLE") ?? DEFAULT_NOTIFICATION_TITLE;
     const bodyPrefix =
       Deno.env.get("NOTIFICATION_BODY_PREFIX") ?? DEFAULT_NOTIFICATION_BODY_PREFIX;
+    // Публичный URL цветной иконки приложения (large icon уведомления).
+    // Опционально: загрузите assets/images/app_icon.png в публичный бакет
+    // (например https://storage.yandexcloud.net/tatislam-media/app_icon.png)
+    // и задайте секрет NOTIFICATION_APP_ICON_URL.
+    const appIconUrl = Deno.env.get("NOTIFICATION_APP_ICON_URL");
 
     let sent = 0;
     const invalidTokens: string[] = [];
@@ -436,6 +440,14 @@ Deno.serve(async (req) => {
         notification: {
           title,
           body: `${bodyPrefix}${publication.title}`,
+          // Маленькая иконка Android — белый силуэт иконки приложения на
+          // зелёном кружке (res/drawable-*/ic_stat_notification.png), вместо
+          // «серого кружочка», который Android рисует без default_notification_icon.
+          icon: "ic_stat_notification",
+          // Цветная крупная иконка (реальная иконка приложения), если задан
+          // секрет NOTIFICATION_APP_ICON_URL. На iOS `image` не используется
+          // (иконка берётся из бандла автоматически).
+          ...(appIconUrl != null ? { image: appIconUrl } : {}),
         },
         data: {
           type: "new_publication",

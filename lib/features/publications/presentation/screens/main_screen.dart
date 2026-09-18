@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:tatislam_app/core/storage/storage_providers.dart';
+import 'package:tatislam_app/core/widgets/network_image.dart' show appWebImageRenderMethod;
 import 'package:tatislam_app/features/detail/presentation/screens/image_viewer_screen.dart';
 import 'package:tatislam_app/core/constants/app_localizations.dart';
 import 'package:tatislam_app/core/constants/app_colors.dart';
@@ -722,6 +723,7 @@ class _PublicationCard extends ConsumerWidget {
       return CachedNetworkImage(
         imageUrl: imageUrl,
         fit: fit,
+        imageRenderMethodForWeb: appWebImageRenderMethod,
         fadeInDuration: const Duration(milliseconds: 300),
         fadeInCurve: Curves.easeIn,
         placeholder: (context, url) => Container(

@@ -24,6 +24,11 @@ const double _glassBorderWidth = 0.8;
 const double _glassRadius = 12;
 const Color _goldAccent = Color(0xFFE0B84A);
 const Color _goldAccentDark = Color(0xFFC49A2E);
+/// Dark opaque surface shared by the speed chip and its popup menu. The audio
+/// card is translucent glass over an image backdrop, and the Material popup
+/// surface is light, so translucent/theme colors make the gold/white text
+/// unreadable. An opaque dark surface keeps the text legible in every state.
+const Color _speedSurface = Color(0xFF262626);
 
 class AudioContentWidget extends ConsumerStatefulWidget {
   final AudioContentBlock block;
@@ -333,6 +338,10 @@ class _AudioContentWidgetState extends ConsumerState<AudioContentWidget> {
     final current = ref.watch(audioPlaybackSpeedProvider);
 
     return PopupMenuButton<double>(
+      // Opaque dark menu surface: the Material popup surface is light and the
+      // unselected items used white text, which was invisible. With a dark
+      // surface the gold (selected) and white (unselected) text both read well.
+      color: _speedSurface,
       tooltip: AppLocalizations.of(ref).audioSpeedTooltip,
       onSelected: (speed) {
         ref.read(audioPlaybackSpeedProvider.notifier).setSpeed(speed);
@@ -349,14 +358,14 @@ class _AudioContentWidgetState extends ConsumerState<AudioContentWidget> {
                 child: Icon(
                   isSelected ? Icons.check : null,
                   size: 18,
-                  color: _goldAccentDark,
+                  color: _goldAccent,
                 ),
               ),
               const SizedBox(width: 4),
               Text(
                 formatAudioSpeed(speed),
                 style: TextStyle(
-                  color: isSelected ? _goldAccentDark : Colors.white,
+                  color: isSelected ? _goldAccent : Colors.white,
                   fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
                   fontSize: 15,
                 ),
@@ -368,9 +377,15 @@ class _AudioContentWidgetState extends ConsumerState<AudioContentWidget> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.12),
+          // Opaque dark chip (same surface as the menu): gold text stays
+          // readable over any backdrop, including a light section image or
+          // failed background image on the web.
+          color: _speedSurface,
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.20)),
+          border: Border.all(
+            color: _goldAccent.withValues(alpha: 0.55),
+            width: 0.8,
+          ),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,

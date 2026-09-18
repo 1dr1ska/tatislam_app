@@ -78,6 +78,18 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+        <!-- Системное push-уведомление: маленькая иконка (белый силуэт иконки
+             приложения на зелёном кружке) вместо «серого кружочка» по умолчанию.
+             ic_stat_notification генерируется из assets/images/app_icon.png
+             (res/drawable-*/ic_stat_notification.png), цвет кружка задаёт
+             notification_badge_color. Дублируется в payload'е Edge Function
+             notify-new-publication (notification.icon). -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_icon"
+            android:resource="@drawable/ic_stat_notification" />
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_color"
+            android:resource="@color/notification_badge_color" />
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and

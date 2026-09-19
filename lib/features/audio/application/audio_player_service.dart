@@ -197,12 +197,17 @@ class AudioPlayerService {
   /// Mini Player hides and the media notification disappears until the next load.
   Future<void> stop() async {
     _savePosition();
+    // Clear the track BEFORE stopping the player so the bar/timeline is hidden
+    // before `_player.stop()` zeroes the position. Doing it the other way round
+    // made the Mini Player visibly jump back to 0:00 (the time at launch) for a
+    // frame while the bar was still mounted, even though the resume position
+    // had been saved correctly.
+    _setTrack(null);
     try {
       await _player.stop();
     } catch (e) {
       developer.log('AudioPlayerService.stop failed', error: e);
     }
-    _setTrack(null);
   }
 
   /// Drops the current track without touching the player. Used when the shared

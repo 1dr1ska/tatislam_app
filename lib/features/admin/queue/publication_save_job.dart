@@ -161,7 +161,13 @@ class PublicationSaveJob {
 
     _checkCancel(isCanceled);
 
-    // Step 0 — create or update the row (so we have the publication id).
+    // Step 0 — obtain the publication id (needed for the upload paths).
+    //
+    // A brand-new publication's row is created up-front JUST to get its id;
+    // it carries no blocks yet and is rolled back by `run` on any failure. An
+    // existing publication's metadata is NOT touched here — it is updated only
+    // after every file has uploaded, so an upload error can never half-apply
+    // a publication (the "errored but the publication was saved anyway" bug).
     report(0, 0);
     final publicationId = payload.publicationId;
     final String effectiveId;
@@ -178,16 +184,6 @@ class PublicationSaveJob {
       setCreatedPublicationId(publication.id);
       effectiveId = publication.id;
     } else {
-      await repository.updatePublication(
-        id: publicationId,
-        title: payload.title,
-        icon: payload.icon,
-        publishedAt: payload.publishedAt,
-        type: payload.type,
-        status: payload.status,
-        primarySectionId: payload.primarySectionId,
-        hasAdditionalSections: payload.hasAdditionalSections,
-      );
       effectiveId = publicationId;
     }
     _checkCancel(isCanceled);
@@ -304,12 +300,29 @@ class PublicationSaveJob {
       _checkCancel(isCanceled);
     }
 
-    // Step 2 — section memberships.
+    // Step 2 — persist the metadata (update only; for creates the row was made
+    // up-front). This happens AFTER the uploads succeeded so that on any error
+    // not a single byte of a publication's state is written to the DB.
     report(2, totalFiles);
+    if (publicationId != null) {
+      await repository.updatePublication(
+        id: effectiveId,
+        title: payload.title,
+        icon: payload.icon,
+        publishedAt: payload.publishedAt,
+        type: payload.type,
+        status: payload.status,
+        primarySectionId: payload.primarySectionId,
+        hasAdditionalSections: payload.hasAdditionalSections,
+      );
+    }
+    _checkCancel(isCanceled);
+
+    // Step 3 — section memberships.
     await repository.setSections(effectiveId, payload.sectionIds);
     _checkCancel(isCanceled);
 
-    // Step 3 — commit the blocks. After this point the new files are
+    // Step 4 — commit the blocks. After this point the new files are
     // referenced by the DB and must not be rolled back.
     report(3, totalFiles);
     await repository.replaceBlocks(effectiveId, updatedBlocks);
@@ -332,13 +345,14 @@ class PublicationSaveJob {
     MediaStorageRepository storage,
     MediaOptimizationService optimizationService,
   ) async {
+    _enforceSizeLimit('изображения', file.bytes.length, _maxImageBytes);
     try {
       // Optimize before upload (resize to 1920px max, JPEG quality 90).
       final result = await optimizationService.optimizeImage(
         originalBytes: file.bytes,
         originalFileName: file.name,
       );
-      final extension = result.fileName.split('.').last;
+      final extension = _safeExtension(result.fileName);
       final path = StoragePaths.blockImage(
         effectiveId,
         extension,
@@ -357,8 +371,9 @@ class PublicationSaveJob {
     SelectedMediaFile file,
     MediaStorageRepository storage,
   ) async {
+    _enforceSizeLimit('аудио', file.bytes.length, _maxAudioBytes);
     try {
-      final extension = file.name.split('.').last;
+      final extension = _safeExtension(file.name);
       final path = StoragePaths.blockAudio(
         effectiveId,
         extension,
@@ -377,8 +392,9 @@ class PublicationSaveJob {
     SelectedMediaFile file,
     MediaStorageRepository storage,
   ) async {
+    _enforceSizeLimit('видео', file.bytes.length, _maxVideoBytes);
     try {
-      final extension = file.name.split('.').last;
+      final extension = _safeExtension(file.name);
       final path = StoragePaths.blockVideo(
         effectiveId,
         extension,
@@ -401,8 +417,9 @@ class PublicationSaveJob {
     SelectedMediaFile file,
     MediaStorageRepository storage,
   ) async {
+    _enforceSizeLimit('файла', file.bytes.length, _maxFileBytes);
     try {
-      final extension = file.name.split('.').last;
+      final extension = _safeExtension(file.name);
       final path = StoragePaths.blockFile(
         effectiveId,
         extension,
@@ -421,7 +438,7 @@ class PublicationSaveJob {
 
   /// Best-effort MIME type by file extension (used as the upload Content-Type).
   static String _mimeFor(String fileName) {
-    final ext = fileName.split('.').last.toLowerCase();
+    final ext = _safeExtension(fileName);
     return switch (ext) {
       'mp4' => 'video/mp4',
       'webm' => 'video/webm',
@@ -441,6 +458,39 @@ class PublicationSaveJob {
       'zip' => 'application/zip',
       _ => 'application/octet-stream',
     };
+  }
+
+  /// Max sizes mirror the per-folder limits enforced by the `upload-media`
+  /// Edge Function, so a file that would be rejected right there is instead
+  /// caught locally with a clear Russian message before any network call.
+  static const int _maxImageBytes = 20 * 1024 * 1024;
+  static const int _maxAudioBytes = 200 * 1024 * 1024;
+  static const int _maxVideoBytes = 100 * 1024 * 1024;
+  static const int _maxFileBytes = 100 * 1024 * 1024;
+
+  /// Throws a clear, actionable error when a picked file exceeds [maxBytes].
+  static void _enforceSizeLimit(String kind, int size, int maxBytes) {
+    if (size <= maxBytes) return;
+    final sizeMb = (size / (1024 * 1024)).toStringAsFixed(1);
+    final maxMb = (maxBytes / (1024 * 1024)).round();
+    throw Exception(
+      'Размер $kind превышает лимит ($sizeMb МБ). '
+      'Максимальный размер — $maxMb МБ.',
+    );
+  }
+
+  /// Returns a clean, lowercased file extension (without the dot) for [fileName],
+  /// or `'bin'` when the name has no usable extension. Handles no-dot, multi-dot
+  /// and names with unsafe characters so they can never produce a malformed or
+  /// empty Storage path (a bare trailing dot would be rejected downstream).
+  static String _safeExtension(String fileName) {
+    final dot = fileName.lastIndexOf('.');
+    if (dot > 0 && dot < fileName.length - 1) {
+      var ext = fileName.substring(dot + 1).trim().toLowerCase();
+      ext = ext.replaceAll(RegExp('[^a-z0-9_-]'), '');
+      if (ext.isNotEmpty) return ext;
+    }
+    return 'bin';
   }
 
   // ---------------------------------------------------------------

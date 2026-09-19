@@ -56,6 +56,10 @@ class StoragePaths {
   }) =>
       'photos/$publicationId/${photoId ?? _uuid.v4()}.${_clean(extension)}';
 
-  static String _clean(String extension) =>
-      extension.replaceFirst('.', '').toLowerCase();
+  static String _clean(String extension) {
+    var cleaned = extension.replaceFirst('.', '').trim().toLowerCase();
+    // Never produce a path ending in a bare dot (e.g. `<id>.`), which some
+    // storage layers reject. A safe placeholder keeps the path well-formed.
+    return cleaned.isEmpty ? 'bin' : cleaned;
+  }
 }

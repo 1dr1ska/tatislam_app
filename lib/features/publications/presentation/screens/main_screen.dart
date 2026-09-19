@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'dart:ui' show ImageFilter;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -450,20 +451,48 @@ class _MainScreenState extends ConsumerState<MainScreen> {
       );
     }
 
-    // Determine grid columns and aspect ratio based on breakpoint
+    // Determine grid columns based on breakpoint.
     final isTablet = ResponsiveBreakpoints.isTablet(context);
     final isLandscape = ResponsiveBreakpoints.isCompactLandscape(context);
-    final availableWidth = ResponsiveBreakpoints.layoutWidth(context) - 32;
+    final effectiveWidth = math.min(
+      ResponsiveBreakpoints.layoutWidth(context),
+      1000.0, // the grid is capped by ConstrainedBox(maxWidth: 1000)
+    );
+    final availableWidth = effectiveWidth - 32;
     final cardMinWidth = isTablet ? 280.0 : (isLandscape ? 200.0 : 160.0);
     final cols = (availableWidth / cardMinWidth).floor().clamp(2, 4);
-    // Base aspect ratio (width/height) for the card grid.
-    // Taller cards on mobile, more compact on landscape/tablet.
-    // Lowered from ~0.78 to fit 4-line titles without overflow.
-    final baseAspectRatio = isTablet ? 0.66 : (isLandscape ? 0.74 : 0.68);
-    // Scale aspect ratio inversely with text size so cards grow taller
-    // when text is larger, preventing overflow.
+    final tileInnerWidth = availableWidth - 16.0 * (cols - 1);
+    final tileWidth = tileInnerWidth / cols;
+
+    // Fit each card's height to its actual content so tiles never leave a
+    // large empty strip at the bottom. The reserved 4-line title block keeps
+    // every card the same height regardless of title length.
     final textScale = ref.watch(textScaleProvider).scale;
-    final aspectRatio = baseAspectRatio / (0.5 + textScale * 0.5);
+    // Icon band grows with the tile width but is capped, so wide/large
+    // screens don't waste vertical space on an oversized empty band.
+    final bandHeight =
+        (tileWidth * 9 / 16).clamp(56.0, 84.0).toDouble();
+
+    final titleTheme = Theme.of(context).textTheme.titleMedium;
+    final titleSize = titleTheme?.fontSize ?? 16.0; // already * textScale
+    final bodySize = Theme.of(context).textTheme.bodySmall?.fontSize ?? 12.0;
+    // The card renders the title with height:1.35 across up to 4 lines.
+    final titleBlock = titleSize * 1.35 * 4;
+    // The date row is at least as tall as the (non-scaling) star icon.
+    final dateRow = math.max(20.0, bodySize * 1.5);
+    final titleDateSpacing = (6 * (0.5 + textScale * 0.5))
+        .clamp(6.0, 12.0)
+        .toDouble();
+    final bottomPad = (14 * (0.5 + textScale * 0.5))
+        .clamp(14.0, 24.0)
+        .toDouble();
+    final reservedHeight = bandHeight +
+        titleBlock +
+        titleDateSpacing +
+        dateRow +
+        bottomPad +
+        6.0; // safety buffer for font-metric differences
+    final aspectRatio = tileWidth / reservedHeight;
 
     return NotificationListener<ScrollNotification>(
       onNotification: (notification) {
@@ -502,7 +531,11 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                 );
               }
               final publication = displayList[index];
-              return _PublicationCard(publication: publication, index: index);
+              return _PublicationCard(
+                publication: publication,
+                index: index,
+                bandHeight: bandHeight,
+              );
             },
           ),
         ),
@@ -546,8 +579,13 @@ class _MainScreenState extends ConsumerState<MainScreen> {
 class _PublicationCard extends ConsumerWidget {
   final Publication publication;
   final int index;
+  final double bandHeight;
 
-  const _PublicationCard({required this.publication, required this.index});
+  const _PublicationCard({
+    required this.publication,
+    required this.index,
+    required this.bandHeight,
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -632,18 +670,17 @@ class _PublicationCard extends ConsumerWidget {
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                  // Icon area
-                  Transform.translate(
-                    offset: const Offset(0, -8),
-                    child: AspectRatio(
-                      aspectRatio: 16 / 9,
-                      child: Center(
-                        child: Image.asset(
-                          AppIcons.pathOrDefault(publication.icon),
-                          width: 140,
-                          height: 140,
-                          fit: BoxFit.contain,
-                        ),
+                  // Icon band: fixed height (capped by the grid) so wide
+                  // tiles/screens don't waste space on an oversized empty band.
+                  SizedBox(
+                    height: bandHeight,
+                    width: double.infinity,
+                    child: FittedBox(
+                      fit: BoxFit.contain,
+                      child: Image.asset(
+                        AppIcons.pathOrDefault(publication.icon),
+                        width: 140,
+                        height: 140,
                       ),
                     ),
                   ),

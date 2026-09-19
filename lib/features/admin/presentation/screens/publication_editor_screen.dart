@@ -143,6 +143,43 @@ class _PublicationEditorScreenState
     }
   }
 
+  // Size caps mirror the `upload-media` Edge Function's per-folder limits, so
+  // a file that the server would reject outright is caught here with a clear
+  // message instead of failing deep inside the background save pipeline.
+  static const int _maxBlockImageBytes = 20 * 1024 * 1024;
+  static const int _maxBlockAudioBytes = 200 * 1024 * 1024;
+  static const int _maxBlockVideoBytes = 100 * 1024 * 1024;
+  static const int _maxBlockFileBytes = 100 * 1024 * 1024;
+
+  void _showFileError(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
+  }
+
+  /// Turns a file-picker result into a staged [_SelectedFile], validating that
+  /// bytes were actually read and the size is within the server limit. On an
+  /// unusable file it shows a message and returns null (nothing is staged).
+  _SelectedFile? _validatedPickedFile(FilePickerResult? result, int maxBytes) {
+    if (result == null || result.files.isEmpty) return null;
+    final file = result.files.single;
+    final bytes = file.bytes;
+    if (bytes == null || bytes.isEmpty) {
+      _showFileError('Не удалось прочитать файл “${file.name}”. Выберите другой файл.');
+      return null;
+    }
+    if (bytes.length > maxBytes) {
+      final sizeMb = (bytes.length / (1024 * 1024)).toStringAsFixed(1);
+      final maxMb = (maxBytes / (1024 * 1024)).round();
+      _showFileError(
+        'Файл “${file.name}” слишком большой ($sizeMb МБ). Максимум — $maxMb МБ.',
+      );
+      return null;
+    }
+    return _SelectedFile(bytes: bytes, name: file.name);
+  }
+
   Future<void> _pickBlockImage(String blockId) async {
     try {
       final picker = ImagePicker();
@@ -157,20 +194,30 @@ class _PublicationEditorScreenState
         final files = <_SelectedFile>[];
         for (final picked in pickedFiles) {
           final bytes = await picked.readAsBytes();
+          if (bytes.length > _maxBlockImageBytes) {
+            _showFileError(
+              'Фото “${picked.name}” слишком большое '
+              '(${(bytes.length / (1024 * 1024)).toStringAsFixed(1)} МБ). '
+              'Максимум — ${(_maxBlockImageBytes / (1024 * 1024)).round()} МБ.',
+            );
+            continue;
+          }
           final name = picked.name;
           files.add(_SelectedFile(bytes: bytes, name: name));
         }
-        setState(() {
-          // Append to the block's staged photos so a publication can build
-          // an album in several passes.
-          final existing = _selectedBlockImageFiles[blockId];
-          if (existing != null) {
-            existing.addAll(files);
-          } else {
-            _selectedBlockImageFiles[blockId] = files;
-          }
-          _hasUnsavedChanges = true;
-        });
+        if (files.isNotEmpty) {
+          setState(() {
+            // Append to the block's staged photos so a publication can build
+            // an album in several passes.
+            final existing = _selectedBlockImageFiles[blockId];
+            if (existing != null) {
+              existing.addAll(files);
+            } else {
+              _selectedBlockImageFiles[blockId] = files;
+            }
+            _hasUnsavedChanges = true;
+          });
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -190,17 +237,12 @@ class _PublicationEditorScreenState
       type: FileType.audio,
       withData: true,
     );
-
-    if (result != null && result.files.single.bytes != null) {
-      final file = result.files.single;
-      setState(() {
-        _selectedBlockAudioFiles[blockId] = _SelectedFile(
-          bytes: file.bytes!,
-          name: file.name,
-        );
-        _hasUnsavedChanges = true;
-      });
-    }
+    final file = _validatedPickedFile(result, _maxBlockAudioBytes);
+    if (file == null) return;
+    setState(() {
+      _selectedBlockAudioFiles[blockId] = file;
+      _hasUnsavedChanges = true;
+    });
   }
 
   Future<void> _pickBlockVideo(String blockId) async {
@@ -208,17 +250,12 @@ class _PublicationEditorScreenState
       type: FileType.video,
       withData: true,
     );
-
-    if (result != null && result.files.single.bytes != null) {
-      final file = result.files.single;
-      setState(() {
-        _selectedBlockVideoFiles[blockId] = _SelectedFile(
-          bytes: file.bytes!,
-          name: file.name,
-        );
-        _hasUnsavedChanges = true;
-      });
-    }
+    final file = _validatedPickedFile(result, _maxBlockVideoBytes);
+    if (file == null) return;
+    setState(() {
+      _selectedBlockVideoFiles[blockId] = file;
+      _hasUnsavedChanges = true;
+    });
   }
 
   Future<void> _pickBlockFile(String blockId) async {
@@ -226,17 +263,12 @@ class _PublicationEditorScreenState
       type: FileType.any,
       withData: true,
     );
-
-    if (result != null && result.files.single.bytes != null) {
-      final file = result.files.single;
-      setState(() {
-        _selectedBlockFiles[blockId] = _SelectedFile(
-          bytes: file.bytes!,
-          name: file.name,
-        );
-        _hasUnsavedChanges = true;
-      });
-    }
+    final file = _validatedPickedFile(result, _maxBlockFileBytes);
+    if (file == null) return;
+    setState(() {
+      _selectedBlockFiles[blockId] = file;
+      _hasUnsavedChanges = true;
+    });
   }
 
   /// Auto-fills date when first publishing if no date is set.

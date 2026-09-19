@@ -247,5 +247,19 @@ void main() {
       final path = StoragePaths.photo('pub-1', '.JPEG', photoId: 'abc');
       expect(path, 'photos/pub-1/abc.jpeg');
     });
+
+    test('never produces a path with a bare trailing dot', () {
+      // A file with no extension / an empty extension must not build `<id>.`
+      // (a trailing dot), which some storage layers reject.
+      final image = StoragePaths.blockImage('pub-1', '', blockId: 'b1');
+      expect(image.endsWith('.'), isFalse);
+      expect(image.endsWith('.bin'), isTrue);
+
+      final file = StoragePaths.blockFile('pub-1', ' ', blockId: 'b2');
+      expect(file.endsWith('.'), isFalse);
+
+      final audio = StoragePaths.blockAudio('pub-1', 'pеферerence?', blockId: 'b3');
+      expect(audio.endsWith('.'), isFalse);
+    });
   });
 }

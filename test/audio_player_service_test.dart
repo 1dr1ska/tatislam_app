@@ -235,6 +235,21 @@ void main() {
       },
     );
 
+    test(
+      'stop persists the resume position before resetting the player',
+      () async {
+        await service.loadTrack(track());
+        player.markPosition(const Duration(seconds: 77));
+
+        await service.stop();
+
+        // The position at the moment of "close" (X) must be saved so the next
+        // launch resumes from there, not from zero.
+        expect(store.values['audio_position_p1_b1'], 77);
+        expect(service.currentTrack, isNull);
+      },
+    );
+
     test('seek moves the shared player', () async {
       await service.loadTrack(track());
 

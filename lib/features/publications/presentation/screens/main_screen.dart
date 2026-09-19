@@ -458,8 +458,8 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     final cols = (availableWidth / cardMinWidth).floor().clamp(2, 4);
     // Base aspect ratio (width/height) for the card grid.
     // Taller cards on mobile, more compact on landscape/tablet.
-    // Reduced by ~10% to give more room for 3-line titles.
-    final baseAspectRatio = isTablet ? 0.75 : (isLandscape ? 0.85 : 0.78);
+    // Lowered from ~0.78 to fit 4-line titles without overflow.
+    final baseAspectRatio = isTablet ? 0.66 : (isLandscape ? 0.74 : 0.68);
     // Scale aspect ratio inversely with text size so cards grow taller
     // when text is larger, preventing overflow.
     final textScale = ref.watch(textScaleProvider).scale;
@@ -654,10 +654,11 @@ class _PublicationCard extends ConsumerWidget {
                       children: [
                         Text(
                           publication.title,
-                          maxLines: 3,
+                          maxLines: 4,
                           overflow: TextOverflow.ellipsis,
                           style: Theme.of(context).textTheme.titleMedium
                               ?.copyWith(
+                                height: 1.35,
                                 color: const Color(0xFFFEFEF7),
                                 fontWeight: FontWeight.w500,
                               ),

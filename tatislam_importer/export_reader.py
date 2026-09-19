@@ -141,7 +141,30 @@ def iter_publications(
             current.append(record)
     flush()
 
-    return [_group_to_parsed(group, export_path, channel_username) for group in groups]
+    # В этом формате экспорта нет grouped_id: Telegram-альбомы выглядят как
+    # несколько подряд идущих сообщений с фото. Без склейки каждый снимок стал
+    # бы отдельной публикацией.
+    merged_groups: list[list[dict]] = []
+    pending: list[dict] = []
+
+    def flush_pending() -> None:
+        nonlocal pending
+        if not pending:
+            return
+        merged_groups.extend(_split_photo_run(pending))
+        pending = []
+
+    for group in groups:
+        # Склеиваем только одиночные фото-сообщения; настоящие группы по
+        # grouped_id (старые форматы экспорта) уже собраны выше.
+        if len(group) == 1 and group[0].get("photo") and "File not included" not in str(group[0]["photo"]):
+            pending.append(group[0])
+        else:
+            flush_pending()
+            merged_groups.append(group)
+    flush_pending()
+
+    return [_group_to_parsed(group, export_path, channel_username) for group in merged_groups]
 
 
 def _group_to_parsed(
@@ -211,24 +234,62 @@ def _parse_date(record: dict) -> datetime:
         return datetime.now(timezone.utc)
 
 
+def _segment_to_text(segment) -> str:
+    """Сегмент text[] из экспорта → строка.
+
+    У текстовых ссылок (text_link) сам URL лежит в `href`, а `text` — лишь
+    подпись. Подклеиваем href, чтобы ссылки (например, youtube/rutube) не терялись.
+    """
+    if isinstance(segment, dict):
+        text = str(segment.get("text", "") or "")
+        href = segment.get("href")
+        if href and str(href) not in text:
+            return f"{text}\n{href}" if text.strip() else str(href)
+        return text
+    return str(segment)
+
+
+def _record_text(record: dict) -> str:
+    """Текст сообщения: строка или список сегментов."""
+    value = record.get("text")
+    if isinstance(value, str):
+        return value
+    if isinstance(value, list):
+        return "".join(_segment_to_text(segment) for segment in value)
+    return ""
+
+
+def _split_photo_run(run: list[dict]) -> list[list[dict]]:
+    """Делит пробег подряд идущих фото на чанки-кандидаты в альбомы.
+
+    В телеграм-альбоме подпись может быть только у последнего снимка, поэтому
+    чанк — это последовательность фото, где текст есть максимум у последнего.
+    Фото с собственной подписью, после которого идёт ещё фото, начинает новый
+    чанк (это отдельный пост). Чанк из одного сообщения остаётся одиночной
+    публикацией.
+    """
+    chunks: list[list[dict]] = []
+    current: list[dict] = []
+    has_text = False
+
+    for record in run:
+        if has_text:
+            chunks.append(current)
+            current = []
+            has_text = False
+        current.append(record)
+        if _record_text(record).strip():
+            has_text = True
+    if current:
+        chunks.append(current)
+    return chunks
+
+
 def _join_text(records: list[dict]) -> str | None:
     """Склеивает текст группы (в экспорте text — строка или массив сегментов)."""
     chunks: list[str] = []
     for record in records:
-        value = record.get("text")
-        if isinstance(value, str):
-            piece = value
-        elif isinstance(value, list):
-            parts = []
-            for segment in value:
-                if isinstance(segment, dict):
-                    parts.append(segment.get("text", ""))
-                else:
-                    parts.append(str(segment))
-            piece = "".join(parts)
-        else:
-            piece = ""
-        piece = piece.strip()
+        piece = _record_text(record).strip()
         if piece and piece not in chunks:
             chunks.append(piece)
     return "\n\n".join(chunks) if chunks else None
@@ -293,12 +354,16 @@ def _parse_media(records: list[dict], export_path: Path) -> tuple[list[MediaItem
 def _export_kind(media_type, path_field) -> MediaType | None:
     """media_type из экспорта → MediaType.
 
-    None — медиа нет; UNSUPPORTED — медиа есть, но тип неизвестен (документ).
+    None — медиа нет; UNSUPPORTED — медиа есть, но использовать нельзя
+    (стикер, файл не был скачан в экспорт); FILE — обычный файл (pdf и т.п.).
     """
     if media_type is None and not path_field:
         return None
 
     if media_type == "sticker":
+        return MediaType.UNSUPPORTED
+
+    if path_field and "File not included" in str(path_field):
         return MediaType.UNSUPPORTED
 
     if media_type in _KNOWN_MEDIA_TYPES:
@@ -310,4 +375,5 @@ def _export_kind(media_type, path_field) -> MediaType | None:
         if extension in _EXT_KINDS:
             return _EXT_KINDS[extension]
 
-    return MediaType.UNSUPPORTED
+    # Всё остальное (pdf, docx, pptx, zip и т.п.) — обычный файл.
+    return MediaType.FILE

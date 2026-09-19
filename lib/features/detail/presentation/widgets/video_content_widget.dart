@@ -1,15 +1,20 @@
+import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:tatislam_app/features/detail/presentation/widgets/rutube_web_view_factory.dart';
+import 'package:tatislam_app/features/detail/presentation/widgets/uploaded_video_web_view_factory.dart';
 import 'package:tatislam_app/features/detail/presentation/widgets/youtube_web_view_factory.dart';
 import 'package:tatislam_app/core/constants/app_localizations.dart';
+import 'package:tatislam_app/core/storage/media_storage_repository.dart';
 import 'package:tatislam_app/core/widgets/glass_container.dart';
 import 'package:tatislam_app/features/detail/domain/services/video_url_parser_service.dart';
 import 'package:tatislam_app/features/publications/domain/entities/content_block.dart';
 import 'package:tatislam_app/features/publications/domain/entities/video_provider_type.dart';
+import 'package:tatislam_app/features/publications/domain/entities/video_source_type.dart';
 
 const double _glassOpacity = 0.25;
 const double _glassRadius = 12;
@@ -19,11 +24,17 @@ const String _youtubeAppReferer = 'https://com.example.tatislam_app';
 
 class VideoContentWidget extends ConsumerStatefulWidget {
   final VideoContentBlock block;
+
+  /// Needed to resolve [VideoContentBlock.videoPath] into a public URL when the
+  /// video was uploaded to Storage ([VideoSourceType.upload]).
+  final MediaStorageRepository? mediaStorage;
+
   final VideoUrlParserService urlParser;
 
   const VideoContentWidget({
     super.key,
     required this.block,
+    this.mediaStorage,
     this.urlParser = const VideoUrlParserService(),
   });
 
@@ -34,12 +45,15 @@ class VideoContentWidget extends ConsumerStatefulWidget {
 class _VideoContentWidgetState extends ConsumerState<VideoContentWidget> {
   WebViewController? _youtubeController;
   WebViewController? _rutubeController;
+  WebViewController? _uploadedVideoController;
 
   String? _lastYoutubeId;
   String? _lastRutubeId;
+  String? _lastUploadedUrl;
 
   String? _youtubeViewId;
   String? _rutubeViewId;
+  String? _uploadedVideoViewId;
 
   @override
   void initState() {
@@ -51,15 +65,21 @@ class _VideoContentWidgetState extends ConsumerState<VideoContentWidget> {
   void didUpdateWidget(VideoContentWidget oldWidget) {
     super.didUpdateWidget(oldWidget);
 
-    if (oldWidget.block.url != widget.block.url) {
+    final sourceChanged =
+        oldWidget.block.videoPath != widget.block.videoPath ||
+            oldWidget.block.source != widget.block.source;
+    if (oldWidget.block.url != widget.block.url || sourceChanged) {
       _youtubeController = null;
       _rutubeController = null;
+      _uploadedVideoController = null;
 
       _lastYoutubeId = null;
       _lastRutubeId = null;
+      _lastUploadedUrl = null;
 
       _youtubeViewId = null;
       _rutubeViewId = null;
+      _uploadedVideoViewId = null;
 
       _initControllers();
     }
@@ -103,6 +123,42 @@ class _VideoContentWidgetState extends ConsumerState<VideoContentWidget> {
         'https://rutube.ru/play/embed/$videoId',
       );
     }
+  }
+
+  /// Sets up an inline player for an uploaded video (the URL is a public Storage
+  /// link to the mp4). On Web — a native HTML5 `<video>`, otherwise a WebView
+  /// loaded from a self-contained data: HTML page.
+  void _ensureUploadedVideo(String url) {
+    if (_lastUploadedUrl == url &&
+        (kIsWeb
+            ? _uploadedVideoViewId != null
+            : _uploadedVideoController != null)) {
+      return;
+    }
+
+    _lastUploadedUrl = url;
+
+    if (kIsWeb) {
+      _uploadedVideoViewId = registerUploadedVideoView(url);
+    } else {
+      _uploadedVideoController = _buildController(
+        _videoDataUrl(url),
+        headers: const <String, String>{},
+      );
+    }
+  }
+
+  /// Self-contained HTML with an inline `<video controls>` element.
+  static String _videoDataUrl(String url) {
+    final safeUrl = url.replaceAll('"', '%22').replaceAll("'", '%27');
+    final html =
+        '<!DOCTYPE html><html><head><meta name="viewport" '
+        'content="width=device-width, initial-scale=1"></head>'
+        '<body style="margin:0;background:#000">'
+        '<video controls playsinline preload="metadata" '
+        'style="width:100%;height:100%;object-fit:contain" '
+        'src="$safeUrl"></video></body></html>';
+    return 'data:text/html;base64,${base64Encode(utf8.encode(html))}';
   }
 
   WebViewController _buildController(
@@ -150,13 +206,38 @@ class _VideoContentWidgetState extends ConsumerState<VideoContentWidget> {
   void dispose() {
     _youtubeController = null;
     _rutubeController = null;
+    _uploadedVideoController = null;
     _youtubeViewId = null;
     _rutubeViewId = null;
+    _uploadedVideoViewId = null;
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    // Загруженное в Storage видео (upload): показываем inline-плеер.
+    if (widget.block.source == VideoSourceType.upload) {
+      final path = widget.block.videoPath ?? '';
+      if (path.isEmpty || widget.mediaStorage == null) {
+        return _buildUnavailable();
+      }
+      final url = widget.mediaStorage!.publicUrlFor(path);
+      _ensureUploadedVideo(url);
+
+      if (kIsWeb && _uploadedVideoViewId != null) {
+        return _buildUploadedWebView();
+      }
+
+      if (!kIsWeb && _uploadedVideoController != null) {
+        return _buildEmbeddedVideo(controller: _uploadedVideoController!);
+      }
+
+      return _buildExternalLinkCard(
+        url: url,
+        title: widget.block.videoName,
+      );
+    }
+
     if (widget.block.url.isEmpty) {
       return _buildUnavailable();
     }
@@ -234,6 +315,25 @@ class _VideoContentWidgetState extends ConsumerState<VideoContentWidget> {
           child: AspectRatio(
             aspectRatio: 16 / 9,
             child: HtmlElementView(viewType: _youtubeViewId!),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildUploadedWebView() {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: GlassContainer(
+        opacity: _glassOpacity,
+        borderRadius: _glassRadius,
+        child: ClipRRect(
+          borderRadius: const BorderRadius.vertical(
+            top: Radius.circular(_glassRadius),
+          ),
+          child: AspectRatio(
+            aspectRatio: 16 / 9,
+            child: HtmlElementView(viewType: _uploadedVideoViewId!),
           ),
         ),
       ),
@@ -354,19 +454,6 @@ class _VideoContentWidgetState extends ConsumerState<VideoContentWidget> {
                   ),
                 ),
                 const SizedBox(height: 8),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Text(
-                    widget.block.url,
-                    style: const TextStyle(
-                      fontSize: 11,
-                      color: Color(0xFF2D2D44),
-                    ),
-                    textAlign: TextAlign.center,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
                 const SizedBox(height: 12),
                 ElevatedButton(
                   onPressed: () => _launchUrl(context, widget.block.url),
@@ -380,7 +467,9 @@ class _VideoContentWidgetState extends ConsumerState<VideoContentWidget> {
     );
   }
 
-  Widget _buildExternalLinkCard() {
+  Widget _buildExternalLinkCard({String? url, String? title}) {
+    final targetUrl = url ?? widget.block.url;
+    final label = title ?? AppLocalizations.of(ref).video;
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
       child: GlassContainer(
@@ -398,7 +487,7 @@ class _VideoContentWidgetState extends ConsumerState<VideoContentWidget> {
               ),
               const SizedBox(height: 12),
               Text(
-                AppLocalizations.of(ref).video,
+                label,
                 style: const TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.bold,
@@ -407,7 +496,7 @@ class _VideoContentWidgetState extends ConsumerState<VideoContentWidget> {
               ),
               const SizedBox(height: 12),
               ElevatedButton(
-                onPressed: () => _launchUrl(context, widget.block.url),
+                onPressed: () => _launchUrl(context, targetUrl),
                 child: Text(AppLocalizations.of(ref).openInBrowser),
               ),
             ],

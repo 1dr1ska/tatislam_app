@@ -43,6 +43,10 @@ class Settings:
     default_section_slug: str
     publication_status: str
     push_notifications_enabled: bool
+    # Разделы для публикаций по типу (по умолчанию совпадают со слагами секций)
+    section_audio_slug: str
+    section_video_slug: str
+    section_photo_slug: str
     yandex_bucket: str
     yandex_endpoint: str
     yandex_region: str
@@ -85,6 +89,9 @@ class Settings:
             default_section_slug=_env("DEFAULT_SECTION_SLUG") or "articles",
             publication_status=status,
             push_notifications_enabled=push_enabled,
+            section_audio_slug=_env("SECTION_AUDIO_SLUG") or "audio",
+            section_video_slug=_env("SECTION_VIDEO_SLUG") or "video",
+            section_photo_slug=_env("SECTION_PHOTO_SLUG") or "rasemnar",
             yandex_bucket=_env("YANDEX_BUCKET") or "tatislam-media",
             yandex_endpoint=_env("YANDEX_ENDPOINT") or "https://storage.yandexcloud.net",
             yandex_region=_env("YANDEX_REGION") or "ru-central1",

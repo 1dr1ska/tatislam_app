@@ -18,6 +18,15 @@ _YOUTUBE_DOMAINS = ("youtube.com", "youtu.be", "youtube-nocookie.com")
 _RUTUBE_DOMAINS = ("rutube.ru",)
 _VK_VIDEO_MARKERS = ("vk.com/video", "m.vk.com/video", "vkvideo.ru")
 
+# Страницы конкретных роликов на YouTube (канал/плейлист/профиль — не видео).
+_YOUTUBE_VIDEO_MARKERS = (
+    "youtube.com/watch",
+    "youtube.com/shorts/",
+    "youtube.com/embed/",
+    "youtube.com/live",
+    "youtu.be/",
+)
+
 
 # ---------------------------------------------------------------------------
 # Классификация ссылок и медиа
@@ -36,13 +45,22 @@ def extract_links(text: str | None) -> list[str]:
 
 
 def classify_video_links(text: str | None) -> list[VideoLink]:
-    """Из текста выделяет ссылки на youtube/rutube/vk-видео."""
+    """Из текста выделяет ссылки на видео youtube/rutube/vk.
+
+    Каналы, плейлисты и профили (ru.tube.channel, youtube.com/@user и т.п.) —
+    это НЕ видео-ролики, они видео-блоками не становятся.
+    """
     result: list[VideoLink] = []
     for url in extract_links(text):
         lowered = url.lower()
         if any(d in lowered for d in _YOUTUBE_DOMAINS):
+            # Только страницы роликов, а не канала/плейлиста/профиля.
+            if not any(m in lowered for m in _YOUTUBE_VIDEO_MARKERS):
+                continue
             provider = "youtube"
         elif any(d in lowered for d in _RUTUBE_DOMAINS):
+            if "/video" not in lowered:
+                continue  # канал, лента, плейлист — не ролик
             provider = "rutube"
         elif any(v in lowered for v in _VK_VIDEO_MARKERS):
             provider = "vk"
@@ -83,7 +101,8 @@ def classify_media_kind(message) -> tuple[MediaType | None, str | None]:
             return MediaType.AUDIO, None
         if mime.startswith("video/"):
             return MediaType.VIDEO, None
-        return MediaType.UNSUPPORTED, f"документ ({mime or 'mime не указан'})"
+        # Всё остальное (pdf, docx, zip и т.п.) — обычный файл.
+        return MediaType.FILE, None
 
     if isinstance(media, types.MessageMediaWebPage):
         # Превью ссылки — отдельного файла нет; обрабатывается как ссылка в тексте.
@@ -157,8 +176,13 @@ def parse_group(messages: list, channel_username: str | None) -> ParsedMessage |
         if kind is None:
             continue
         mime = None
+        file_name = None
         if isinstance(m.media, types.MessageMediaDocument):
-            mime = getattr(m.media.document, "mime_type", None) or None
+            doc = m.media.document
+            mime = getattr(doc, "mime_type", None) or None
+            for attr in getattr(doc, "attributes", []) or []:
+                if isinstance(attr, types.DocumentAttributeFilename):
+                    file_name = getattr(attr, "file_name", None)
         elif isinstance(m.media, types.MessageMediaPhoto):
             mime = "image/jpeg"
         if warning:
@@ -167,6 +191,7 @@ def parse_group(messages: list, channel_username: str | None) -> ParsedMessage |
             MediaItem(
                 kind=kind,
                 message_id=m.id,
+                file_name=file_name,
                 mime_type=mime,
                 warning=warning,
                 message=m,
@@ -226,13 +251,15 @@ def decide_publication_type(parsed: ParsedMessage) -> str:
     ):
         return "photo"
 
-    # чисто аудио: только аудио, без картинок и видео
+    # аудио: есть аудио-файл (голосовое/музыка) и нет картинок/видео-файлов.
+    # Ссылка на видео в тексте (например, тот же вәгазь на rutube) не меняет
+    # природу поста — это аудио.
     if MediaType.AUDIO in kinds and not (
-        MediaType.IMAGE in kinds or MediaType.VIDEO in kinds or parsed.video_links
+        MediaType.IMAGE in kinds or MediaType.VIDEO in kinds
     ):
         return "audio"
 
-    # чистое видео: есть видео-медиа или видео-ссылка, но нет картинок
+    # видео: видео-файл или видео-ссылка, без картинок
     if (MediaType.VIDEO in kinds or parsed.video_links) and not (MediaType.IMAGE in kinds):
         return "video"
 
@@ -283,17 +310,22 @@ def build_block_rows(
     public_url_for: Callable[[str], str],
     *,
     photo_publication: bool = False,
+    size_for: Callable[[MediaItem], int | None] | None = None,
 ) -> list[dict]:
     """Строит строки для таблицы content_blocks.
 
     `key_for` — ключ S3, полученный после загрузки каждого MediaItem.
-    `public_url_for` — строит публичный URL по ключу (для direct-видео).
+    `public_url_for` — строит публичный URL по ключу (для external-видео).
+    `size_for` — размер файла в байтах (необязательно).
     Для photo-публикаций блоки не нужны (картинка лежит в photo_path).
 
     Фотографии Telegram media group (альбома) объединяются в ОДИН image-блок
     вида `{"paths": [key1, key2, ...]}` с сохранением порядка — так альбом из
     нескольких фото становится одним компактным PhotoContentBlock, а не
     несколькими блоками подряд. Одиночная картинка даёт `{"paths": [key]}`.
+
+    Загруженные в S3 видео и файлы (pdf и т.п.) хранят ключ в `path`
+    (как аудио upload), внешние видео — по-прежнему `url` + `provider`.
     """
     if photo_publication:
         return []
@@ -305,6 +337,18 @@ def build_block_rows(
         nonlocal order
         rows.append({"type": block_type, "order_index": order, "data": data})
         order += 1
+
+    def media_info(item: MediaItem) -> dict:
+        info: dict = {}
+        name = item.file_name or key_for(item).split("/")[-1]
+        if name:
+            info["name"] = name
+        if item.mime_type:
+            info["mime"] = item.mime_type
+        size = size_for(item) if size_for else None
+        if size is not None:
+            info["size"] = size
+        return info
 
     def add_media_items(items: list[MediaItem]) -> None:
         """Складывает media по порядку, склеивая подряд идущие картинки."""
@@ -326,7 +370,9 @@ def build_block_rows(
             if item.kind is MediaType.AUDIO:
                 add("audio", {"source": "upload", "path": key})
             elif item.kind is MediaType.VIDEO:
-                add("video", {"url": public_url_for(key), "provider": "direct"})
+                add("video", {"source": "upload", "path": key, **media_info(item)})
+            elif item.kind is MediaType.FILE:
+                add("file", {"path": key, **media_info(item)})
         flush_images()
 
     # В альбоме текст живёт на последнем фото — сохраняем порядок Telegram:

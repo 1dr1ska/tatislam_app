@@ -230,7 +230,7 @@ class _PublicationsListScreenState
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
                       ),
-                      maxLines: 2,
+                      maxLines: 3,
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),

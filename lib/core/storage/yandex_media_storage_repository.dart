@@ -30,7 +30,8 @@ class YandexMediaStorageRepository implements MediaStorageRepository {
     if (path.startsWith('covers/')) return 'covers';
     if (path.contains('/images/')) return 'images';
     if (path.contains('/audio/')) return 'audio';
-    if (path.contains('/video/')) return 'videos';
+    if (path.contains('/video/') || path.contains('/videos/')) return 'videos';
+    if (path.contains('/files/')) return 'files';
     return 'images';
   }
 

@@ -18,6 +18,7 @@ import 'package:tatislam_app/features/publications/domain/entities/audio_source_
 import 'package:tatislam_app/features/publications/domain/entities/content_block.dart';
 import 'package:tatislam_app/features/publications/domain/entities/publication_detail.dart';
 import 'package:tatislam_app/features/publications/domain/entities/video_provider_type.dart';
+import 'package:tatislam_app/features/publications/domain/entities/video_source_type.dart';
 import 'package:tatislam_app/features/sections/data/section_providers.dart';
 import 'package:tatislam_app/features/sections/domain/entities/section.dart';
 
@@ -64,6 +65,12 @@ class _PublicationEditorScreenState
 
   // Map to store selected audio files for each content block
   final Map<String, _SelectedFile> _selectedBlockAudioFiles = {};
+
+  // Map to store selected video files for video blocks (upload to Storage).
+  final Map<String, _SelectedFile> _selectedBlockVideoFiles = {};
+
+  // Map to store selected files for file blocks (pdf, docx, ...).
+  final Map<String, _SelectedFile> _selectedBlockFiles = {};
 
   // Track which blocks are expanded/collapsed
   final Set<String> _collapsedBlockIds = {};
@@ -196,6 +203,42 @@ class _PublicationEditorScreenState
     }
   }
 
+  Future<void> _pickBlockVideo(String blockId) async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.video,
+      withData: true,
+    );
+
+    if (result != null && result.files.single.bytes != null) {
+      final file = result.files.single;
+      setState(() {
+        _selectedBlockVideoFiles[blockId] = _SelectedFile(
+          bytes: file.bytes!,
+          name: file.name,
+        );
+        _hasUnsavedChanges = true;
+      });
+    }
+  }
+
+  Future<void> _pickBlockFile(String blockId) async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.any,
+      withData: true,
+    );
+
+    if (result != null && result.files.single.bytes != null) {
+      final file = result.files.single;
+      setState(() {
+        _selectedBlockFiles[blockId] = _SelectedFile(
+          bytes: file.bytes!,
+          name: file.name,
+        );
+        _hasUnsavedChanges = true;
+      });
+    }
+  }
+
   /// Auto-fills date when first publishing if no date is set.
   /// Does NOT modify already-published publications.
   void _ensureDateOnPublish() {
@@ -217,11 +260,17 @@ class _PublicationEditorScreenState
         ImageContentBlock() =>
           block.imagePaths.every((path) => path.isEmpty) &&
               !_selectedBlockImageFiles.containsKey(block.id),
-        VideoContentBlock() => block.url.trim().isEmpty,
+        VideoContentBlock() =>
+          block.url.trim().isEmpty &&
+              (block.videoPath == null || block.videoPath!.trim().isEmpty) &&
+              !_selectedBlockVideoFiles.containsKey(block.id),
         AudioContentBlock() =>
           (block.audioPath == null || block.audioPath!.trim().isEmpty) &&
               (block.audioUrl == null || block.audioUrl!.trim().isEmpty) &&
               !_selectedBlockAudioFiles.containsKey(block.id),
+        FileContentBlock() =>
+          block.path.trim().isEmpty &&
+              !_selectedBlockFiles.containsKey(block.id),
       };
     });
   }
@@ -309,6 +358,16 @@ class _PublicationEditorScreenState
       final file = entry.value;
       audios[entry.key] = SelectedMediaFile(bytes: file.bytes, name: file.name);
     }
+    final videos = <String, SelectedMediaFile>{};
+    for (final entry in _selectedBlockVideoFiles.entries) {
+      final file = entry.value;
+      videos[entry.key] = SelectedMediaFile(bytes: file.bytes, name: file.name);
+    }
+    final files = <String, SelectedMediaFile>{};
+    for (final entry in _selectedBlockFiles.entries) {
+      final file = entry.value;
+      files[entry.key] = SelectedMediaFile(bytes: file.bytes, name: file.name);
+    }
     return PublicationSavePayload(
       publicationId: widget.publicationId,
       isPhoto: false,
@@ -323,6 +382,8 @@ class _PublicationEditorScreenState
       contentBlocks: _contentBlocks.toList(),
       newBlockImages: images,
       newBlockAudios: audios,
+      newBlockVideos: videos,
+      newBlockFiles: files,
     );
   }
 
@@ -414,6 +475,9 @@ class _PublicationEditorScreenState
           _contentBlocks[i] = block.copyWith(orderIndex: i);
           break;
         case AudioContentBlock():
+          _contentBlocks[i] = block.copyWith(orderIndex: i);
+          break;
+        case FileContentBlock():
           _contentBlocks[i] = block.copyWith(orderIndex: i);
           break;
       }
@@ -1070,6 +1134,25 @@ class _PublicationEditorScreenState
             _markUnsaved();
           },
         ),
+        _buildAddBlockChip(
+          icon: Icons.insert_drive_file,
+          label: 'Файл',
+          color: Colors.teal,
+          onPressed: () {
+            setState(() {
+              _contentBlocks.add(
+                FileContentBlock(
+                  id: _uuid.v4(),
+                  publicationId: widget.publicationId ?? '',
+                  orderIndex: _contentBlocks.length,
+                  path: '',
+                  name: '',
+                ),
+              );
+            });
+            _markUnsaved();
+          },
+        ),
       ],
     );
   }
@@ -1164,6 +1247,8 @@ class _PublicationEditorScreenState
         return _buildVideoBlockWidget(block, index);
       case AudioContentBlock():
         return _buildAudioBlockWidget(block, index);
+      case FileContentBlock():
+        return _buildFileBlockWidget(block, index);
     }
   }
 
@@ -1663,6 +1748,117 @@ class _PublicationEditorScreenState
                         _markUnsaved();
                       }
                     },
+                  ),
+                  const SizedBox(height: 10),
+                  _buildVideoUploadArea(block),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildVideoUploadArea(VideoContentBlock block) {
+    final selected = _selectedBlockVideoFiles[block.id];
+    final hasExisting = block.source == VideoSourceType.upload &&
+        (block.videoPath ?? '').isNotEmpty;
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        OutlinedButton(
+          onPressed: () => _pickBlockVideo(block.id),
+          child: Text(
+            selected == null && !hasExisting ? 'Загрузить видео' : 'Заменить видео',
+          ),
+        ),
+        if (selected != null)
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.only(left: 8),
+              child: Text(selected.name, overflow: TextOverflow.ellipsis),
+            ),
+          )
+        else if (hasExisting)
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.only(left: 8),
+              child: Text(
+                block.videoName ?? block.videoPath!,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildFileBlockWidget(FileContentBlock block, int index) {
+    final isCollapsed = _collapsedBlockIds.contains(block.id);
+    final selected = _selectedBlockFiles[block.id];
+
+    return Card(
+      key: Key(block.id),
+      margin: const EdgeInsets.only(bottom: 8),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildBlockHeader(
+            title: 'Файл',
+            icon: Icons.insert_drive_file,
+            iconColor: Colors.teal,
+            index: index,
+            isCollapsed: isCollapsed,
+            onToggleCollapse: () {
+              setState(() {
+                if (isCollapsed) {
+                  _collapsedBlockIds.remove(block.id);
+                } else {
+                  _collapsedBlockIds.add(block.id);
+                }
+              });
+            },
+          ),
+          if (!isCollapsed)
+            Padding(
+              padding: const EdgeInsets.all(10),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      OutlinedButton(
+                        onPressed: () => _pickBlockFile(block.id),
+                        child: Text(
+                          selected == null && block.path.isEmpty
+                              ? 'Выбрать файл'
+                              : 'Заменить файл',
+                        ),
+                      ),
+                      if (selected != null)
+                        Expanded(
+                          child: Padding(
+                            padding: const EdgeInsets.only(left: 8),
+                            child: Text(
+                              selected.name,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        )
+                      else if (block.path.isNotEmpty)
+                        Expanded(
+                          child: Padding(
+                            padding: const EdgeInsets.only(left: 8),
+                            child: Text(
+                              block.name.isEmpty ? block.path : block.name,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
                 ],
               ),

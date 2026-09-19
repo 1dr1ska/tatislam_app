@@ -24,7 +24,17 @@ def _video(message_id: int) -> MediaItem:
     return MediaItem(kind=MediaType.VIDEO, message_id=message_id)
 
 
-def _parsed(media: list[MediaItem], *, text: str | None = None, album: bool = False) -> ParsedMessage:
+def _file(message_id: int) -> MediaItem:
+    return MediaItem(kind=MediaType.FILE, message_id=message_id, file_name=f"file_{message_id}.pdf")
+
+
+def _parsed(
+    media: list[MediaItem],
+    *,
+    text: str | None = None,
+    album: bool = False,
+    video_links: list | None = None,
+) -> ParsedMessage:
     # is_album определяется по числу исходных сообщений группы.
     messages = [1, 2, 3, 4] if album else [1]
     return ParsedMessage(
@@ -33,7 +43,7 @@ def _parsed(media: list[MediaItem], *, text: str | None = None, album: bool = Fa
         date=datetime(2024, 1, 1, tzinfo=timezone.utc),
         text=text,
         media=media,
-        video_links=[],
+        video_links=video_links or [],
     )
 
 
@@ -125,8 +135,37 @@ class BuildBlockRowsTest(unittest.TestCase):
 
         self.assertEqual([r["type"] for r in rows], ["image", "video", "image"])
         self.assertEqual(rows[0]["data"], {"paths": ["images/10.jpg"]})
-        self.assertEqual(rows[1]["data"]["provider"], "direct")
+        # Загруженное видео хранит путь в `path` (как аудио upload).
+        self.assertEqual(rows[1]["data"]["source"], "upload")
+        self.assertEqual(rows[1]["data"]["path"], "images/20.jpg")
         self.assertEqual(rows[2]["data"], {"paths": ["images/11.jpg"]})
+
+    def test_uploaded_video_block_has_source_and_path(self) -> None:
+        parsed = _parsed([_video(30)], text="видео")
+        rows = build_block_rows(
+            parsed,
+            key_for=lambda item: f"videos/{item.message_id}.mp4",
+            public_url_for=lambda key: f"https://media/{key}",
+            size_for=lambda item: 12345,
+        )
+        self.assertEqual(rows[1]["type"], "video")
+        self.assertEqual(rows[1]["data"]["source"], "upload")
+        self.assertEqual(rows[1]["data"]["path"], "videos/30.mp4")
+        self.assertEqual(rows[1]["data"]["name"], "30.mp4")
+        self.assertEqual(rows[1]["data"]["size"], 12345)
+
+    def test_file_block_keeps_metadata(self) -> None:
+        parsed = _parsed([_file(40)], text="файл")
+        rows = build_block_rows(
+            parsed,
+            key_for=lambda item: f"files/{item.message_id}.pdf",
+            public_url_for=lambda key: key,
+            size_for=lambda item: 999,
+        )
+        self.assertEqual(rows[1]["type"], "file")
+        self.assertEqual(rows[1]["data"]["path"], "files/40.pdf")
+        self.assertEqual(rows[1]["data"]["name"], "file_40.pdf")
+        self.assertEqual(rows[1]["data"]["size"], 999)
 
     def test_photo_publication_returns_no_blocks(self) -> None:
         parsed = _parsed([_image(10)])
@@ -151,6 +190,27 @@ class DecidePublicationTypeTest(unittest.TestCase):
     def test_pure_photo_album_is_article(self) -> None:
         parsed = _parsed([_image(10), _image(11)], album=True)
         self.assertEqual(decide_publication_type(parsed), "article")
+
+    def test_audio_with_video_link_is_still_audio(self) -> None:
+        # Вәгазь: голосовое/аудиофайл + ссылка на rutube в тексте → это аудио-пост.
+        parsed = _parsed(
+            [_audio(10)],
+            text="см. https://rutube.ru/video/x",
+            video_links=[({"url": "https://rutube.ru/video/x", "provider": "rutube"})],
+        )
+        self.assertEqual(decide_publication_type(parsed), "audio")
+
+    def test_audio_with_video_file_is_video(self) -> None:
+        parsed = _parsed([_audio(10), _video(11)], text="пост")
+        self.assertEqual(decide_publication_type(parsed), "video")
+
+    def test_video_link_without_audio_is_video(self) -> None:
+        parsed = _parsed(
+            [],
+            text="https://youtube.com/watch?v=zzz",
+            video_links=[({"url": "https://youtube.com/watch?v=zzz", "provider": "youtube"})],
+        )
+        self.assertEqual(decide_publication_type(parsed), "video")
 
 
 if __name__ == "__main__":

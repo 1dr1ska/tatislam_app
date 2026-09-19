@@ -226,6 +226,14 @@ class PublicationUploadQueue {
           payload.newBlockAudios.containsKey(block.id)) {
         return count + 1;
       }
+      if (block is VideoContentBlock &&
+          payload.newBlockVideos.containsKey(block.id)) {
+        return count + 1;
+      }
+      if (block is FileContentBlock &&
+          payload.newBlockFiles.containsKey(block.id)) {
+        return count + 1;
+      }
       return count;
     });
   }

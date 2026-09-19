@@ -13,6 +13,7 @@ class MediaType(str, Enum):
     IMAGE = "image"
     AUDIO = "audio"
     VIDEO = "video"
+    FILE = "file"
     UNSUPPORTED = "unsupported"
 
 
@@ -43,7 +44,11 @@ class MediaItem:
             return "images"
         if self.kind is MediaType.AUDIO:
             return "audio"
-        return "videos"
+        if self.kind is MediaType.VIDEO:
+            return "videos"
+        if self.kind is MediaType.FILE:
+            return "files"
+        return "files"
 
 
 @dataclass

@@ -21,6 +21,7 @@ import 'package:tatislam_app/features/detail/presentation/widgets/text_content_w
 import 'package:tatislam_app/features/detail/presentation/widgets/image_content_widget.dart';
 import 'package:tatislam_app/features/detail/presentation/widgets/video_content_widget.dart';
 import 'package:tatislam_app/features/detail/presentation/widgets/audio_content_widget.dart';
+import 'package:tatislam_app/features/detail/presentation/widgets/file_content_widget.dart';
 
 /// Unified glassmorphism constants matching the main screen.
 const double _detailGlassBlur = 18;
@@ -77,11 +78,18 @@ class _PublicationDetailScreenState
         mediaStorage: mediaStorage,
         dimensionsService: _dimensionsService,
       ),
-      VideoContentBlock() => VideoContentWidget(block: block),
+      VideoContentBlock() => VideoContentWidget(
+        block: block,
+        mediaStorage: mediaStorage,
+      ),
       AudioContentBlock() => AudioContentWidget(
         block: block,
         mediaStorage: mediaStorage,
         trackTitle: trackTitle,
+      ),
+      FileContentBlock() => FileContentWidget(
+        block: block,
+        mediaStorage: mediaStorage,
       ),
     };
 

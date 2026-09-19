@@ -45,7 +45,7 @@ class MediaStorage:
         content_type: str | None = None,
     ) -> str:
         """Загружает байты как public-read объект и возвращает S3-ключ."""
-        if folder not in ("images", "audio", "videos"):
+        if folder not in ("images", "audio", "videos", "files"):
             raise ValueError(f"Недопустимая папка S3: {folder!r}")
         safe_ext = extension
         if not safe_ext.startswith("."):

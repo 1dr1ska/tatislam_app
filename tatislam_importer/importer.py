@@ -76,6 +76,7 @@ class Importer:
 
         self._db: SupabaseClient | None = None
         self._storage: MediaStorage | None = None
+        self._section_cache: dict[str, str] = {}
 
         self.imported = 0
         self.skipped = 0
@@ -131,18 +132,32 @@ class Importer:
         groups = group_albums(messages)
         logger.info("[INFO] Found %d publications", len(groups))
 
-        section_id: str | None = None
-        if not self.dry_run:
-            section_id = await asyncio.to_thread(self._get_section_id)
-
         for group in groups:
             parsed = parse_group(group, channel_username=self.telegram.channel_username)
-            await self._process(parsed, section_id)
+            await self._process(parsed)
 
         self._print_report()
 
-    def _get_section_id(self) -> str:
-        return self._ensure_db().get_section_id(self.section_slug)
+    def _section_slug_for(self, publication_type: str) -> str:
+        """Раздел для публикации — по её типу (audio→Аудио, video→Видео,
+        photo→Рәсемнәр, article→Мәкаләләр)."""
+        settings = self.settings
+        if publication_type == "audio":
+            return getattr(settings, "section_audio_slug", "audio") or "audio"
+        if publication_type == "video":
+            return getattr(settings, "section_video_slug", "video") or "video"
+        if publication_type == "photo":
+            return (
+                getattr(settings, "section_photo_slug", "rasemnar")
+                or self.section_slug
+            )
+        return self.section_slug
+
+    def _get_section_id(self, publication_type: str) -> str:
+        slug = self._section_slug_for(publication_type)
+        if slug not in self._section_cache:
+            self._section_cache[slug] = self._ensure_db().get_section_id(slug)
+        return self._section_cache[slug]
 
     async def run_export(
         self,
@@ -170,12 +185,8 @@ class Importer:
             publications = publications[-limit:]
         logger.info("[INFO] Публикаций к обработке: %d", len(publications))
 
-        section_id: str | None = None
-        if not self.dry_run:
-            section_id = await asyncio.to_thread(self._get_section_id)
-
         for parsed in publications:
-            await self._process(parsed, section_id)
+            await self._process(parsed)
 
         self._print_report()
 
@@ -207,7 +218,7 @@ class Importer:
             )
         return path
 
-    async def _process(self, parsed: ParsedMessage, section_id: str | None) -> None:
+    async def _process(self, parsed: ParsedMessage) -> None:
         if parsed is None:
             logger.warning("[WARN] Пустая группа сообщений — пропуск")
             self.skipped += 1
@@ -230,13 +241,13 @@ class Importer:
             self.would_import += 1
             return
 
-        await self._import_message(parsed, section_id)
+        await self._import_message(parsed)
 
     # ----------------------------------------------------------
     # Реальный импорт
     # ----------------------------------------------------------
 
-    async def _import_message(self, parsed: ParsedMessage, section_id: str) -> None:
+    async def _import_message(self, parsed: ParsedMessage) -> None:
         db = self._ensure_db()
         storage = self._ensure_storage()
 
@@ -244,10 +255,12 @@ class Importer:
         try:
             publication_type = decide_publication_type(parsed)
             photo_publication = publication_type == "photo"
+            section_id = await asyncio.to_thread(self._get_section_id, publication_type)
 
             # 1. Подготавливаем байты медиа (качаем из Telegram либо берём
             #    локальный файл экспорта) и загружаем в S3.
             key_by_item = {}
+            sizes_by_item = {}
             for item in parsed.supported_media:
                 logger.info(
                     "[INFO] message %s: download %s…", parsed.message_id, item.kind.value
@@ -264,6 +277,7 @@ class Importer:
                     storage.upload, data, item.folder, extension, content_type
                 )
                 key_by_item[item] = key
+                sizes_by_item[item] = len(data)
 
             for warning in parsed.warnings:
                 logger.warning("[WARN] message %s: %s", parsed.message_id, warning)
@@ -290,6 +304,7 @@ class Importer:
                     key_for=lambda item: key_by_item[item],
                     public_url_for=storage.public_url,
                     photo_publication=photo_publication,
+                    size_for=lambda item: sizes_by_item.get(item),
                 )
                 for block in block_rows:
                     block["publication_id"] = publication_id
@@ -344,7 +359,12 @@ class Importer:
 
     def _print_dry_run(self, parsed: ParsedMessage) -> None:
         media = parsed.supported_media
-        by_kind = {MediaType.IMAGE: 0, MediaType.AUDIO: 0, MediaType.VIDEO: 0}
+        by_kind = {
+            MediaType.IMAGE: 0,
+            MediaType.AUDIO: 0,
+            MediaType.VIDEO: 0,
+            MediaType.FILE: 0,
+        }
         for item in media:
             by_kind[item.kind] += 1
         text = parsed.text or ""
@@ -355,7 +375,8 @@ class Importer:
             f"  images: {by_kind[MediaType.IMAGE]}\n"
             f"  audio: {'yes' if by_kind[MediaType.AUDIO] else 'no'}\n"
             f"  video: {'yes' if by_kind[MediaType.VIDEO] else 'no'}"
-            f"{f' (links: {len(parsed.video_links)})' if parsed.video_links else ''}\n"
+            f"{f' (links: {len(parsed.video_links)})' if parsed.video_links else ''}"
+            f"{f'\n  files: {by_kind[MediaType.FILE]}' if by_kind[MediaType.FILE] else ''}\n"
             f"  action: IMPORT"
         )
         for warning in parsed.warnings:
@@ -390,6 +411,8 @@ def _extension_for(item) -> str:
         return ".jpg"
     if item.kind is MediaType.VIDEO:
         return ".mp4"
+    if item.kind is MediaType.FILE:
+        return ".bin"
     return ".mp3"
 
 

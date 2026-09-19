@@ -32,6 +32,22 @@ class StoragePaths {
   }) =>
       'blocks/$publicationId/audio/${blockId ?? _uuid.v4()}.${_clean(extension)}';
 
+  /// Path for a video file uploaded to the `videos` folder.
+  static String blockVideo(
+    String publicationId,
+    String extension, {
+    String? blockId,
+  }) =>
+      'blocks/$publicationId/videos/${blockId ?? _uuid.v4()}.${_clean(extension)}';
+
+  /// Path for an arbitrary file (pdf, docx, ...) uploaded to the `files` folder.
+  static String blockFile(
+    String publicationId,
+    String extension, {
+    String? blockId,
+  }) =>
+      'blocks/$publicationId/files/${blockId ?? _uuid.v4()}.${_clean(extension)}';
+
   /// Path for the full-bleed photo backing a `photo` type publication.
   static String photo(
     String publicationId,

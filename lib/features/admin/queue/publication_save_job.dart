@@ -9,6 +9,7 @@ import 'package:tatislam_app/core/storage/storage_paths.dart';
 import 'package:tatislam_app/core/storage/storage_providers.dart';
 import 'package:tatislam_app/features/publications/data/publication_providers.dart';
 import 'package:tatislam_app/features/publications/domain/entities/content_block.dart';
+import 'package:tatislam_app/features/publications/domain/entities/video_source_type.dart';
 import 'package:tatislam_app/features/publications/domain/repositories/publication_repository.dart';
 import 'package:tatislam_app/features/publications/presentation/providers/publication_state_providers.dart';
 
@@ -147,6 +148,14 @@ class PublicationSaveJob {
           payload.newBlockAudios.containsKey(block.id)) {
         return count + 1;
       }
+      if (block is VideoContentBlock &&
+          payload.newBlockVideos.containsKey(block.id)) {
+        return count + 1;
+      }
+      if (block is FileContentBlock &&
+          payload.newBlockFiles.containsKey(block.id)) {
+        return count + 1;
+      }
       return count;
     });
 
@@ -233,6 +242,62 @@ class PublicationSaveJob {
         } else {
           updatedBlocks.add(block);
         }
+      } else if (block is VideoContentBlock) {
+        final file = payload.newBlockVideos[block.id];
+        if (file != null) {
+          final s3Key = await _uploadBlockVideo(
+            effectiveId,
+            block,
+            file,
+            storage,
+          );
+          uploadedPaths.add(s3Key);
+          if (block.videoPath != null &&
+              block.videoPath!.isNotEmpty &&
+              block.videoPath != s3Key) {
+            replacedPaths.add(block.videoPath!);
+          }
+          fileIndex++;
+          report(1, fileIndex);
+          updatedBlocks.add(
+            block.copyWith(
+              source: VideoSourceType.upload,
+              url: '',
+              videoPath: s3Key,
+              videoName: file.name,
+              videoSize: file.bytes.length,
+              videoMime: _mimeFor(file.name),
+            ),
+          );
+        } else {
+          updatedBlocks.add(block);
+        }
+      } else if (block is FileContentBlock) {
+        final file = payload.newBlockFiles[block.id];
+        if (file != null) {
+          final s3Key = await _uploadBlockFile(
+            effectiveId,
+            block,
+            file,
+            storage,
+          );
+          uploadedPaths.add(s3Key);
+          if (block.path.isNotEmpty && block.path != s3Key) {
+            replacedPaths.add(block.path);
+          }
+          fileIndex++;
+          report(1, fileIndex);
+          updatedBlocks.add(
+            block.copyWith(
+              path: s3Key,
+              name: file.name,
+              size: file.bytes.length,
+              mimeType: _mimeFor(file.name),
+            ),
+          );
+        } else {
+          updatedBlocks.add(block);
+        }
       } else {
         updatedBlocks.add(block);
       }
@@ -304,6 +369,78 @@ class PublicationSaveJob {
       if (e is PublicationSaveJobCanceled) rethrow;
       throw Exception('Ошибка загрузки аудио: $e');
     }
+  }
+
+  static Future<String> _uploadBlockVideo(
+    String effectiveId,
+    VideoContentBlock block,
+    SelectedMediaFile file,
+    MediaStorageRepository storage,
+  ) async {
+    try {
+      final extension = file.name.split('.').last;
+      final path = StoragePaths.blockVideo(
+        effectiveId,
+        extension,
+        blockId: block.id,
+      );
+      return await storage.upload(
+        path,
+        file.bytes,
+        contentType: _mimeFor(file.name),
+      );
+    } catch (e) {
+      if (e is PublicationSaveJobCanceled) rethrow;
+      throw Exception('Ошибка загрузки видео: $e');
+    }
+  }
+
+  static Future<String> _uploadBlockFile(
+    String effectiveId,
+    FileContentBlock block,
+    SelectedMediaFile file,
+    MediaStorageRepository storage,
+  ) async {
+    try {
+      final extension = file.name.split('.').last;
+      final path = StoragePaths.blockFile(
+        effectiveId,
+        extension,
+        blockId: block.id,
+      );
+      return await storage.upload(
+        path,
+        file.bytes,
+        contentType: _mimeFor(file.name),
+      );
+    } catch (e) {
+      if (e is PublicationSaveJobCanceled) rethrow;
+      throw Exception('Ошибка загрузки файла: $e');
+    }
+  }
+
+  /// Best-effort MIME type by file extension (used as the upload Content-Type).
+  static String _mimeFor(String fileName) {
+    final ext = fileName.split('.').last.toLowerCase();
+    return switch (ext) {
+      'mp4' => 'video/mp4',
+      'webm' => 'video/webm',
+      'mov' => 'video/quicktime',
+      'mkv' => 'video/x-matroska',
+      'pdf' => 'application/pdf',
+      'doc' => 'application/msword',
+      'docx' =>
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'xls' => 'application/vnd.ms-excel',
+      'xlsx' =>
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'ppt' => 'application/vnd.ms-powerpoint',
+      'pptx' =>
+        'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+      'txt' => 'text/plain',
+      'zip' => 'application/zip',
+      _ => 'application/octet-stream',
+    };
   }
 
   // ---------------------------------------------------------------

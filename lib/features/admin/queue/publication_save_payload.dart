@@ -45,6 +45,12 @@ class PublicationSavePayload {
   /// Newly picked audio files keyed by block id.
   final Map<String, SelectedMediaFile> newBlockAudios;
 
+  /// Newly picked video files keyed by block id (uploaded videos).
+  final Map<String, SelectedMediaFile> newBlockVideos;
+
+  /// Newly picked files (pdf, docx, ...) for file blocks, keyed by block id.
+  final Map<String, SelectedMediaFile> newBlockFiles;
+
   // ── Photo publications ──────────────────────────────────
   final SelectedMediaFile? newPhoto;
 
@@ -66,6 +72,8 @@ class PublicationSavePayload {
     this.contentBlocks = const [],
     this.newBlockImages = const {},
     this.newBlockAudios = const {},
+    this.newBlockVideos = const {},
+    this.newBlockFiles = const {},
     this.newPhoto,
     this.existingPhotoPath,
   });

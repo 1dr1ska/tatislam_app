@@ -50,27 +50,45 @@ class TextContentBlock extends ContentBlock {
 }
 
 class ImageContentBlock extends ContentBlock {
-  /// Storage path (e.g. `blocks/<publicationId>/images/<id>.jpg`) — never
-  /// a public URL. Resolved via [MediaStorageRepository.publicUrlFor].
-  final String imagePath;
+  /// Ordered Storage paths (e.g. `blocks/<publicationId>/images/<id>.jpg`) —
+  /// never public URLs. Resolved via [MediaStorageRepository.publicUrlFor].
+  ///
+  /// A block can hold one or many photos (a Telegram-style album); legacy rows
+  /// that stored a single `path` in the DB are parsed into a one-element list.
+  ///
+  /// May be empty only while the block is being edited in the admin UI (a
+  /// placeholder that is filtered out before saving).
+  final List<String> imagePaths;
 
   const ImageContentBlock({
     required super.id,
     required super.publicationId,
     required super.orderIndex,
-    required this.imagePath,
+    required this.imagePaths,
   });
 
-  ImageContentBlock copyWith({String? imagePath, int? orderIndex}) =>
+  /// Backwards-compatible accessor: the first photo's path, or `''` when the
+  /// block has no photos. Keeps single-photo call sites (admin editor, upload
+  /// queue) working unchanged.
+  String get imagePath => imagePaths.firstOrNull ?? '';
+
+  /// Replaces the whole photo list. `imagePath` (a single path) is accepted
+  /// for backwards compatibility with the admin editor; `imagePaths` takes
+  /// precedence when both are provided.
+  ImageContentBlock copyWith({
+    List<String>? imagePaths,
+    String? imagePath,
+    int? orderIndex,
+  }) =>
       ImageContentBlock(
         id: id,
         publicationId: publicationId,
         orderIndex: orderIndex ?? this.orderIndex,
-        imagePath: imagePath ?? this.imagePath,
+        imagePaths: imagePaths ?? (imagePath != null ? [imagePath] : this.imagePaths),
       );
 
   @override
-  List<Object?> get props => [...super.props, imagePath];
+  List<Object?> get props => [...super.props, imagePaths];
 }
 
 class VideoContentBlock extends ContentBlock {

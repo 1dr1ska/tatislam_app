@@ -175,8 +175,10 @@ def parse_group(messages: list, channel_username: str | None) -> ParsedMessage |
 
     video_links = classify_video_links(text or "")
 
+    supported_media = [m for m in media if m.kind is not MediaType.UNSUPPORTED]
+
     # Если по сути нечего импортировать — помечаем публикацию как «пропуск».
-    if not text and not video_links and not media:
+    if not text and not video_links and not supported_media:
         why = "; ".join(warnings) if warnings else "пустое сообщение / неизвестный медиа"
         return ParsedMessage(
             message_id=representative_id,
@@ -287,6 +289,11 @@ def build_block_rows(
     `key_for` — ключ S3, полученный после загрузки каждого MediaItem.
     `public_url_for` — строит публичный URL по ключу (для direct-видео).
     Для photo-публикаций блоки не нужны (картинка лежит в photo_path).
+
+    Фотографии Telegram media group (альбома) объединяются в ОДИН image-блок
+    вида `{"paths": [key1, key2, ...]}` с сохранением порядка — так альбом из
+    нескольких фото становится одним компактным PhotoContentBlock, а не
+    несколькими блоками подряд. Одиночная картинка даёт `{"paths": [key]}`.
     """
     if photo_publication:
         return []
@@ -299,27 +306,39 @@ def build_block_rows(
         rows.append({"type": block_type, "order_index": order, "data": data})
         order += 1
 
-    def add_media(item: MediaItem) -> None:
-        key = key_for(item)
-        if item.kind is MediaType.IMAGE:
-            add("image", {"path": key})
-        elif item.kind is MediaType.AUDIO:
-            add("audio", {"source": "upload", "path": key})
-        elif item.kind is MediaType.VIDEO:
-            add("video", {"url": public_url_for(key), "provider": "direct"})
+    def add_media_items(items: list[MediaItem]) -> None:
+        """Складывает media по порядку, склеивая подряд идущие картинки."""
+        pending_images: list[MediaItem] = []
+
+        def flush_images() -> None:
+            if not pending_images:
+                return
+            keys = [key_for(item) for item in pending_images]
+            add("image", {"paths": keys})
+            pending_images.clear()
+
+        for item in items:
+            if item.kind is MediaType.IMAGE:
+                pending_images.append(item)
+                continue
+            flush_images()
+            key = key_for(item)
+            if item.kind is MediaType.AUDIO:
+                add("audio", {"source": "upload", "path": key})
+            elif item.kind is MediaType.VIDEO:
+                add("video", {"url": public_url_for(key), "provider": "direct"})
+        flush_images()
 
     # В альбоме текст живёт на последнем фото — сохраняем порядок Telegram:
     # сначала медиа, затем описание.
     if parsed.is_album:
-        for item in parsed.supported_media:
-            add_media(item)
+        add_media_items(list(parsed.supported_media))
         if parsed.text and parsed.text.strip():
             add("text", {"text": parsed.text})
     else:
         if parsed.text and parsed.text.strip():
             add("text", {"text": parsed.text})
-        for item in parsed.supported_media:
-            add_media(item)
+        add_media_items(list(parsed.supported_media))
 
     for link in parsed.video_links:
         add("video", {"url": link.url, "provider": link.provider})

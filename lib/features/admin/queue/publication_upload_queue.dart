@@ -220,7 +220,7 @@ class PublicationUploadQueue {
     return payload.contentBlocks.fold(0, (count, block) {
       if (block is ImageContentBlock &&
           payload.newBlockImages.containsKey(block.id)) {
-        return count + 1;
+        return count + payload.newBlockImages[block.id]!.length;
       }
       if (block is AudioContentBlock &&
           payload.newBlockAudios.containsKey(block.id)) {

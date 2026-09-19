@@ -141,7 +141,7 @@ class PublicationSaveJob {
     final totalFiles = payload.contentBlocks.fold(0, (count, block) {
       if (block is ImageContentBlock &&
           payload.newBlockImages.containsKey(block.id)) {
-        return count + 1;
+        return count + payload.newBlockImages[block.id]!.length;
       }
       if (block is AudioContentBlock &&
           payload.newBlockAudios.containsKey(block.id)) {
@@ -189,22 +189,28 @@ class PublicationSaveJob {
     var fileIndex = 0;
     for (final block in payload.contentBlocks) {
       if (block is ImageContentBlock) {
-        final file = payload.newBlockImages[block.id];
-        if (file != null) {
-          final s3Key = await _uploadBlockImage(
-            effectiveId,
-            block,
-            file,
-            storage,
-            optimizationService,
-          );
-          uploadedPaths.add(s3Key);
-          if (block.imagePath.isNotEmpty && block.imagePath != s3Key) {
-            replacedPaths.add(block.imagePath);
+        final files = payload.newBlockImages[block.id];
+        if (files != null && files.isNotEmpty) {
+          // Upload every newly picked photo and append its Storage key to the
+          // block's kept paths (album order: existing photos first, then the
+          // new ones, in the order they were picked).
+          final newKeys = <String>[];
+          for (final file in files) {
+            final s3Key = await _uploadBlockImage(
+              effectiveId,
+              block,
+              file,
+              storage,
+              optimizationService,
+            );
+            uploadedPaths.add(s3Key);
+            newKeys.add(s3Key);
+            fileIndex++;
+            report(1, fileIndex);
           }
-          fileIndex++;
-          report(1, fileIndex);
-          updatedBlocks.add(block.copyWith(imagePath: s3Key));
+          updatedBlocks.add(
+            block.copyWith(imagePaths: [...block.imagePaths, ...newKeys]),
+          );
         } else {
           updatedBlocks.add(block);
         }

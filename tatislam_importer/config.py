@@ -25,13 +25,17 @@ def _env(name: str) -> str | None:
 
 @dataclass(frozen=True)
 class Settings:
-    # Обязательные
-    telegram_api_id: int
-    telegram_api_hash: str
-    supabase_url: str
-    supabase_service_role_key: str
-    yandex_access_key: str
-    yandex_secret_key: str
+    # Telegram (нужны только для режима --source telegram)
+    telegram_api_id: int | None
+    telegram_api_hash: str | None
+
+    # Supabase (нужны для реальной записи в БД)
+    supabase_url: str | None
+    supabase_service_role_key: str | None
+
+    # Yandex Object Storage (нужны для реальной загрузки медиа)
+    yandex_access_key: str | None
+    yandex_secret_key: str | None
 
     # Необязательные, со здравыми значениями по умолчанию
     session_file: str
@@ -45,22 +49,13 @@ class Settings:
 
     @staticmethod
     def load() -> "Settings":
-        def _required(name: str) -> str:
-            value = _env(name)
-            if value is None:
-                raise ConfigError(
-                    f"Переменная {name} не задана. Скопируйте .env.example в .env "
-                    "и заполните её (см. README.md)."
-                )
-            return value
-
         api_id_raw = _env("TELEGRAM_API_ID")
-        if api_id_raw is None:
-            raise ConfigError("TELEGRAM_API_ID не задана в .env")
-        try:
-            api_id = int(api_id_raw)
-        except ValueError as exc:
-            raise ConfigError("TELEGRAM_API_ID должна быть числом") from exc
+        telegram_api_id: int | None = None
+        if api_id_raw:
+            try:
+                telegram_api_id = int(api_id_raw)
+            except ValueError as exc:
+                raise ConfigError("TELEGRAM_API_ID должна быть числом") from exc
 
         status = _env("PUBLICATION_STATUS") or "published"
         if status not in ("draft", "published"):
@@ -79,12 +74,12 @@ class Settings:
             )
 
         return Settings(
-            telegram_api_id=api_id,
-            telegram_api_hash=_required("TELEGRAM_API_HASH"),
-            supabase_url=_required("SUPABASE_URL"),
-            supabase_service_role_key=_required("SUPABASE_SERVICE_ROLE_KEY"),
-            yandex_access_key=_required("YANDEX_ACCESS_KEY"),
-            yandex_secret_key=_required("YANDEX_SECRET_KEY"),
+            telegram_api_id=telegram_api_id,
+            telegram_api_hash=_env("TELEGRAM_API_HASH"),
+            supabase_url=_env("SUPABASE_URL"),
+            supabase_service_role_key=_env("SUPABASE_SERVICE_ROLE_KEY"),
+            yandex_access_key=_env("YANDEX_ACCESS_KEY"),
+            yandex_secret_key=_env("YANDEX_SECRET_KEY"),
             session_file=_env("SESSION_FILE") or "telegram.session",
             default_channel=_env("TELEGRAM_CHANNEL"),
             default_section_slug=_env("DEFAULT_SECTION_SLUG") or "articles",

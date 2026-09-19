@@ -58,8 +58,9 @@ class _PublicationEditorScreenState
   String _status = 'published';
   DateTime? _publishedAt;
 
-  // Map to store selected image files for each content block
-  final Map<String, _SelectedFile> _selectedBlockImageFiles = {};
+  // Map to store selected image files for each content block (an image block
+  // can hold several photos, so each entry is a list).
+  final Map<String, List<_SelectedFile>> _selectedBlockImageFiles = {};
 
   // Map to store selected audio files for each content block
   final Map<String, _SelectedFile> _selectedBlockAudioFiles = {};
@@ -138,19 +139,29 @@ class _PublicationEditorScreenState
   Future<void> _pickBlockImage(String blockId) async {
     try {
       final picker = ImagePicker();
-      final pickedFile = await picker.pickImage(
-        source: ImageSource.gallery,
+      final pickedFiles = await picker.pickMultiImage(
         imageQuality: 95,
+        // Albums: allow picking several photos at once (the platform gallery
+        // picker supports multi-select).
+        limit: 20,
       );
 
-      if (pickedFile != null) {
-        final bytes = await pickedFile.readAsBytes();
-        final name = pickedFile.name;
+      if (pickedFiles.isNotEmpty) {
+        final files = <_SelectedFile>[];
+        for (final picked in pickedFiles) {
+          final bytes = await picked.readAsBytes();
+          final name = picked.name;
+          files.add(_SelectedFile(bytes: bytes, name: name));
+        }
         setState(() {
-          _selectedBlockImageFiles[blockId] = _SelectedFile(
-            bytes: bytes,
-            name: name,
-          );
+          // Append to the block's staged photos so a publication can build
+          // an album in several passes.
+          final existing = _selectedBlockImageFiles[blockId];
+          if (existing != null) {
+            existing.addAll(files);
+          } else {
+            _selectedBlockImageFiles[blockId] = files;
+          }
           _hasUnsavedChanges = true;
         });
       }
@@ -204,7 +215,7 @@ class _PublicationEditorScreenState
       return switch (block) {
         TextContentBlock() => block.text.trim().isEmpty,
         ImageContentBlock() =>
-          block.imagePath.isEmpty &&
+          block.imagePaths.every((path) => path.isEmpty) &&
               !_selectedBlockImageFiles.containsKey(block.id),
         VideoContentBlock() => block.url.trim().isEmpty,
         AudioContentBlock() =>
@@ -285,10 +296,13 @@ class _PublicationEditorScreenState
   /// Snapshots the current form state (including picked file bytes) into an
   /// immutable [PublicationSavePayload] for the background queue.
   PublicationSavePayload _buildSavePayload() {
-    final images = <String, SelectedMediaFile>{};
+    final images = <String, List<SelectedMediaFile>>{};
     for (final entry in _selectedBlockImageFiles.entries) {
-      final file = entry.value;
-      images[entry.key] = SelectedMediaFile(bytes: file.bytes, name: file.name);
+      images[entry.key] = entry.value
+          .map(
+            (file) => SelectedMediaFile(bytes: file.bytes, name: file.name),
+          )
+          .toList();
     }
     final audios = <String, SelectedMediaFile>{};
     for (final entry in _selectedBlockAudioFiles.entries) {
@@ -1011,7 +1025,7 @@ class _PublicationEditorScreenState
                   id: _uuid.v4(),
                   publicationId: widget.publicationId ?? '',
                   orderIndex: _contentBlocks.length,
-                  imagePath: '',
+                  imagePaths: [],
                 ),
               );
             });
@@ -1310,10 +1324,139 @@ class _PublicationEditorScreenState
     );
   }
 
+  // ---------------------------------------------------------------------------
+  // Image block: multi-photo thumbnails preview
+  // ---------------------------------------------------------------------------
+
+  /// Compact grid of thumbnails: kept remote photos first, then the newly
+  /// picked (not yet uploaded) files. Each thumbnail has its own remove
+  /// button, so an album can be fine-tuned photo by photo.
+  Widget _buildImageThumbnails(
+    ImageContentBlock block,
+    List<_SelectedFile> stagedFiles,
+  ) {
+    final mediaStorage = ref.read(mediaStorageRepositoryProvider);
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: <Widget>[
+        for (var i = 0; i < block.imagePaths.length; i++)
+          _buildImageThumbnail(
+            child: Image.network(
+              mediaStorage.publicUrlFor(block.imagePaths[i]),
+              fit: BoxFit.cover,
+              errorBuilder: (context, error, stackTrace) =>
+                  const Center(child: Icon(Icons.broken_image, size: 28)),
+            ),
+            onRemove: () => _removeRemoteImage(block, i),
+          ),
+        for (var i = 0; i < stagedFiles.length; i++)
+          _buildImageThumbnail(
+            child: Image.memory(
+              stagedFiles[i].bytes,
+              fit: BoxFit.cover,
+              errorBuilder: (context, error, stackTrace) =>
+                  const Center(child: Icon(Icons.broken_image, size: 28)),
+            ),
+            onRemove: () => _removeStagedImage(block.id, i),
+          ),
+      ],
+    );
+  }
+
+  /// A fixed-size rounded thumbnail with a small remove button in the corner.
+  Widget _buildImageThumbnail({
+    required Widget child,
+    required VoidCallback onRemove,
+  }) {
+    return SizedBox(
+      width: 88,
+      height: 88,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(6),
+        child: Stack(
+          children: [
+            Positioned.fill(child: child),
+            Positioned(
+              top: 4,
+              right: 4,
+              child: Material(
+                color: Colors.black54,
+                shape: const CircleBorder(),
+                clipBehavior: Clip.antiAlias,
+                child: InkWell(
+                  onTap: onRemove,
+                  child: Ink(
+                    width: 22,
+                    height: 22,
+                    decoration: const BoxDecoration(
+                      shape: BoxShape.circle,
+                    ),
+                    child: Center(
+                      child: const Icon(
+                        Icons.close,
+                        size: 14,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Removes a kept remote photo from the block. The save job persists the
+  /// shortened list, and [PublicationRepositoryImpl.replaceBlocks] frees the
+  /// dropped Storage path once nothing references it.
+  void _removeRemoteImage(ImageContentBlock block, int pathIndex) {
+    final paths = block.imagePaths.toList();
+    if (pathIndex < 0 || pathIndex >= paths.length) return;
+    paths.removeAt(pathIndex);
+    setState(() {
+      final idx = _contentBlocks.indexWhere((b) => b.id == block.id);
+      if (idx != -1) {
+        _contentBlocks[idx] = block.copyWith(imagePaths: paths);
+      }
+    });
+    _markUnsaved();
+  }
+
+  /// Removes a newly picked (not yet uploaded) file from the block's staged
+  /// list.
+  void _removeStagedImage(String blockId, int stagedIndex) {
+    setState(() {
+      final staged = _selectedBlockImageFiles[blockId];
+      if (staged != null &&
+          stagedIndex >= 0 &&
+          stagedIndex < staged.length) {
+        staged.removeAt(stagedIndex);
+        if (staged.isEmpty) _selectedBlockImageFiles.remove(blockId);
+      }
+    });
+    _markUnsaved();
+  }
+
+  /// Clears the whole image block: staged files and kept remote paths.
+  void _clearBlockImages(ImageContentBlock block) {
+    setState(() {
+      _selectedBlockImageFiles.remove(block.id);
+      final idx = _contentBlocks.indexWhere((b) => b.id == block.id);
+      if (idx != -1) {
+        _contentBlocks[idx] = block.copyWith(imagePaths: const <String>[]);
+      }
+    });
+    _markUnsaved();
+  }
+
   Widget _buildImageBlockWidget(ImageContentBlock block, int index) {
     final isCollapsed = _collapsedBlockIds.contains(block.id);
-    final hasLocalFile = _selectedBlockImageFiles.containsKey(block.id);
-    final localFile = hasLocalFile ? _selectedBlockImageFiles[block.id] : null;
+    final stagedFiles =
+        _selectedBlockImageFiles[block.id] ?? const <_SelectedFile>[];
+    final hasPhotos = block.imagePaths.isNotEmpty || stagedFiles.isNotEmpty;
 
     return Card(
       key: Key(block.id),
@@ -1354,49 +1497,12 @@ class _PublicationEditorScreenState
                     ),
                     child: Column(
                       children: [
-                        // Preview
-                        if (hasLocalFile || block.imagePath.isNotEmpty)
+                        // Thumbnails: kept remote photos + newly picked files,
+                        // each with its own remove button.
+                        if (hasPhotos)
                           Padding(
                             padding: const EdgeInsets.all(8),
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(6),
-                              child: Container(
-                                constraints: const BoxConstraints(
-                                  maxHeight: 200,
-                                ),
-                                width: double.infinity,
-                                color: Colors.grey.shade100,
-                                child: hasLocalFile
-                                    ? Image.memory(
-                                        localFile!.bytes,
-                                        fit: BoxFit.contain,
-                                        errorBuilder:
-                                            (context, error, stackTrace) =>
-                                                const Center(
-                                                  child: Icon(
-                                                    Icons.broken_image,
-                                                    size: 32,
-                                                  ),
-                                                ),
-                                      )
-                                    : Image.network(
-                                        ref
-                                            .read(
-                                              mediaStorageRepositoryProvider,
-                                            )
-                                            .publicUrlFor(block.imagePath),
-                                        fit: BoxFit.contain,
-                                        errorBuilder:
-                                            (context, error, stackTrace) =>
-                                                const Center(
-                                                  child: Icon(
-                                                    Icons.broken_image,
-                                                    size: 32,
-                                                  ),
-                                                ),
-                                      ),
-                              ),
-                            ),
+                            child: _buildImageThumbnails(block, stagedFiles),
                           )
                         else
                           Padding(
@@ -1409,7 +1515,7 @@ class _PublicationEditorScreenState
                               ),
                             ),
                           ),
-                        // Select / Replace / Remove buttons
+                        // Select / Add / Remove-all buttons
                         Padding(
                           padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
                           child: Row(
@@ -1417,15 +1523,13 @@ class _PublicationEditorScreenState
                             children: [
                               TextButton.icon(
                                 onPressed: () => _pickBlockImage(block.id),
-                                icon: Icon(
-                                  hasLocalFile || block.imagePath.isNotEmpty
-                                      ? Icons.swap_horiz
-                                      : Icons.add_photo_alternate,
+                                icon: const Icon(
+                                  Icons.add_photo_alternate,
                                   size: 16,
                                 ),
                                 label: Text(
-                                  hasLocalFile || block.imagePath.isNotEmpty
-                                      ? loc.AppLocalizations.admin.replaceImage
+                                  hasPhotos
+                                      ? loc.AppLocalizations.admin.addImage
                                       : loc.AppLocalizations.admin.selectImage,
                                   style: const TextStyle(fontSize: 12),
                                 ),
@@ -1438,31 +1542,17 @@ class _PublicationEditorScreenState
                                       MaterialTapTargetSize.shrinkWrap,
                                 ),
                               ),
-                              if (hasLocalFile ||
-                                  block.imagePath.isNotEmpty) ...[
+                              if (hasPhotos) ...[
                                 const SizedBox(width: 8),
                                 TextButton.icon(
-                                  onPressed: () {
-                                    setState(() {
-                                      _selectedBlockImageFiles.remove(block.id);
-                                      final idx = _contentBlocks.indexWhere(
-                                        (b) => b.id == block.id,
-                                      );
-                                      if (idx != -1) {
-                                        _contentBlocks[idx] = block.copyWith(
-                                          imagePath: '',
-                                        );
-                                      }
-                                    });
-                                    _markUnsaved();
-                                  },
+                                  onPressed: () => _clearBlockImages(block),
                                   icon: const Icon(
                                     Icons.delete_outline,
                                     size: 16,
                                     color: Colors.red,
                                   ),
                                   label: Text(
-                                    loc.AppLocalizations.admin.deleteAction,
+                                    loc.AppLocalizations.admin.deleteAllImages,
                                     style: const TextStyle(
                                       fontSize: 12,
                                       color: Colors.red,

@@ -10,9 +10,20 @@ import 'package:tatislam_app/features/detail/presentation/providers/file_transfe
 const Color _closeOverlayColor = Colors.black45;
 
 class ImageViewerScreen extends ConsumerStatefulWidget {
+  /// Backwards-compatible single photo URL. When [imageUrls] is empty, the
+  /// viewer shows a single image (legacy behaviour). When set, it is treated
+  /// as the sole member of [imageUrls].
   final String imageUrl;
 
-  /// Suggested file name for download/share; derived from [imageUrl] when null.
+  /// The full ordered photo list. Used as-is for the gallery; the same list
+  /// powers the album preview grid and the full-screen gallery.
+  final List<String> imageUrls;
+
+  /// Which photo of [imageUrls] to open first (when several photos exist).
+  final int initialIndex;
+
+  /// Suggested file name for download/share; derived from the current URL
+  /// when null.
   final String? fileName;
 
   /// Optional custom close handler. Defaults to `Navigator.pop` (used when the
@@ -23,6 +34,8 @@ class ImageViewerScreen extends ConsumerStatefulWidget {
   const ImageViewerScreen({
     super.key,
     required this.imageUrl,
+    this.imageUrls = const <String>[],
+    this.initialIndex = 0,
     this.fileName,
     this.onClose,
   });
@@ -34,13 +47,46 @@ class ImageViewerScreen extends ConsumerStatefulWidget {
 class _ImageViewerScreenState extends ConsumerState<ImageViewerScreen> {
   bool _isDownloading = false;
   bool _isSharing = false;
+  late int _currentIndex;
 
   AppLocalizations get t => AppLocalizations.fromLocale(
     ref.read(localeProvider),
   );
 
+  /// The full ordered photo list. Legacy callers that only pass [imageUrl]
+  /// get a one-element list.
+  List<String> get _urls =>
+      widget.imageUrls.isNotEmpty ? widget.imageUrls : [widget.imageUrl];
+
+  String get _currentUrl => _urls[_currentIndex];
+
   String get _name =>
-      widget.fileName ?? deriveFileName(widget.imageUrl, fallback: 'photo.jpg');
+      widget.fileName ?? deriveFileName(_currentUrl, fallback: 'photo.jpg');
+
+  @override
+  void initState() {
+    super.initState();
+    _resetIndex();
+  }
+
+  @override
+  void didUpdateWidget(ImageViewerScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _resetIndex();
+  }
+
+  void _resetIndex() {
+    var index = widget.initialIndex;
+    if (index < 0) index = 0;
+    final maxIndex = _urls.length - 1;
+    if (index > maxIndex) index = maxIndex;
+    _currentIndex = index;
+  }
+
+  void _goTo(int index) {
+    if (index < 0 || index >= _urls.length) return;
+    setState(() => _currentIndex = index);
+  }
 
   Future<void> _handleDownload() async {
     if (_isSharing) return;
@@ -48,7 +94,7 @@ class _ImageViewerScreenState extends ConsumerState<ImageViewerScreen> {
     try {
       final service = ref.read(fileTransferServiceProvider);
       final result = await service.saveFile(
-        url: widget.imageUrl,
+        url: _currentUrl,
         fileName: _name,
       );
       if (!mounted) return;
@@ -82,7 +128,7 @@ class _ImageViewerScreenState extends ConsumerState<ImageViewerScreen> {
     try {
       final service = ref.read(fileTransferServiceProvider);
       final result = await service.shareFile(
-        url: widget.imageUrl,
+        url: _currentUrl,
         fileName: _name,
       );
       if (!mounted) return;
@@ -110,26 +156,37 @@ class _ImageViewerScreenState extends ConsumerState<ImageViewerScreen> {
       body: SafeArea(
         child: Stack(
           children: [
-            // Fullscreen image viewer
-            Center(
-              child: InteractiveViewer(
-                panEnabled: true,
-                minScale: 0.5,
-                maxScale: 3.0,
-                child: CachedNetworkImage(
-                  imageUrl: widget.imageUrl,
-                  fit: BoxFit.contain,
-                  imageRenderMethodForWeb: appWebImageRenderMethod,
-                  placeholder: (context, url) =>
-                      const CircularProgressIndicator(),
-                  errorWidget: (context, url, error) => const Icon(
-                    Icons.broken_image,
-                    color: Colors.white,
-                    size: 48,
+            // Fullscreen image viewer (single photo keeps the original
+            // InteractiveViewer with pinch-zoom; albums swipe between pages).
+            _urls.length > 1
+                ? _buildGallery(context)
+                : Center(
+                    child: InteractiveViewer(
+                      panEnabled: true,
+                      minScale: 0.5,
+                      maxScale: 3.0,
+                      child: CachedNetworkImage(
+                        imageUrl: _currentUrl,
+                        fit: BoxFit.contain,
+                        imageRenderMethodForWeb: appWebImageRenderMethod,
+                        placeholder: (context, url) =>
+                            const CircularProgressIndicator(),
+                        errorWidget: (context, url, error) => const Icon(
+                          Icons.broken_image,
+                          color: Colors.white,
+                          size: 48,
+                        ),
+                      ),
+                    ),
                   ),
-                ),
+
+            // "N / M" position counter for albums.
+            if (_urls.length > 1)
+              Positioned(
+                top: 18,
+                left: 16,
+                child: _buildCounter(),
               ),
-            ),
 
             // Top-right controls: download + share + close (high contrast).
             Positioned(
@@ -191,6 +248,61 @@ class _ImageViewerScreenState extends ConsumerState<ImageViewerScreen> {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  /// Swipeable gallery: a horizontal drag flips the photo (telegram-style).
+  /// Uses the same ordered URL list as the album preview.
+  Widget _buildGallery(BuildContext context) {
+    return GestureDetector(
+      onHorizontalDragEnd: (details) {
+        if (_isDownloading || _isSharing) return;
+        final velocity = details.primaryVelocity ?? 0;
+        if (velocity < -150) {
+          _goTo(_currentIndex + 1); // swiped left → next photo
+        } else if (velocity > 150) {
+          _goTo(_currentIndex - 1); // swiped right → previous photo
+        }
+      },
+      child: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 220),
+        switchInCurve: Curves.easeOut,
+        switchOutCurve: Curves.easeIn,
+        // A new key per index forces the transition between photos.
+        child: Center(
+          key: Key('photo-$_currentIndex'),
+          child: CachedNetworkImage(
+            imageUrl: _currentUrl,
+            fit: BoxFit.contain,
+            imageRenderMethodForWeb: appWebImageRenderMethod,
+            placeholder: (context, url) => const CircularProgressIndicator(),
+            errorWidget: (context, url, error) => const Icon(
+              Icons.broken_image,
+              color: Colors.white,
+              size: 48,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Position indicator `2 / 5` for albums.
+  Widget _buildCounter() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: _closeOverlayColor,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Text(
+        '${_currentIndex + 1} / ${_urls.length}',
+        style: TextStyle(
+          fontSize: 14,
+          fontWeight: FontWeight.w500,
+          color: Colors.white,
         ),
       ),
     );

@@ -49,6 +49,9 @@ class AppColors {
   static const Color website = gold;
   static const Color email = Color(0xFF757575);
 
+  // Hyperlink color for rich text blocks
+  static const Color link = Color(0xFF1976D2);
+
   // Bottom Navigation Colors
   static const Color navHome = gold;
   static const Color navCatalog = Color(0xFF1976D2); // Blue

@@ -14,7 +14,7 @@ import shutil
 import tempfile
 from pathlib import Path
 
-from config import Settings
+from config import ConfigError, Settings
 from media_storage import MediaStorage
 from models import MediaType, ParsedMessage
 from parser import (
@@ -65,7 +65,7 @@ class Importer:
     def __init__(
         self,
         settings: Settings,
-        telegram,
+        telegram=None,
         dry_run: bool = False,
         section_slug: str | None = None,
     ) -> None:
@@ -88,19 +88,31 @@ class Importer:
 
     def _ensure_db(self) -> SupabaseClient:
         if self._db is None:
-            self._db = SupabaseClient(
-                self.settings.supabase_url, self.settings.supabase_service_role_key
-            )
+            url = self.settings.supabase_url
+            key = self.settings.supabase_service_role_key
+            if not url or not key:
+                raise ConfigError(
+                    "SUPABASE_URL и SUPABASE_SERVICE_ROLE_KEY не заданы в .env — "
+                    "они нужны для записи в базу (для dry-run не требуются)."
+                )
+            self._db = SupabaseClient(url, key)
         return self._db
 
     def _ensure_storage(self) -> MediaStorage:
         if self._storage is None:
+            access = self.settings.yandex_access_key
+            secret = self.settings.yandex_secret_key
+            if not access or not secret:
+                raise ConfigError(
+                    "YANDEX_ACCESS_KEY и YANDEX_SECRET_KEY не заданы в .env — "
+                    "они нужны для загрузки медиа."
+                )
             self._storage = MediaStorage(
                 endpoint=self.settings.yandex_endpoint,
                 region=self.settings.yandex_region,
                 bucket=self.settings.yandex_bucket,
-                access_key=self.settings.yandex_access_key,
-                secret_key=self.settings.yandex_secret_key,
+                access_key=access,
+                secret_key=secret,
             )
         return self._storage
 
@@ -132,9 +144,68 @@ class Importer:
     def _get_section_id(self) -> str:
         return self._ensure_db().get_section_id(self.section_slug)
 
+    async def run_export(
+        self,
+        export_path: str,
+        limit: int | None = None,
+        channel_hint: str | None = None,
+    ) -> None:
+        """Импорт из официального экспорта Telegram Desktop (result.json).
+
+        Не требует Telegram API / авторизации — файл и медиа уже на диске.
+        """
+        from export_reader import iter_publications, load_export, normalize_channel_username
+
+        data = load_export(export_path)
+        export_dir = Path(export_path).resolve().parent
+        username = normalize_channel_username(channel_hint or self.settings.default_channel)
+
+        logger.info(
+            "[INFO] Export: %s (%d сообщений)",
+            data.get("name", "?"),
+            len(data.get("messages", []) or []),
+        )
+        publications = iter_publications(data, export_dir, channel_username=username)
+        if limit is not None and limit > 0:
+            publications = publications[-limit:]
+        logger.info("[INFO] Публикаций к обработке: %d", len(publications))
+
+        section_id: str | None = None
+        if not self.dry_run:
+            section_id = await asyncio.to_thread(self._get_section_id)
+
+        for parsed in publications:
+            await self._process(parsed, section_id)
+
+        self._print_report()
+
     # ----------------------------------------------------------
     # Обработка одной публикации
     # ----------------------------------------------------------
+
+    async def _resolve_media_path(self, item, temp_dir: str) -> Path:
+        """Возвращает локальный файл медиа для загрузки в S3.
+
+        В режиме экспорта файл уже лежит рядом с result.json (item.local_path),
+        в режиме Telegram — скачивается через Telethon.
+        """
+        if item.local_path:
+            path = Path(item.local_path)
+            if not path.is_file():
+                raise RuntimeError(
+                    f"Файл медиа не найден: {item.local_path} (msg {item.message_id})"
+                )
+            return path
+        if self.telegram is None:
+            raise RuntimeError(
+                f"Нет источника медиа для msg {item.message_id}: локальный файл не задан"
+            )
+        path = await self.telegram.download_media(item.message, temp_dir)
+        if path is None:
+            raise RuntimeError(
+                f"Не удалось скачать {item.kind.value} (msg {item.message_id})"
+            )
+        return path
 
     async def _process(self, parsed: ParsedMessage, section_id: str | None) -> None:
         if parsed is None:
@@ -174,17 +245,14 @@ class Importer:
             publication_type = decide_publication_type(parsed)
             photo_publication = publication_type == "photo"
 
-            # 1. Скачиваем медиа и загружаем в S3.
+            # 1. Подготавливаем байты медиа (качаем из Telegram либо берём
+            #    локальный файл экспорта) и загружаем в S3.
             key_by_item = {}
             for item in parsed.supported_media:
                 logger.info(
                     "[INFO] message %s: download %s…", parsed.message_id, item.kind.value
                 )
-                local_path = await self.telegram.download_media(item.message, temp_dir)
-                if local_path is None:
-                    raise RuntimeError(
-                        f"Не удалось скачать {item.kind.value} (msg {item.message_id})"
-                    )
+                local_path = await self._resolve_media_path(item, temp_dir)
                 data = local_path.read_bytes()
                 extension = local_path.suffix or _extension_for(item)
                 content_type = item.mime_type or mimetypes.guess_type(f"file{extension}")[0]

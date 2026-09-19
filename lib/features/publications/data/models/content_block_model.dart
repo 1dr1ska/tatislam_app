@@ -3,7 +3,11 @@ import 'package:tatislam_app/features/publications/domain/entities/content_block
 import 'package:tatislam_app/features/publications/domain/entities/video_provider_type.dart';
 
 /// We use a flat JSONB `data` column holding a single key-value pair per block
-/// type (e.g. `{"text": "..."}` or `{"path": "blocks/...jpg"}`).
+/// type (e.g. `{"text": "..."}` or `{"paths": ["blocks/...jpg", ...]}`).
+///
+/// Image blocks store an ordered list of Storage paths under `paths`. Legacy
+/// rows stored a single path under `path` — both are read and kept working;
+/// all new writes use `paths`.
 ///
 /// The JSONB is flexible enough that adding a new block type later requires
 /// zero schema changes — just a new subclass + case here.
@@ -40,7 +44,7 @@ class ContentBlockModel {
         id: id,
         publicationId: publicationId,
         orderIndex: orderIndex,
-        imagePath: data['path'] as String? ?? '',
+        imagePaths: _imagePathsOf(data),
       ),
       _typeVideo => VideoContentBlock(
         id: id,
@@ -67,11 +71,34 @@ class ContentBlockModel {
     };
   }
 
+  /// Parses the photo paths of an `image` block from its JSONB `data`.
+  ///
+  /// Accepts both the new `paths` (ordered list) and the legacy `path` (single
+  /// string) formats, so old publications keep working without any migration.
+  static List<String> _imagePathsOf(Map<String, dynamic> data) {
+    final paths = data['paths'];
+    if (paths is List) {
+      final result = <String>[];
+      for (final value in paths) {
+        final path = value as String?;
+        if (path != null && path.isNotEmpty) result.add(path);
+      }
+      if (result.isNotEmpty) return result;
+    }
+    final legacy = data['path'] as String?;
+    if (legacy != null && legacy.isNotEmpty) return [legacy];
+    return const <String>[];
+  }
+
   /// Serialises a single [ContentBlock] into the JSONB `data` column value.
   static Map<String, dynamic> _dataOf(ContentBlock block) {
     return switch (block) {
       TextContentBlock(text: final text) => {'text': text},
-      ImageContentBlock(imagePath: final path) => {'path': path},
+      ImageContentBlock(imagePaths: final paths) => {
+        // New canonical format: an ordered list. Legacy single-photo rows keep
+        // using `path` — the reader above accepts both.
+        'paths': paths.where((path) => path.isNotEmpty).toList(),
+      },
       VideoContentBlock(url: final url, provider: final provider) => {
         'url': url,
         'provider': provider.name,

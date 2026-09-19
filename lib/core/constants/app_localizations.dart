@@ -155,6 +155,8 @@ class AppLocalizations {
   String get platformField => _locale == AppLocale.tatar ? 'Урлык' : 'Платформа';
   String get selectImage => _locale == AppLocale.tatar ? 'Сайларга' : 'Выбрать';
   String get replaceImage => _locale == AppLocale.tatar ? 'Алмаштырырга' : 'Заменить';
+  String get addImage => _locale == AppLocale.tatar ? 'Рәсем өстәү' : 'Добавить фото';
+  String get deleteAllImages => _locale == AppLocale.tatar ? 'Барын бетерү' : 'Удалить всё';
   String get photoField => _locale == AppLocale.tatar ? 'Фото' : 'Фотография';
   String get selectPhoto => _locale == AppLocale.tatar ? 'Фотоне сайларга' : 'Выбрать фото';
   String get replacePhoto => _locale == AppLocale.tatar ? 'Фотоне алмаштырырга' : 'Заменить фото';

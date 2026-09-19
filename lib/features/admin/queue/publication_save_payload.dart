@@ -38,8 +38,9 @@ class PublicationSavePayload {
   // ── Block-based publications (article, etc.) ─────────────
   final List<ContentBlock> contentBlocks;
 
-  /// Newly picked image files keyed by block id.
-  final Map<String, SelectedMediaFile> newBlockImages;
+  /// Newly picked image files keyed by block id — an image block can hold
+  /// several photos (album), so a list is uploaded per block.
+  final Map<String, List<SelectedMediaFile>> newBlockImages;
 
   /// Newly picked audio files keyed by block id.
   final Map<String, SelectedMediaFile> newBlockAudios;

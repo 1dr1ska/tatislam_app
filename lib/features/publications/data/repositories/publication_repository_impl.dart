@@ -147,8 +147,8 @@ class PublicationRepositoryImpl implements PublicationRepository {
   Iterable<String> _storagePathsIn(List<ContentBlock> blocks) {
     return blocks.expand((block) {
       switch (block) {
-        case ImageContentBlock(imagePath: final path):
-          return [path];
+        case ImageContentBlock(imagePaths: final paths):
+          return paths;
         case AudioContentBlock(
           source: AudioSourceType.upload,
           audioPath: final path?,

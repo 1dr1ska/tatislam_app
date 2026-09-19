@@ -24,6 +24,96 @@ void main() {
     });
   });
 
+  group('ContentBlockModel ImageContentBlock paths', () {
+    Map<String, dynamic> imageRow(Map<String, dynamic> data) => {
+      'id': 'block-1',
+      'publication_id': 'pub-1',
+      'order_index': 0,
+      'type': 'image',
+      'data': data,
+    };
+
+    test('reads legacy single-photo block (data.path)', () {
+      final block = ContentBlockModel.fromJson(
+        imageRow({'path': 'blocks/pub-1/images/a.jpg'}),
+      );
+
+      expect(block is ImageContentBlock, isTrue);
+      final image = block as ImageContentBlock;
+      expect(image.imagePaths, ['blocks/pub-1/images/a.jpg']);
+      // Backwards-compatible accessor.
+      expect(image.imagePath, 'blocks/pub-1/images/a.jpg');
+    });
+
+    test('reads new block with one URL (data.paths)', () {
+      final image = ContentBlockModel.fromJson(
+        imageRow({'paths': ['blocks/pub-1/images/a.jpg']}),
+      ) as ImageContentBlock;
+
+      expect(image.imagePaths, ['blocks/pub-1/images/a.jpg']);
+      expect(image.imagePath, 'blocks/pub-1/images/a.jpg');
+    });
+
+    test('reads new block with several URLs preserving order', () {
+      final image = ContentBlockModel.fromJson(
+        imageRow({
+          'paths': [
+            'blocks/pub-1/images/a.jpg',
+            'blocks/pub-1/images/b.jpg',
+            'blocks/pub-1/images/c.jpg',
+          ],
+        }),
+      ) as ImageContentBlock;
+
+      expect(image.imagePaths, [
+        'blocks/pub-1/images/a.jpg',
+        'blocks/pub-1/images/b.jpg',
+        'blocks/pub-1/images/c.jpg',
+      ]);
+    });
+
+    test('serialises to a paths array preserving order', () {
+      const block = ImageContentBlock(
+        id: 'block-1',
+        publicationId: 'pub-1',
+        orderIndex: 0,
+        imagePaths: ['x.jpg', 'y.jpg', 'z.jpg'],
+      );
+
+      final json = ContentBlockModel.toInsertJson(block, 'pub-1');
+      expect(json['type'], 'image');
+      expect(json['data'], {'paths': ['x.jpg', 'y.jpg', 'z.jpg']});
+    });
+
+    test('skips empty paths when serialising', () {
+      const block = ImageContentBlock(
+        id: 'block-1',
+        publicationId: 'pub-1',
+        orderIndex: 0,
+        imagePaths: ['x.jpg', '', 'y.jpg'],
+      );
+
+      final json = ContentBlockModel.toInsertJson(block, 'pub-1');
+      expect(json['data'], {'paths': ['x.jpg', 'y.jpg']});
+    });
+
+    test('copyWith keeps the list and legacy imagePath single accessor', () {
+      const block = ImageContentBlock(
+        id: 'block-1',
+        publicationId: 'pub-1',
+        orderIndex: 0,
+        imagePaths: ['a.jpg', 'b.jpg'],
+      );
+
+      final reordered = block.copyWith(orderIndex: 3);
+      expect(reordered.imagePaths, ['a.jpg', 'b.jpg']);
+      expect(reordered.imagePath, 'a.jpg');
+
+      final single = block.copyWith(imagePath: 'c.jpg');
+      expect(single.imagePaths, ['c.jpg']);
+    });
+  });
+
   group('PublicationModel photo_path', () {
     test('fromJson parses photo_path', () {
       final model = PublicationModel.fromJson({

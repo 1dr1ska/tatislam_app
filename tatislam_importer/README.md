@@ -19,14 +19,25 @@ Tatislam App
 > и сохраняет в БД те же ключи (`images/<uuid>.jpg` и т.п.), поэтому
 > импортированный контент сразу корректно отображается в приложении.
 
+У импортёра **два источника данных**:
+
+| Источник | Команда | Требования |
+|---|---|---|
+| Telegram API (Telethon) | `python main.py --channel @канал` | `TELEGRAM_API_ID/HASH` + авторизация |
+| **Экспорт Telegram Desktop** | `python main.py --source export --file result.json` | **API не нужен вовсе** |
+
+Режим `--source export` пригодится, если my.telegram.org не даёт получить
+API-ключи — см. раздел «Импорт без Telegram API».
+
 ## Структура
 
 ```
 tatislam_importer/
-├── main.py            # CLI: --channel, --limit, --dry-run, --section
+├── main.py            # CLI: --source, --file, --channel, --limit, --dry-run, --section
 ├── config.py          # чтение .env
 ├── models.py          # dataclasses
 ├── parser.py          # разбор Telegram-сообщений (медиа, ссылки, тип публикации)
+├── export_reader.py   # разбор result.json (экспорт Telegram Desktop, без API)
 ├── telegram_client.py # авторизация Telethon + получение сообщений
 ├── importer.py        # оркестрация импорта, идемпотентность, отчёт
 ├── supabase_client.py # записи в Supabase (service role)
@@ -63,13 +74,17 @@ YANDEX_ACCESS_KEY=...
 YANDEX_SECRET_KEY=...
 ```
 
+- `TELEGRAM_API_ID/HASH` нужны **только** для режима `--source telegram`.
+  Если вы импортируете из `--source export` — их можно не заполнять.
 - `SUPABASE_SERVICE_ROLE_KEY` — «Settings → API → service_role». Ключ обходит RLS;
-  годится **только** для серверного миграционного инструмента.
+  годится **только** для серверного миграционного инструмента. Для dry-run
+  не требуется.
 - `YANDEX_*` — статические ключи сервисного аккаунта Cloud с правом записи в
-  бакет `tatislam-media` (как в настройках приложения).
+  бакет `tatislam-media` (как в настройках приложения). Для dry-run не требуются.
 - Необязательные параметры: `TELEGRAM_CHANNEL`, `SESSION_FILE`,
   `DEFAULT_SECTION_SLUG` (по умолчанию `articles`), `PUBLICATION_STATUS`
-  (`published`/`draft`).
+  (`published`/`draft`), `PUSH_NOTIFICATIONS_ENABLED` (true/false — отправка
+  push-уведомлений через Edge Function после импорта каждой публикации).
 
 `.env` в Git не коммитится (см. `.gitignore`).
 
@@ -82,7 +97,7 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-## 4. Авторизация
+## 4. Авторизация (только для `--source telegram`)
 
 ```bash
 python main.py --dry-run --channel @канал
@@ -91,6 +106,47 @@ python main.py --dry-run --channel @канал
 При первом запуске Telethon попросит номер телефона и код подтверждения.
 Сессия сохранится в `telegram.session` — дальше авторизация не требуется.
 Номер телефона нигде не хранится в коде.
+Для `--source export` авторизация и API вообще не нужны.
+
+## 4а. Импорт без Telegram API (`--source export`)
+
+Если получить настройки на https://my.telegram.org/apps не получается (гео-блок,
+нужен VPN, «слишком новый» аккаунт и т.п.) — используйте **официальный экспорт**
+истории канала из Telegram Desktop. Экспорт не требует ни api_id, ни api_hash.
+
+### Как сделать экспорт в Telegram Desktop
+
+1. Откройте канал в **Telegram Desktop** (десктопное приложение, не web).
+2. Нажмите «⋯» (меню канала) → **Export chat history**.
+   Этот же пункт доступен в **Настройки → Продвинутые → Экспорт данных
+   Telegram**, где можно выбрать конкретный чат/канал.
+3. В окне экспорта:
+   - **Message format**: выберите **JSON**;
+   - отметьте все нужные типы медиа (фото, видео, аудио) — файлы сохранятся
+     рядом с JSON в папках `photos/`, `video_files/`, `audio_files/`;
+   - при необходимости ограничьте диапазон дат или лимит размера.
+4. Нажмите **Export** и дождитесь завершения (для большого канала — дольше).
+5. Результат: папка с файлом **`result.json`** (имеют значение именно
+   `result.json` и папки медиа рядом с ним — не переставляйте их отдельно).
+
+### Запуск импорта из экспорта
+
+```bash
+# Сначала — предпросмотр (ничего не пишется, можно без любых ключей в .env):
+python main.py --source export --file /путь/к/result.json --dry-run
+
+# Импорт последних 10 публикаций:
+python main.py --source export --file /путь/к/result.json --limit 10
+
+# Полный импорт:
+python main.py --source export --file /путь/к/result.json
+```
+
+- `TELEGRAM_API_ID/HASH` не нужны; авторизация не выполняется.
+- `--channel` используется только чтобы построить ссылки
+  `https://t.me/<username>/<id>` в `source_url` (если канал не private).
+- Идемпотентность, секции, статусы, медиа — всё работает так же, как в
+  Telegram-режиме.
 
 ## 5. Dry-run
 
@@ -164,7 +220,7 @@ Errors:
 |---|---|---|
 | только текст | `article` | text |
 | текст + картинка | `article` | text, image(path) |
-| несколько фото (альбом) | `article` | image…, text (как в Telegram) |
+| несколько фото (альбом) | `article` | один image-блок с `{"paths": [...]}`, text (как в Telegram) |
 | текст + аудио/голосовое | `audio` (если только аудио) | text, audio(upload) |
 | текст + видео | `video` (если только видео) | text, video(direct → файл в S3) |
 | YouTube/Rutube/VK ссылка | `video` | video с {url, provider} |
@@ -185,6 +241,15 @@ Errors:
   иначе `Публикация #<id>`.
 - **Иконка**: article→`book`, audio→`audio`, video→`video`/`youtube`/`rutube`.
 
+## Тесты
+
+Разбор сообщений (включая склейку фотоальбомов) покрыт unit-тестами:
+
+```bash
+.venv/bin/python -m unittest discover -s tests -t . -v
+```
+
+## Известные ограничения v1
 ## Известные ограничения v1
 
 - Видео, загруженное в S3, отображается приложением как карточка

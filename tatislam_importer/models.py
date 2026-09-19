@@ -32,6 +32,9 @@ class MediaItem:
     warning: str | None = None
     # Ссылка на исходный Telethon Message — нужна для скачивания байтов.
     message: Any = None
+    # Локальный путь к файлу (режим импорта из экспорта Telegram Desktop).
+    # Когда задан — качать из Telegram не нужно, файл уже на диске.
+    local_path: str | None = None
 
     @property
     def folder(self) -> str:

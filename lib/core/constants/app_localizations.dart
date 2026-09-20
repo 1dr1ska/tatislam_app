@@ -30,6 +30,9 @@ class AppLocalizations {
   /// Always returns Russian locale — intended for admin screens.
   static AppLocalizations get admin => AppLocalizations._(AppLocale.russian);
 
+  /// The currently selected interface language.
+  AppLocale get appLocale => _locale;
+
   // ── Navigation & Tabs ───────────────────────────────────
   String get homeTab => _locale == AppLocale.tatar ? 'Баш бит' : 'Главная';
   String get catalogTab => _locale == AppLocale.tatar ? 'Каталог' : 'Каталог';
@@ -95,6 +98,15 @@ class AppLocalizations {
   String get needInternetForFirstLoad => _locale == AppLocale.tatar
       ? 'Беренче тапкыр төяү өчен интернетка тоташырга кирәк'
       : 'Для первой загрузки приложения требуется подключение к сети';
+  /// Shown in white when online cards can't be loaded (e.g. no connection).
+  String get errorNoInternet => _locale == AppLocale.tatar
+      ? 'Интернет юк'
+      : 'Нет интернета';
+  /// Secondary hint under [errorNoInternet] reminding the user they can still
+  /// open materials they've already saved for offline reading.
+  String get errorNoInternetHint => _locale == AppLocale.tatar
+      ? 'Сакланган материалларны карарга мөмкин'
+      : 'Вы можете просмотреть скачанные материалы';
   String get retry => _locale == AppLocale.tatar ? 'Кабатлау' : 'Повторить';
 
   // ── Publication Actions ─────────────────────────────────
@@ -218,6 +230,14 @@ class AppLocalizations {
 
   // ── Admin: Section Management ───────────────────────────
   String get sectionName => _locale == AppLocale.tatar ? 'Бүлек исеме' : 'Название раздела';
+  /// Label for the optional Russian section name field.
+  String get sectionNameRu => _locale == AppLocale.tatar
+      ? 'Рус телендәге исем'
+      : 'Название на русском';
+  /// Help text shown under the Russian name field.
+  String get sectionNameRuHint => _locale == AppLocale.tatar
+      ? 'Русча интерфейс сайланганда күрсәтелә'
+      : 'Отображается, когда в настройках выбран русский язык';
   String get enterSectionName => _locale == AppLocale.tatar ? 'Бүлек исемен керү' : 'Введите название раздела';
   String get showSection => _locale == AppLocale.tatar ? 'Бүлекне күрсәтү' : 'Отображать раздел';
   String get sectionHiddenInfo => _locale == AppLocale.tatar
@@ -333,6 +353,57 @@ class AppLocalizations {
       ? 'Фотоне уртаклашу мөмкин түгел'
       : 'Не удалось поделиться фото';
 
+  // ── Saved publications (offline) ───────────────────────
+  String get saveForOffline => _locale == AppLocale.tatar
+      ? 'Офлайн уку өчен саклау'
+      : 'Сохранить для офлайн-чтения';
+  String get savedForOffline => _locale == AppLocale.tatar
+      ? 'Офлайн уку өчен сакланды'
+      : 'Сохранено для офлайн-чтения';
+  String get removeFromSaved => _locale == AppLocale.tatar
+      ? 'Сакланганнардан бетерү'
+      : 'Удалить из сохранённых';
+  String get removeSavedOffline => _locale == AppLocale.tatar
+      ? 'Офлайн-күчермәне бетерергәме?'
+      : 'Удалить офлайн-копию?';
+  String get cancelDownload => _locale == AppLocale.tatar
+      ? 'Төяүне туктату'
+      : 'Отменить загрузку';
+  String get savedOnlyFilter => _locale == AppLocale.tatar
+      ? 'Сакланганнар'
+      : 'Сохранённые';
+  String get showSaved => _locale == AppLocale.tatar
+      ? 'Сакланганнарны күрсәтү'
+      : 'Показать сохранённые';
+  String get noSavedPublications => _locale == AppLocale.tatar
+      ? 'Сакланган публикацияләр юк'
+      : 'Нет сохранённых публикаций';
+  String get savedDownloadFailed => _locale == AppLocale.tatar
+      ? 'Саклап булмады'
+      : 'Не удалось сохранить для офлайн-чтения';
+  String get savedOfflineVideoNotice => _locale == AppLocale.tatar
+      ? 'Видео интернет белән генә карала'
+      : 'Видео недоступно офлайн — требуется интернет';
+  String get downloadConfirmationTitle => _locale == AppLocale.tatar
+      ? 'Публикацияне төяргәме?'
+      : 'Скачать публикацию?';
+  String get downloadConfirmationMessage => _locale == AppLocale.tatar
+      ? 'Бу публикацияне офлайн уку өчен төяүне раслыйсызмы?'
+      : 'Вы действительно хотите загрузить эту публикацию для офлайн-чтения?';
+  String get downloadSizeLabel =>
+      _locale == AppLocale.tatar ? 'Зурлык:' : 'Размер:';
+  String get downloadUnknownSizeMessage => _locale == AppLocale.tatar
+      ? 'Зурлыгын билгеләп булмады'
+      : 'Размер не удалось определить';
+  String get downloadVideoWarning => _locale == AppLocale.tatar
+      ? 'Игътибар: Rutube һәм YouTube роликлары сакланмый — алар интернет белән генә каралачак.'
+      : 'Внимание: ролики Rutube и YouTube не сохранятся — они будут доступны только онлайн.';
+  String get savedOfflineVideoIncluded => _locale == AppLocale.tatar
+      ? 'Төялгән видеолар офлайн карау өчен сакланачак.'
+      : 'Загруженные видео будут сохранены для офлайн-просмотра.';
+  String get downloadAction =>
+      _locale == AppLocale.tatar ? 'Төяү' : 'Скачать';
+
   // ── About Screen ────────────────────────────────────────
   String get appDescription => _locale == AppLocale.tatar
       ? 'ТАТИСЛАМ — Раил Фәйзрахмановның татар телендәге ислам дәресләре тупланган кушымта. Монда аудио вәгазьләр, видео вәгазьләр һәм мәкаләләр бер урынга җыелган.'
@@ -363,6 +434,8 @@ class AppLocalizations {
   // ── Video Platform names ────────────────────────────────
   String get youtubeLabel => 'YouTube';
   String get rutubeLabel => 'RuTube';
+  String get videoUploadLabel =>
+      _locale == AppLocale.tatar ? 'Видео йөкләү' : 'Загрузить видео';
 
   // ── Admin: Publication List ────────────────────────────
   String get publicationLoadError => _locale == AppLocale.tatar ? 'Төяү хатасы: ' : 'Ошибка загрузки: ';

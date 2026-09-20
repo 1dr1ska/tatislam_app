@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:tatislam_app/core/constants/app_localizations.dart';
 import 'package:tatislam_app/core/providers/locale_provider.dart';
-import 'package:tatislam_app/core/widgets/network_image.dart' show appWebImageRenderMethod;
+import 'package:tatislam_app/core/widgets/app_image.dart';
 import 'package:tatislam_app/features/detail/domain/services/file_transfer_service.dart';
 import 'package:tatislam_app/features/detail/presentation/providers/file_transfer_provider.dart';
 
@@ -165,13 +164,12 @@ class _ImageViewerScreenState extends ConsumerState<ImageViewerScreen> {
                       panEnabled: true,
                       minScale: 0.5,
                       maxScale: 3.0,
-                      child: CachedNetworkImage(
+                      child: AppImage(
                         imageUrl: _currentUrl,
                         fit: BoxFit.contain,
-                        imageRenderMethodForWeb: appWebImageRenderMethod,
                         placeholder: (context, url) =>
                             const CircularProgressIndicator(),
-                        errorWidget: (context, url, error) => const Icon(
+                        errorBuilder: (context) => const Icon(
                           Icons.broken_image,
                           color: Colors.white,
                           size: 48,
@@ -273,12 +271,11 @@ class _ImageViewerScreenState extends ConsumerState<ImageViewerScreen> {
         // A new key per index forces the transition between photos.
         child: Center(
           key: Key('photo-$_currentIndex'),
-          child: CachedNetworkImage(
+          child: AppImage(
             imageUrl: _currentUrl,
             fit: BoxFit.contain,
-            imageRenderMethodForWeb: appWebImageRenderMethod,
             placeholder: (context, url) => const CircularProgressIndicator(),
-            errorWidget: (context, url, error) => const Icon(
+            errorBuilder: (context) => const Icon(
               Icons.broken_image,
               color: Colors.white,
               size: 48,

@@ -7,6 +7,7 @@ import 'package:tatislam_app/core/widgets/glass_container.dart';
 import 'package:tatislam_app/features/detail/domain/services/file_transfer_service.dart';
 import 'package:tatislam_app/features/detail/presentation/providers/file_transfer_provider.dart';
 import 'package:tatislam_app/features/publications/domain/entities/content_block.dart';
+import 'package:tatislam_app/features/publications/domain/entities/local_media_resolver.dart';
 
 const double _glassOpacity = 0.30;
 const double _glassRadius = 12;
@@ -18,10 +19,15 @@ class FileContentWidget extends ConsumerStatefulWidget {
   final FileContentBlock block;
   final MediaStorageRepository mediaStorage;
 
+  /// Optional offline resolver — when it returns a local `file://` URI for
+  /// [FileContentBlock.path], that URI is used instead of the network URL.
+  final LocalMediaResolver? localMedia;
+
   const FileContentWidget({
     super.key,
     required this.block,
     required this.mediaStorage,
+    this.localMedia,
   });
 
   @override
@@ -34,7 +40,7 @@ class _FileContentWidgetState extends ConsumerState<FileContentWidget> {
   String _resolveUrl() {
     final path = widget.block.path;
     if (path.isEmpty) return '';
-    return widget.mediaStorage.publicUrlFor(path);
+    return widget.localMedia?.call(path) ?? widget.mediaStorage.publicUrlFor(path);
   }
 
   static String _formatSize(int? bytes) {

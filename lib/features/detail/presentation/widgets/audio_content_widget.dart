@@ -15,6 +15,7 @@ import 'package:tatislam_app/features/detail/presentation/providers/audio_playba
 import 'package:tatislam_app/features/detail/presentation/providers/file_transfer_provider.dart';
 import 'package:tatislam_app/features/publications/domain/entities/audio_source_type.dart';
 import 'package:tatislam_app/features/publications/domain/entities/content_block.dart';
+import 'package:tatislam_app/features/publications/domain/entities/local_media_resolver.dart';
 
 const String _positionKeyPrefix = 'audio_position_';
 const double _glassBlur = 12;
@@ -34,6 +35,11 @@ class AudioContentWidget extends ConsumerStatefulWidget {
   final AudioContentBlock block;
   final MediaStorageRepository mediaStorage;
 
+  /// Optional offline resolver — when it returns a local `file://` URI for
+  /// [AudioContentBlock.audioPath], that URI is used instead of the network
+  /// URL (so the track can be played back fully offline).
+  final LocalMediaResolver? localMedia;
+
   /// Publication title — used as the track name in the Mini Player, the full
   /// player screen and the system media notification (audio blocks have no
   /// title of their own).
@@ -43,6 +49,7 @@ class AudioContentWidget extends ConsumerStatefulWidget {
     super.key,
     required this.block,
     required this.mediaStorage,
+    this.localMedia,
     this.trackTitle,
   });
 
@@ -58,17 +65,16 @@ class _AudioContentWidgetState extends ConsumerState<AudioContentWidget> {
   bool _isDownloading = false;
   bool _isSharing = false;
 
+  String get _positionKey =>
+      '$_positionKeyPrefix${widget.block.publicationId}_${widget.block.id}';
+
   @override
   void initState() {
     super.initState();
     if (_hasValidBlock()) {
-      _savedSeconds = _positionStore.read(
-        '$_positionKeyPrefix${widget.block.publicationId}_${widget.block.id}',
-      );
+      _savedSeconds = _positionStore.read(_positionKey);
       debugPrint(
-        'AudioContentWidget init key='
-        '$_positionKeyPrefix${widget.block.publicationId}_${widget.block.id} '
-        'saved=$_savedSeconds',
+        'AudioContentWidget init key=$_positionKey saved=$_savedSeconds',
       );
     }
   }
@@ -89,11 +95,16 @@ class _AudioContentWidgetState extends ConsumerState<AudioContentWidget> {
     if (!_hasValidBlock()) return null;
     if (widget.block.source == AudioSourceType.upload &&
         widget.block.audioPath != null) {
-      return widget.mediaStorage.publicUrlFor(widget.block.audioPath!);
+      final path = widget.block.audioPath!;
+      return widget.localMedia?.call(path) ??
+          widget.mediaStorage.publicUrlFor(path);
     }
     if (widget.block.source == AudioSourceType.external &&
         widget.block.audioUrl != null) {
-      return widget.block.audioUrl;
+      final url = widget.block.audioUrl!;
+      // Prefer a saved offline copy (keyed by the original URL) so externally
+      // hosted audio also plays without a network connection.
+      return widget.localMedia?.call(url) ?? url;
     }
     return null;
   }
@@ -248,21 +259,30 @@ class _AudioContentWidgetState extends ConsumerState<AudioContentWidget> {
     // point — this also covers a «current» track whose player got reset to 0.
     final liveOK =
         isCurrent && (snapshot.isPlaying || snapshot.position > Duration.zero);
+    // `_savedSeconds` is seeded only once in initState, so after the shared
+    // player stops (e.g. the Mini Player cross) `player.stop()` zeroes the live
+    // position and the fallback below would otherwise read that stale cached
+    // value — the timer visibly jumps back to 0:00 even though the resume point
+    // was just saved. Whenever the player isn't actively on this block, read the
+    // current persisted value fresh so the seek bar keeps showing the real spot.
+    final savedSecondsInt = isCurrent
+        ? (_savedSeconds ?? 0)
+        : (_positionStore.read(_positionKey) ?? 0);
+    final savedSeconds = savedSecondsInt.toDouble();
     final baseSeconds = liveOK
         ? snapshot.position.inSeconds.toDouble()
-        : (_savedSeconds ?? 0).toDouble();
+        : savedSeconds;
     final positionSeconds = _isDragging
         ? (_dragValue ?? 0.0).clamp(0.0, durationSeconds)
         : baseSeconds;
     final displayPosition = _isDragging
         ? Duration(seconds: (_dragValue ?? 0).round())
-        : (liveOK ? snapshot.position : Duration(seconds: _savedSeconds ?? 0));
+        : (liveOK ? snapshot.position : Duration(seconds: savedSecondsInt));
 
     // The duration is usually unknown before the first load (0 „max“), which
     // would pin the knob at the start even though a resume point exists. Give
     // the slider a max that accommodates the saved position so the knob rests
     // on the «remembered» time before the user presses play.
-    final savedSeconds = (_savedSeconds ?? 0).toDouble();
     final sliderMax = durationSeconds > savedSeconds
         ? durationSeconds
         : (savedSeconds > 0 ? savedSeconds + 1.0 : 1.0);

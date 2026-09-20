@@ -1,4 +1,5 @@
 import 'package:equatable/equatable.dart';
+import 'package:tatislam_app/core/providers/locale_provider.dart';
 
 /// An admin-managed content category (e.g. "Мәкаләләр", "Хутбалар").
 ///
@@ -7,6 +8,9 @@ import 'package:equatable/equatable.dart';
 class Section extends Equatable {
   final String id;
   final String name;
+  /// Optional Russian name. When present and the interface language is Russian,
+  /// [localizedName] returns it; otherwise the (Tatar) [name] is used.
+  final String? nameRu;
   final String slug;
   final bool isVisible;
   final int sortOrder;
@@ -21,6 +25,7 @@ class Section extends Equatable {
   const Section({
     required this.id,
     required this.name,
+    this.nameRu,
     required this.slug,
     required this.isVisible,
     required this.sortOrder,
@@ -32,6 +37,7 @@ class Section extends Equatable {
 
   Section copyWith({
     String? name,
+    String? nameRu,
     String? slug,
     bool? isVisible,
     int? sortOrder,
@@ -41,6 +47,7 @@ class Section extends Equatable {
     return Section(
       id: id,
       name: name ?? this.name,
+      nameRu: nameRu ?? this.nameRu,
       slug: slug ?? this.slug,
       isVisible: isVisible ?? this.isVisible,
       sortOrder: sortOrder ?? this.sortOrder,
@@ -51,10 +58,22 @@ class Section extends Equatable {
     );
   }
 
+  /// Returns the name to display for the given [locale]. When the interface is
+  /// Russian and a Russian name was provided, that is used; otherwise the
+  /// primary (Tatar) [name] is returned.
+  String localizedName(AppLocale locale) {
+    if (locale == AppLocale.russian) {
+      final russian = nameRu?.trim();
+      if (russian != null && russian.isNotEmpty) return russian;
+    }
+    return name;
+  }
+
   @override
   List<Object?> get props => [
     id,
     name,
+    nameRu,
     slug,
     isVisible,
     sortOrder,

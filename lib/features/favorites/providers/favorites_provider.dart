@@ -8,6 +8,15 @@ final favoritesProvider = FutureProvider<List<Publication>>((ref) async {
   return await getFavorites();
 });
 
+/// The currently favorited publication ids, read from the local (Hive) store.
+/// Unlike [favoritesProvider] this is synchronous and works fully offline, so
+/// filters that combine with the saved-only ("downloaded") grid can react to
+/// favorite changes without hitting the network.
+final localFavoriteIdsProvider = Provider<Set<String>>((ref) {
+  final dataSource = ref.watch(favoritesLocalDataSourceProvider);
+  return dataSource.getFavoriteIds().toSet();
+});
+
 /// Provider for checking if a publication is a favorite.
 /// Backed by the local Hive store so cards can render the star instantly
 /// without triggering a network fetch of every favorite's metadata on the
@@ -39,6 +48,7 @@ final toggleFavoriteProvider =
         final result = await repository.toggleFavorite(publicationId);
         // The local star provider is sync Hive-backed — invalidate it (and the
         // aggregated favorites provider) so every listener rebuilds.
+        ref.invalidate(localFavoriteIdsProvider);
         ref.invalidate(favoritesIsFavoriteProvider);
         ref.invalidate(favoritesProvider);
         return result;

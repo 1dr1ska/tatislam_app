@@ -46,6 +46,8 @@ dependencies:
 
   # Embedded video playback (YouTube/RuTube/VK iframe embeds)
   webview_flutter: ^4.10.0
+  # Native playback of offline-downloaded (uploaded) videos
+  video_player: ^2.9.2
 
   # Image optimization (pure Dart, cross-platform)
   image: ^4.0.17
@@ -71,6 +73,11 @@ dependencies:
   path_provider: ^2.1.6
   share_plus: ^12.0.2
   flutter_file_dialog: ^3.3.2
+
+  # HTTP client with progress callbacks (used for downloading saved
+  # publications offline)
+  dio: ^5.7.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

@@ -20,6 +20,7 @@ import 'package:tatislam_app/features/sections/domain/entities/section.dart';
 import 'package:tatislam_app/features/sections/presentation/providers/selected_section_provider.dart';
 import 'package:tatislam_app/features/favorites/providers/favorites_provider.dart';
 import 'package:tatislam_app/core/constants/app_icons.dart';
+import 'package:tatislam_app/features/saved_publications/presentation/providers/saved_publications_providers.dart';
 
 /// Unified glassmorphism constants for the entire design system.
 const double _glassBlur = 12;
@@ -101,6 +102,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     final sections = ref.watch(sectionsProvider);
     final publicationsAsync = ref.watch(mainPublicationsProvider);
     final showFavoritesOnly = ref.watch(favoritesFilterProvider);
+    final showSavedOnly = ref.watch(savedPublicationsFilterProvider);
     final selectedSection = ref.watch(selectedSectionProvider);
 
     final backgroundPath = selectedSection?.backgroundImage;
@@ -220,6 +222,33 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                       ],
                     ),
                     actions: [
+                      // Saved-publications (offline) toggle — identical glass style
+                      Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: Container(
+                          width: 36,
+                          height: 36,
+                          decoration: _glassBox(),
+                          child: IconButton(
+                            icon: Icon(
+                              showSavedOnly
+                                  ? Icons.download_done
+                                  : Icons.download_outlined,
+                              color: showSavedOnly
+                                  ? Colors.greenAccent
+                                  : Colors.white.withValues(alpha: 0.85),
+                              size: 20,
+                            ),
+                            tooltip: showSavedOnly
+                                ? AppLocalizations.of(ref).showAll
+                                : AppLocalizations.of(ref).showSaved,
+                            onPressed: () {
+                              ref.read(toggleSavedPublicationsFilterProvider)();
+                            },
+                            padding: EdgeInsets.zero,
+                          ),
+                        ),
+                      ),
                       // Favorites toggle — identical glass style
                       Padding(
                         padding: const EdgeInsets.only(right: 8),
@@ -269,6 +298,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                       ref,
                       publicationsAsync,
                       hasLocalSections: sections.isNotEmpty,
+                      showSavedOnly: showSavedOnly,
                     ),
                   ),
                 ],
@@ -313,7 +343,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
             (section) => Padding(
               padding: const EdgeInsets.only(right: 8),
               child: _buildFilterChip(
-                label: section.name,
+                label: section.localizedName(AppLocalizations.of(ref).appLocale),
                 selected: selectedSection?.id == section.id,
                 onSelected: (selected) {
                   ref.read(selectedSectionProvider.notifier).state = selected
@@ -384,7 +414,12 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     WidgetRef ref,
     AsyncValue<PublicationsPage> publicationsAsync, {
     required bool hasLocalSections,
+    required bool showSavedOnly,
   }) {
+    if (showSavedOnly) {
+      return _buildSavedPublicationsGrid(context, ref);
+    }
+
     // First load (no previous data) — show a centered spinner.
     if (publicationsAsync.isLoading && publicationsAsync.value == null) {
       return const Center(child: CircularProgressIndicator());
@@ -392,7 +427,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
 
     // A full error with no data to fall back on.
     if (publicationsAsync.hasError && publicationsAsync.value == null) {
-      return _buildGridError(context, ref, hasLocalSections);
+      return _buildGridError(context, ref);
     }
 
     final page =
@@ -404,11 +439,77 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     return _buildGrid(context, ref, page);
   }
 
+  /// Grid of fully-saved (offline) publications shown when the saved-only
+  /// filter is active. Reads only local storage — never the network — so it
+  /// works even when the device is offline.
+  Widget _buildSavedPublicationsGrid(BuildContext context, WidgetRef ref) {
+    final publicationsAsync = ref.watch(
+      savedPublicationPublicationsProvider,
+    );
+    // Honor the "favorites only" filter in the downloaded grid too. Built from
+    // the local (Hive) favorite ids so it stays consistent with the star on
+    // each card and works fully offline.
+    final showFavoritesOnly = ref.watch(favoritesFilterProvider);
+
+    return publicationsAsync.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (error, stack) => _buildGridError(context, ref),
+      data: (publications) {
+        var items = publications;
+        if (showFavoritesOnly) {
+          final favoriteIds = ref.watch(localFavoriteIdsProvider);
+          items = publications
+              .where((p) => favoriteIds.contains(p.id))
+              .toList();
+        }
+        if (items.isEmpty) {
+          return _buildSavedEmptyState(context, ref);
+        }
+        final page = PublicationsPage(
+          items: items,
+          hasMore: false,
+        );
+        return _buildGrid(context, ref, page, savedOnly: true);
+      },
+    );
+  }
+
+  Widget _buildSavedEmptyState(BuildContext context, WidgetRef ref) {
+    final t = AppLocalizations.of(ref);
+    return SingleChildScrollView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      child: SizedBox(
+        height: MediaQuery.of(context).size.height * 0.6,
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(
+                Icons.download_outlined,
+                size: 64,
+                color: Colors.white70,
+              ),
+              const SizedBox(height: 16),
+              Text(
+                t.noSavedPublications,
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  color: Colors.white,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildGrid(
     BuildContext context,
     WidgetRef ref,
-    PublicationsPage page,
-  ) {
+    PublicationsPage page, {
+    bool savedOnly = false,
+  }) {
     // Inject synthetic admin card when searching for "admin"
     final query = ref.watch(searchQueryProvider);
     final showAdminCard = query.trim().toLowerCase() == 'admin';
@@ -429,25 +530,39 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     final hasMore = page.hasMore;
 
     if (displayList.isEmpty) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.only(top: 64),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(
-                Icons.article_outlined,
-                size: 64,
-                color: AppColors.primary,
+      // Scrollable (and pull-to-refresh friendly) even when there are no
+      // results, so the user can still swipe to reload.
+      return LayoutBuilder(
+        builder: (context, constraints) {
+          return SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minHeight: constraints.maxHeight),
+              child: Center(
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 64),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(
+                        Icons.article_outlined,
+                        size: 64,
+                        color: AppColors.primary,
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        AppLocalizations.of(ref).noPublicationsFound,
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          color: Colors.white,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
-              const SizedBox(height: 16),
-              Text(
-                AppLocalizations.of(ref).noPublicationsFound,
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-            ],
-          ),
-        ),
+            ),
+          );
+        },
       );
     }
 
@@ -492,7 +607,30 @@ class _MainScreenState extends ConsumerState<MainScreen> {
         dateRow +
         bottomPad +
         6.0; // safety buffer for font-metric differences
-    final aspectRatio = tileWidth / reservedHeight;
+
+    // Split the list into rows of `cols`. Each row is laid out so that every
+    // card in it is as tall as the tallest content in that row, and rows are
+    // packed with the same 16px gap used between cards in a row. This way a
+    // row containing only short titles shrinks to fit them instead of
+    // reserving space for a 4-line title and leaving a big empty strip.
+    final rows = <Widget>[];
+    for (var i = 0; i < displayList.length; i += cols) {
+      rows.add(
+        _buildCardRow(
+          context: context,
+          ref: ref,
+          items: displayList.sublist(
+            i,
+            math.min(i + cols, displayList.length),
+          ),
+          startIndex: i,
+          cols: cols,
+          bandHeight: bandHeight,
+          photoHeight: reservedHeight,
+          savedOnly: savedOnly,
+        ),
+      );
+    }
 
     return NotificationListener<ScrollNotification>(
       onNotification: (notification) {
@@ -507,71 +645,127 @@ class _MainScreenState extends ConsumerState<MainScreen> {
       child: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 1000),
-          child: GridView.builder(
+          child: SingleChildScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
-            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: cols,
-              crossAxisSpacing: 16,
-              mainAxisSpacing: 16,
-              childAspectRatio: aspectRatio,
-            ),
-            itemCount: displayList.length + (hasMore ? 1 : 0),
             padding: const EdgeInsets.all(16),
-            itemBuilder: (context, index) {
-              if (index >= displayList.length) {
-                return const Center(
-                  child: Padding(
-                    padding: EdgeInsets.all(12),
-                    child: SizedBox(
-                      width: 28,
-                      height: 28,
-                      child: CircularProgressIndicator(strokeWidth: 2.5),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                for (var r = 0; r < rows.length; r++) ...[
+                  if (r > 0) const SizedBox(height: 16),
+                  rows[r],
+                ],
+                if (hasMore) ...[
+                  const SizedBox(height: 12),
+                  const Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(12),
+                      child: SizedBox(
+                        width: 28,
+                        height: 28,
+                        child: CircularProgressIndicator(strokeWidth: 2.5),
+                      ),
                     ),
                   ),
-                );
-              }
-              final publication = displayList[index];
-              return _PublicationCard(
-                publication: publication,
-                index: index,
-                bandHeight: bandHeight,
-              );
-            },
+                ],
+              ],
+            ),
           ),
         ),
       ),
     );
   }
 
-  Widget _buildGridError(
-    BuildContext context,
-    WidgetRef ref,
-    bool hasLocalSections,
-  ) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.only(top: 64),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.error_outline, size: 64, color: AppColors.error),
-            const SizedBox(height: 16),
-            Text(
-              hasLocalSections
-                  ? AppLocalizations.of(ref).errorLoading
-                  : AppLocalizations.of(ref).needInternetForFirstLoad,
-              textAlign: TextAlign.center,
-            ),
-            if (hasLocalSections) ...[
-              const SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: () => ref.invalidate(mainPublicationsProvider),
-                child: Text(AppLocalizations.of(ref).retry),
+  /// Lays out one grid row so all its cards are equal height (the tallest
+  /// content in that row). Cards use `IntrinsicHeight` + `crossAxisAlignment:
+  /// stretch` so short cards expand to match the row and there is no ragged
+  /// bottom edge or extra vertical gap.
+  Widget _buildCardRow({
+    required BuildContext context,
+    required WidgetRef ref,
+    required List<Publication> items,
+    required int startIndex,
+    required int cols,
+    required double bandHeight,
+    required double photoHeight,
+    required bool savedOnly,
+  }) {
+    return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          for (var j = 0; j < items.length; j++) ...[
+            if (j > 0) const SizedBox(width: 16),
+            Expanded(
+              child: _PublicationCard(
+                publication: items[j],
+                index: startIndex + j,
+                bandHeight: bandHeight,
+                photoHeight: photoHeight,
+                savedOnly: savedOnly,
               ),
-            ],
+            ),
           ],
-        ),
+          // Keep cards in a trailing (partial) row the same width as full rows
+          // instead of letting them stretch to fill the leftover space.
+          for (var k = items.length; k < cols; k++)
+            const Expanded(child: SizedBox.shrink()),
+        ],
       ),
+    );
+  }
+
+  Widget _buildGridError(BuildContext context, WidgetRef ref) {
+    // Scrollable so the surrounding RefreshIndicator can still react to a
+    // pull gesture. This is the state the user lands in when they open the
+    // app offline, so it must be swipeable — otherwise re-loading after the
+    // connection returns would be impossible until the widget rebuilds.
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: constraints.maxHeight),
+            child: Center(
+              child: Padding(
+                padding: const EdgeInsets.only(top: 64),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(
+                      Icons.wifi_off,
+                      size: 64,
+                      color: AppColors.error,
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      AppLocalizations.of(ref).errorNoInternet,
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      AppLocalizations.of(ref).errorNoInternetHint,
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: Colors.white70,
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    ElevatedButton(
+                      onPressed: () => ref.invalidate(mainPublicationsProvider),
+                      child: Text(AppLocalizations.of(ref).retry),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }
@@ -580,11 +774,20 @@ class _PublicationCard extends ConsumerWidget {
   final Publication publication;
   final int index;
   final double bandHeight;
+  /// Fixed height reserved for photo cards so they keep the same footprint as
+  /// text cards in the same row (a photo has no intrinsic height of its own).
+  final double photoHeight;
+
+  /// When true the card is rendered inside the saved-only grid and gets an
+  /// offline ("saved to device") badge overlay.
+  final bool savedOnly;
 
   const _PublicationCard({
     required this.publication,
     required this.index,
     required this.bandHeight,
+    this.photoHeight = 120,
+    this.savedOnly = false,
   });
 
   @override
@@ -644,12 +847,18 @@ class _PublicationCard extends ConsumerWidget {
             ).push('/publication/${publication.id}?source=catalog');
           }
         },
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(12),
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-            child: Container(
-              decoration: BoxDecoration(
+        child: Stack(
+          // Expand the glass so every card is a full-height panel regardless
+          // of how short its title is - no trailing empty strip.
+          fit: StackFit.expand,
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+                child: SizedBox.expand(
+                  child: Container(
+                    decoration: BoxDecoration(
                 color: Colors.white.withValues(alpha: 0.25),
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
@@ -664,9 +873,13 @@ class _PublicationCard extends ConsumerWidget {
                   ),
                 ],
               ),
-              child: isPhoto
-                  ? _buildPhotoBody(context, ref, isFavorite)
-                  : Column(
+                    child: isPhoto
+                        ? SizedBox(
+                            height: photoHeight,
+                            width: double.infinity,
+                            child: _buildPhotoBody(context, ref, isFavorite),
+                          )
+                        : Column(
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -738,7 +951,36 @@ class _PublicationCard extends ConsumerWidget {
                 ],
               ),
             ),
+                ),
           ),
+        ),
+        if (savedOnly)
+          Positioned(
+            top: 8,
+            left: 8,
+            child: _buildSavedBadge(ref),
+          ),
+      ],
+      ),
+      ),
+    );
+  }
+
+  /// Compact badge indicating the publication is saved for offline reading,
+  /// shown on cards inside the saved-only grid.
+  Widget _buildSavedBadge(WidgetRef ref) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.45),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Tooltip(
+        message: AppLocalizations.of(ref).showSaved,
+        child: Icon(
+          Icons.download_done,
+          color: Colors.greenAccent,
+          size: 16,
         ),
       ),
     );

@@ -31,6 +31,11 @@ class _SelectedFile {
   const _SelectedFile({required this.bytes, required this.name});
 }
 
+/// How a video block's content is provided. YouTube/RuTube are link-based
+/// (an external URL); `upload` means a file picked from the device and pushed
+/// to Storage. Only `upload` exposes the file-selection controls.
+enum _VideoMode { youtube, rutube, upload }
+
 class PublicationEditorScreen extends ConsumerStatefulWidget {
   final String? publicationId;
 
@@ -440,6 +445,7 @@ class _PublicationEditorScreenState
         _contentBlocks.insert(index - 1, block);
         _updateOrderIndices();
       });
+      _markUnsaved();
     }
   }
 
@@ -450,6 +456,7 @@ class _PublicationEditorScreenState
         _contentBlocks.insert(index + 1, block);
         _updateOrderIndices();
       });
+      _markUnsaved();
     }
   }
 
@@ -457,6 +464,7 @@ class _PublicationEditorScreenState
     setState(() {
       _contentBlocks.removeAt(index);
     });
+    _markUnsaved();
   }
 
   String _formatDate(DateTime date) {
@@ -1699,8 +1707,21 @@ class _PublicationEditorScreenState
     );
   }
 
+  /// Resolves the current input mode of a video block. Uploaded videos always
+  /// map to [VideoMode.upload]; external ones follow their provider.
+  _VideoMode _videoModeOf(VideoContentBlock block) {
+    if (block.source == VideoSourceType.upload) return _VideoMode.upload;
+    return switch (block.provider) {
+      VideoProviderType.youtube => _VideoMode.youtube,
+      VideoProviderType.rutube => _VideoMode.rutube,
+      // `vk`/`direct` are not offered in the editor; default to YouTube.
+      _ => _VideoMode.youtube,
+    };
+  }
+
   Widget _buildVideoBlockWidget(VideoContentBlock block, int index) {
     final isCollapsed = _collapsedBlockIds.contains(block.id);
+    final mode = _videoModeOf(block);
 
     return Card(
       key: Key(block.id),
@@ -1732,26 +1753,8 @@ class _PublicationEditorScreenState
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  TextFormField(
-                    initialValue: block.url,
-                    decoration: InputDecoration(
-                      labelText: loc.AppLocalizations.admin.videoUrlField,
-                      border: const OutlineInputBorder(),
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 10,
-                      ),
-                    ),
-                    onChanged: (value) {
-                      setState(() {
-                        _contentBlocks[index] = block.copyWith(url: value);
-                      });
-                      _markUnsaved();
-                    },
-                  ),
-                  const SizedBox(height: 10),
-                  DropdownButtonFormField<VideoProviderType>(
-                    initialValue: block.provider,
+                  DropdownButtonFormField<_VideoMode>(
+                    initialValue: mode,
                     decoration: InputDecoration(
                       labelText: loc.AppLocalizations.admin.platformField,
                       border: const OutlineInputBorder(),
@@ -1762,27 +1765,75 @@ class _PublicationEditorScreenState
                     ),
                     items: [
                       DropdownMenuItem(
-                        value: VideoProviderType.youtube,
+                        value: _VideoMode.youtube,
                         child: Text(loc.AppLocalizations.admin.youtubeLabel),
                       ),
                       DropdownMenuItem(
-                        value: VideoProviderType.rutube,
+                        value: _VideoMode.rutube,
                         child: Text(loc.AppLocalizations.admin.rutubeLabel),
+                      ),
+                      DropdownMenuItem(
+                        value: _VideoMode.upload,
+                        child: Text(
+                          loc.AppLocalizations.admin.videoUploadLabel,
+                        ),
                       ),
                     ],
                     onChanged: (value) {
-                      if (value != null) {
-                        setState(() {
-                          _contentBlocks[index] = block.copyWith(
-                            provider: value,
-                          );
-                        });
-                        _markUnsaved();
-                      }
+                      final next = value;
+                      if (next == null) return;
+                      setState(() {
+                        _contentBlocks[index] = switch (next) {
+                          _VideoMode.youtube || _VideoMode.rutube =>
+                            VideoContentBlock(
+                              id: block.id,
+                              publicationId: block.publicationId,
+                              orderIndex: block.orderIndex,
+                              source: VideoSourceType.external,
+                              url: block.url,
+                              provider: next == _VideoMode.youtube
+                                  ? VideoProviderType.youtube
+                                  : VideoProviderType.rutube,
+                              // A link replaces any previously uploaded file.
+                              videoPath: null,
+                              videoName: null,
+                              videoMime: null,
+                              videoSize: null,
+                            ),
+                          _VideoMode.upload => block.copyWith(
+                            source: VideoSourceType.upload,
+                            url: '',
+                          ),
+                        };
+                      });
+                      _markUnsaved();
                     },
                   ),
-                  const SizedBox(height: 10),
-                  _buildVideoUploadArea(block),
+                  if (mode != _VideoMode.upload) ...[
+                    const SizedBox(height: 10),
+                    TextFormField(
+                      initialValue: block.url,
+                      decoration: InputDecoration(
+                        labelText: loc.AppLocalizations.admin.videoUrlField,
+                        border: const OutlineInputBorder(),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 10,
+                        ),
+                      ),
+                      onChanged: (value) {
+                        setState(() {
+                          _contentBlocks[index] = block.copyWith(url: value);
+                        });
+                        _markUnsaved();
+                      },
+                    ),
+                  ],
+                  // Only the "upload" mode exposes the file picker.
+                  if (mode == _VideoMode.upload) ...[
+                    const SizedBox(height: 10),
+                    _buildVideoUploadArea(block),
+                  ],
                 ],
               ),
             ),

@@ -10,6 +10,8 @@ import 'package:hive_flutter/hive_flutter.dart';
 ///    position, etc. Only simple key-value pairs.
 ///  - `sections_cache` — cached reference data for sections (JSON array).
 ///    Allows the UI to bootstrap immediately without network.
+///  - `saved_publications` — publication id -> record map. Device-local registry
+///    of publications saved offline. See [SavedPublicationRepository].
 ///
 /// All boxes use only Hive's built-in types (bool, String, List), so no
 /// generated adapters or TypeAdapters are required.
@@ -19,6 +21,7 @@ class LocalStorageService {
   static const String favoritesBoxName = 'favorites';
   static const String settingsBoxName = 'settings';
   static const String sectionsCacheBoxName = 'sections_cache';
+  static const String savedPublicationsBoxName = 'saved_publications';
 
   static Box<bool> get favoritesBox => Hive.box<bool>(favoritesBoxName);
 
@@ -26,6 +29,9 @@ class LocalStorageService {
 
   static Box<dynamic> get sectionsCacheBox =>
       Hive.box<dynamic>(sectionsCacheBoxName);
+
+  static Box<dynamic> get savedPublicationsBox =>
+      Hive.box<dynamic>(savedPublicationsBoxName);
 
   static Future<void> initialize() async {
     await Hive.initFlutter();
@@ -39,6 +45,9 @@ class LocalStorageService {
     if (!Hive.isBoxOpen(sectionsCacheBoxName)) {
       await Hive.openBox<dynamic>(sectionsCacheBoxName);
     }
+    if (!Hive.isBoxOpen(savedPublicationsBoxName)) {
+      await Hive.openBox<dynamic>(savedPublicationsBoxName);
+    }
   }
 
   static Future<void> close() async {
@@ -46,6 +55,7 @@ class LocalStorageService {
       favoritesBoxName,
       settingsBoxName,
       sectionsCacheBoxName,
+      savedPublicationsBoxName,
     ]) {
       if (Hive.isBoxOpen(name)) {
         await Hive.box(name).close();

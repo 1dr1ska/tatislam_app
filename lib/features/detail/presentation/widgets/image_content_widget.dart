@@ -2,10 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:tatislam_app/core/services/image_dimensions_service.dart';
 import 'package:tatislam_app/core/storage/media_storage_repository.dart';
+import 'package:tatislam_app/core/widgets/app_image.dart';
+import 'package:tatislam_app/core/widgets/app_image_local.dart'
+    if (dart.library.js_interop) 'package:tatislam_app/core/widgets/app_image_web.dart'
+    as local_image;
 import 'package:tatislam_app/core/widgets/glass_container.dart';
 import 'package:tatislam_app/core/widgets/network_image.dart' show appWebImageRenderMethod;
 import 'package:tatislam_app/features/detail/presentation/screens/image_viewer_screen.dart';
 import 'package:tatislam_app/features/publications/domain/entities/content_block.dart';
+import 'package:tatislam_app/features/publications/domain/entities/local_media_resolver.dart';
 
 /// Maximum photo height relative to the screen — very tall images (e.g. 1:3)
 /// are clamped so they don't dominate the whole screen.
@@ -41,11 +46,16 @@ class ImageContentWidget extends StatefulWidget {
   /// Shared cache of image dimensions.
   final ImageDimensionsService? dimensionsService;
 
+  /// Optional offline resolver — when it returns a local `file://` URI for a
+  /// storage path, that URI is used instead of the network URL.
+  final LocalMediaResolver? localMedia;
+
   const ImageContentWidget({
     super.key,
     required this.block,
     required this.mediaStorage,
     this.dimensionsService,
+    this.localMedia,
   });
 
   @override
@@ -56,13 +66,14 @@ class _ImageContentWidgetState extends State<ImageContentWidget> {
   late final ImageDimensionsService _dimensionsService;
   Size? _imageSize;
 
-  /// Public URLs of the block's non-empty photos (Storage paths resolved via
+  /// Resolved URLs of the block's non-empty photos (local `file://` URIs via
+  /// [localMedia] when available, otherwise Storage paths resolved via
   /// [MediaStorageRepository.publicUrlFor]). Empty paths are skipped so a
   /// broken/absent entry never breaks the whole block.
   List<String> get _imageUrls =>
       widget.block.imagePaths
           .where((path) => path.isNotEmpty)
-          .map((path) => widget.mediaStorage.publicUrlFor(path))
+          .map(_resolveUrl)
           .toList();
 
   /// URL of the single photo used to resolve its aspect ratio (albums use
@@ -70,8 +81,11 @@ class _ImageContentWidgetState extends State<ImageContentWidget> {
   String get _singleImageUrl {
     final paths = widget.block.imagePaths.where((path) => path.isNotEmpty);
     if (paths.isEmpty) return '';
-    return widget.mediaStorage.publicUrlFor(paths.first);
+    return _resolveUrl(paths.first);
   }
+
+  String _resolveUrl(String path) =>
+      widget.localMedia?.call(path) ?? widget.mediaStorage.publicUrlFor(path);
 
   @override
   void initState() {
@@ -107,10 +121,16 @@ class _ImageContentWidgetState extends State<ImageContentWidget> {
 
     final size = await _dimensionsService.resolve(
       key: imageUrl,
-      provider: CachedNetworkImageProvider(
-        imageUrl,
-        imageRenderMethodForWeb: appWebImageRenderMethod,
-      ),
+      provider: imageUrl.startsWith('file://')
+          ? local_image.localFileImageProvider(imageUrl) ??
+              CachedNetworkImageProvider(
+                imageUrl,
+                imageRenderMethodForWeb: appWebImageRenderMethod,
+              )
+          : CachedNetworkImageProvider(
+              imageUrl,
+              imageRenderMethodForWeb: appWebImageRenderMethod,
+            ),
     );
     if (!mounted) return;
     if (size != null && size != _imageSize) {
@@ -247,15 +267,11 @@ class _ImageContentWidgetState extends State<ImageContentWidget> {
         aspectRatio: aspectRatio,
         child: GestureDetector(
           onTap: () => _openViewer(context, imageUrls, index),
-          child: CachedNetworkImage(
+          child: AppImage(
             imageUrl: imageUrls[index],
             fit: BoxFit.cover,
-            imageRenderMethodForWeb: appWebImageRenderMethod,
-            fadeInDuration: const Duration(milliseconds: 300),
-            fadeInCurve: Curves.easeIn,
             placeholder: (context, url) => _buildPlaceholder(),
-            errorWidget: (context, url, error) =>
-                const Icon(Icons.image, size: 64),
+            errorBuilder: (context) => const Icon(Icons.image, size: 64),
           ),
         ),
       ),
@@ -278,15 +294,11 @@ class _ImageContentWidgetState extends State<ImageContentWidget> {
           child: Stack(
             children: [
               Positioned.fill(
-                child: CachedNetworkImage(
+                child: AppImage(
                   imageUrl: imageUrls[index],
                   fit: BoxFit.cover,
-                  imageRenderMethodForWeb: appWebImageRenderMethod,
-                  fadeInDuration: const Duration(milliseconds: 300),
-                  fadeInCurve: Curves.easeIn,
                   placeholder: (context, url) => _buildPlaceholder(),
-                  errorWidget: (context, url, error) =>
-                      const Icon(Icons.image, size: 64),
+                  errorBuilder: (context) => const Icon(Icons.image, size: 64),
                 ),
               ),
               Positioned.fill(
@@ -339,15 +351,11 @@ class _ImageContentWidgetState extends State<ImageContentWidget> {
         return SizedBox(
           width: double.infinity,
           height: height,
-          child: CachedNetworkImage(
+          child: AppImage(
             imageUrl: imageUrl,
             fit: BoxFit.contain,
-            imageRenderMethodForWeb: appWebImageRenderMethod,
-            fadeInDuration: const Duration(milliseconds: 300),
-            fadeInCurve: Curves.easeIn,
             placeholder: (context, url) => _buildPlaceholder(),
-            errorWidget: (context, url, error) =>
-                const Icon(Icons.image, size: 64),
+            errorBuilder: (context) => const Icon(Icons.image, size: 64),
           ),
         );
       },

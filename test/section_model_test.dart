@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:tatislam_app/core/providers/locale_provider.dart';
 import 'package:tatislam_app/features/sections/data/models/section_model.dart';
 import 'package:tatislam_app/features/sections/domain/entities/section.dart';
 
@@ -6,6 +7,7 @@ void main() {
   Map<String, dynamic> sectionJson({bool? isDefaultForPhoto}) => {
     'id': 'sec-1',
     'name': 'Рәсемнәр',
+    'name_ru': 'Фото',
     'slug': 'photos',
     'is_visible': true,
     'sort_order': 0,
@@ -54,6 +56,43 @@ void main() {
 
       // copyWith must not leak the flag into the original.
       expect(base.isDefaultForPhoto, isFalse);
+    });
+  });
+
+  group('Section nameRu and localizedName', () {
+    test('parses name_ru and carries it through json representations', () {
+      final model = SectionModel.fromJson(sectionJson());
+      expect(model.nameRu, 'Фото');
+      expect(model.toEntity().nameRu, 'Фото');
+      expect(model.toJson()['name_ru'], 'Фото');
+      expect(model.toInsertJson()['name_ru'], 'Фото');
+    });
+
+    test('omits name_ru from json when it is null', () {
+      final model = SectionModel.fromJson({...sectionJson()..remove('name_ru')});
+      expect(model.nameRu, isNull);
+      expect(model.toJson().containsKey('name_ru'), isFalse);
+      expect(model.toInsertJson().containsKey('name_ru'), isFalse);
+    });
+
+    test('localizedName returns Russian name for the Russian locale', () {
+      final section = SectionModel.fromJson(sectionJson()).toEntity();
+      expect(section.localizedName(AppLocale.russian), 'Фото');
+      expect(section.localizedName(AppLocale.tatar), 'Рәсемнәр');
+    });
+
+    test('localizedName falls back to the primary name when Russian is blank', () {
+      final section = Section(
+        id: 'sec-1',
+        name: 'Мәкаләләр',
+        nameRu: '   ',
+        slug: 'articles',
+        isVisible: true,
+        sortOrder: 0,
+        createdAt: DateTime.utc(2024, 1, 1),
+        updatedAt: DateTime.utc(2024, 1, 1),
+      );
+      expect(section.localizedName(AppLocale.russian), 'Мәкаләләр');
     });
   });
 }

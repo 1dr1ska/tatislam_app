@@ -4,6 +4,7 @@ import 'package:tatislam_app/features/sections/domain/entities/section.dart';
 class SectionModel {
   final String id;
   final String name;
+  final String? nameRu;
   final String slug;
   final bool isVisible;
   final int sortOrder;
@@ -15,6 +16,7 @@ class SectionModel {
   const SectionModel({
     required this.id,
     required this.name,
+    this.nameRu,
     required this.slug,
     required this.isVisible,
     required this.sortOrder,
@@ -28,6 +30,7 @@ class SectionModel {
     return SectionModel(
       id: json['id'] as String,
       name: json['name'] as String,
+      nameRu: json['name_ru'] as String?,
       slug: json['slug'] as String,
       isVisible: json['is_visible'] as bool,
       sortOrder: json['sort_order'] as int,
@@ -42,6 +45,7 @@ class SectionModel {
   Map<String, dynamic> toJson() => {
     'id': id,
     'name': name,
+    'name_ru': ?nameRu,
     'slug': slug,
     'is_visible': isVisible,
     'sort_order': sortOrder,
@@ -54,6 +58,7 @@ class SectionModel {
   /// Minimal JSON for insert (no id, no timestamps — server fills them).
   Map<String, dynamic> toInsertJson() => {
     'name': name,
+    'name_ru': ?nameRu,
     'slug': slug,
     'is_visible': isVisible,
     'sort_order': sortOrder,
@@ -64,6 +69,7 @@ class SectionModel {
   Section toEntity() => Section(
     id: id,
     name: name,
+    nameRu: nameRu,
     slug: slug,
     isVisible: isVisible,
     sortOrder: sortOrder,

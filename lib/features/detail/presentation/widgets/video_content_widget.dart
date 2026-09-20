@@ -1,9 +1,11 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:video_player/video_player.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:tatislam_app/features/detail/presentation/widgets/rutube_web_view_factory.dart';
 import 'package:tatislam_app/features/detail/presentation/widgets/uploaded_video_web_view_factory.dart';
@@ -15,6 +17,7 @@ import 'package:tatislam_app/features/detail/domain/services/video_url_parser_se
 import 'package:tatislam_app/features/publications/domain/entities/content_block.dart';
 import 'package:tatislam_app/features/publications/domain/entities/video_provider_type.dart';
 import 'package:tatislam_app/features/publications/domain/entities/video_source_type.dart';
+import 'package:tatislam_app/features/publications/domain/entities/local_media_resolver.dart';
 
 const double _glassOpacity = 0.25;
 const double _glassRadius = 12;
@@ -29,12 +32,18 @@ class VideoContentWidget extends ConsumerStatefulWidget {
   /// video was uploaded to Storage ([VideoSourceType.upload]).
   final MediaStorageRepository? mediaStorage;
 
+  /// Optional offline resolver — when it returns a local `file://` URI for
+  /// [VideoContentBlock.videoPath], the uploaded video is played from that file
+  /// with the native player instead of a network WebView (fully offline).
+  final LocalMediaResolver? localMedia;
+
   final VideoUrlParserService urlParser;
 
   const VideoContentWidget({
     super.key,
     required this.block,
     this.mediaStorage,
+    this.localMedia,
     this.urlParser = const VideoUrlParserService(),
   });
 
@@ -221,6 +230,19 @@ class _VideoContentWidgetState extends ConsumerState<VideoContentWidget> {
       if (path.isEmpty || widget.mediaStorage == null) {
         return _buildUnavailable();
       }
+
+      // Offline copy: if a downloaded local file exists for this video, play it
+      // natively. Skipped on Web, where offline saving is unsupported.
+      if (!kIsWeb) {
+        final localUri = widget.localMedia?.call(path);
+        if (localUri != null && localUri.isNotEmpty) {
+          return _LocalVideoPlayer(
+            uri: localUri,
+            title: widget.block.videoName,
+          );
+        }
+      }
+
       final url = widget.mediaStorage!.publicUrlFor(path);
       _ensureUploadedVideo(url);
 
@@ -570,5 +592,170 @@ class _VideoContentWidgetState extends ConsumerState<VideoContentWidget> {
         );
       }
     }
+  }
+}
+
+/// Plays an offline-downloaded (uploaded) video from a local `file://` URI with
+/// the native [VideoPlayer], including minimal tap-to-toggle + progress
+/// controls. Falls back to an "unavailable" card when the file cannot be read.
+class _LocalVideoPlayer extends ConsumerStatefulWidget {
+  final String uri;
+  final String? title;
+
+  const _LocalVideoPlayer({required this.uri, this.title});
+
+  @override
+  ConsumerState<_LocalVideoPlayer> createState() => _LocalVideoPlayerState();
+}
+
+class _LocalVideoPlayerState extends ConsumerState<_LocalVideoPlayer> {
+  VideoPlayerController? _controller;
+  bool _failed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _init();
+  }
+
+  Future<void> _init() async {
+    final uri = Uri.tryParse(widget.uri);
+    if (uri == null || uri.scheme != 'file') {
+      if (mounted) setState(() => _failed = true);
+      return;
+    }
+
+    final controller = VideoPlayerController.file(File(uri.toFilePath()));
+    _controller = controller;
+    try {
+      await controller.initialize();
+      await controller.setLooping(false);
+      await controller.setVolume(1);
+      if (!mounted) return;
+      await controller.play();
+      setState(() {});
+    } catch (_) {
+      if (mounted) setState(() => _failed = true);
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller?.dispose();
+    super.dispose();
+  }
+
+  Widget _buildUnavailableCard() {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: GlassContainer(
+        opacity: _glassOpacity,
+        borderRadius: _glassRadius,
+        height: 180,
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.videocam_off, size: 64, color: Colors.grey),
+              const SizedBox(height: 16),
+              Text(
+                AppLocalizations.of(ref).videoUnavailable,
+                style: Theme.of(
+                  context,
+                ).textTheme.titleMedium?.copyWith(color: Colors.grey),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLoading() {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: AspectRatio(
+        aspectRatio: 16 / 9,
+        child: Center(
+          child: CircularProgressIndicator(
+            color: Color(0xFFD4A843),
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = _controller;
+    if (_failed) return _buildUnavailableCard();
+    if (controller == null || !controller.value.isInitialized) {
+      return _buildLoading();
+    }
+
+    final aspectRatio = controller.value.aspectRatio > 0
+        ? controller.value.aspectRatio
+        : 16 / 9;
+    final isPlaying = controller.value.isPlaying;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: GlassContainer(
+        opacity: _glassOpacity,
+        borderRadius: _glassRadius,
+        child: ClipRRect(
+          borderRadius: const BorderRadius.vertical(
+            top: Radius.circular(_glassRadius),
+          ),
+          child: AspectRatio(
+            aspectRatio: aspectRatio,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                VideoPlayer(controller),
+                // Tap anywhere toggles play/pause.
+                Positioned.fill(
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () {
+                      setState(() {
+                        isPlaying
+                            ? controller.pause()
+                            : controller.play();
+                      });
+                    },
+                  ),
+                ),
+                // Center play/pause affordance when paused.
+                if (!isPlaying)
+                  Icon(
+                    Icons.play_circle_fill,
+                    size: 64,
+                    color: Colors.white.withValues(alpha: 0.9),
+                  ),
+                // Progress / scrubbing bar at the bottom.
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  child: ColoredBox(
+                    color: Colors.black.withValues(alpha: 0.35),
+                    child: VideoProgressIndicator(
+                      controller,
+                      allowScrubbing: true,
+                      colors: const VideoProgressColors(
+                        playedColor: Color(0xFFD4A843),
+                        bufferedColor: Colors.white54,
+                        backgroundColor: Colors.white12,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }

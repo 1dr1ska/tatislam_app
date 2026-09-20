@@ -8,9 +8,13 @@ abstract class SectionRepository {
   Future<List<Section>> getSections({bool includeHidden = false});
 
   /// Creates a section. The slug is derived from [name] automatically.
-  Future<Section> createSection(String name);
+  /// [nameRu] is the optional Russian name shown when the interface language
+  /// is Russian.
+  Future<Section> createSection(String name, {String? nameRu});
 
-  Future<Section> renameSection(String id, String name);
+  /// Renames a section. When [nameRu] is null the existing Russian name is
+  /// preserved; pass an empty string to clear it.
+  Future<Section> renameSection(String id, String name, {String? nameRu});
 
   Future<Section> setVisibility(String id, bool isVisible);
 

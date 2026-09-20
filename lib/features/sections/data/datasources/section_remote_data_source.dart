@@ -23,11 +23,12 @@ class SectionRemoteDataSource {
     }
   }
 
-  Future<SectionModel> createSection(String name) async {
+  Future<SectionModel> createSection(String name, {String? nameRu}) async {
     try {
       final nextSortOrder = await _nextSortOrder();
       final baseSlug = slugify(name);
-      final row = await _insertWithUniqueSlug(name, baseSlug, nextSortOrder);
+      final row = await _insertWithUniqueSlug(
+          name, baseSlug, nextSortOrder, nameRu);
       return SectionModel.fromJson(row);
     } catch (e) {
       throw ServerException('Failed to create section: $e');
@@ -38,13 +39,19 @@ class SectionRemoteDataSource {
     String name,
     String baseSlug,
     int sortOrder,
+    String? nameRu,
   ) async {
     var slug = baseSlug;
     for (var attempt = 0; attempt < 5; attempt++) {
       try {
         return await _client
             .from(SupabaseTables.sections)
-            .insert({'name': name, 'slug': slug, 'sort_order': sortOrder})
+            .insert({
+              'name': name,
+              'name_ru': ?nameRu,
+              'slug': slug,
+              'sort_order': sortOrder,
+            })
             .select()
             .single();
       } on PostgrestException catch (e) {
@@ -66,11 +73,20 @@ class SectionRemoteDataSource {
     return (response.first['sort_order'] as int) + 1;
   }
 
-  Future<SectionModel> renameSection(String id, String name) async {
+  Future<SectionModel> renameSection(
+    String id,
+    String name, {
+    String? nameRu,
+  }) async {
     try {
+      // When [nameRu] is null the Russian name is left unchanged, so other
+      // callers (e.g. the quick-rename dialog) never wipe it by accident.
+      // Passing an empty string explicitly clears it.
+      final patch = <String, dynamic>{'name': name};
+      if (nameRu != null) patch['name_ru'] = nameRu;
       final row = await _client
           .from(SupabaseTables.sections)
-          .update({'name': name})
+          .update(patch)
           .eq('id', id)
           .select()
           .single();

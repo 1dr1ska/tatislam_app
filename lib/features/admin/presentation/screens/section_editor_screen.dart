@@ -19,6 +19,7 @@ class SectionEditorScreen extends ConsumerStatefulWidget {
 
 class _SectionEditorScreenState extends ConsumerState<SectionEditorScreen> {
   final _nameController = TextEditingController();
+  final _nameRuController = TextEditingController();
   bool _isLoading = false;
   bool _isSaving = false;
   bool? _isVisible;
@@ -37,6 +38,7 @@ class _SectionEditorScreenState extends ConsumerState<SectionEditorScreen> {
   @override
   void dispose() {
     _nameController.dispose();
+    _nameRuController.dispose();
     super.dispose();
   }
 
@@ -50,6 +52,7 @@ class _SectionEditorScreenState extends ConsumerState<SectionEditorScreen> {
           .firstOrNull;
       if (section != null) {
         _nameController.text = section.name;
+        _nameRuController.text = section.nameRu ?? '';
         _isVisible = section.isVisible;
         _backgroundImage = section.backgroundImage;
       }
@@ -66,6 +69,7 @@ class _SectionEditorScreenState extends ConsumerState<SectionEditorScreen> {
 
   Future<void> _save() async {
     final name = _nameController.text.trim();
+    final nameRu = _nameRuController.text.trim();
     if (name.isEmpty) {
       ScaffoldMessenger.of(
         context,
@@ -80,7 +84,11 @@ class _SectionEditorScreenState extends ConsumerState<SectionEditorScreen> {
       final repository = ref.read(sectionRepositoryProvider);
 
       if (_isEditing) {
-        await repository.renameSection(widget.sectionId!, name);
+        await repository.renameSection(
+          widget.sectionId!,
+          name,
+          nameRu: nameRu,
+        );
         if (_isVisible != null) {
           await repository.setVisibility(widget.sectionId!, _isVisible!);
         }
@@ -94,7 +102,7 @@ class _SectionEditorScreenState extends ConsumerState<SectionEditorScreen> {
           ).showSnackBar(SnackBar(content: Text(AppLocalizations.admin.sectionSaved)));
         }
       } else {
-        await repository.createSection(name);
+        await repository.createSection(name, nameRu: nameRu);
         if (mounted) {
           ScaffoldMessenger.of(
             context,
@@ -152,6 +160,19 @@ class _SectionEditorScreenState extends ConsumerState<SectionEditorScreen> {
                       counterText: '',
                     ),
                     autofocus: !_isEditing,
+                    textCapitalization: TextCapitalization.sentences,
+                    maxLength: 100,
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: _nameRuController,
+                    decoration: InputDecoration(
+                      labelText: AppLocalizations.admin.sectionNameRu,
+                      helperText: AppLocalizations.admin.sectionNameRuHint,
+                      helperStyle: const TextStyle(fontSize: 12),
+                      border: const OutlineInputBorder(),
+                      counterText: '',
+                    ),
                     textCapitalization: TextCapitalization.sentences,
                     maxLength: 100,
                   ),

@@ -62,14 +62,18 @@ class SectionRepositoryImpl implements SectionRepository {
   }
 
   @override
-  Future<Section> createSection(String name) async {
-    final model = await _remote.createSection(name);
+  Future<Section> createSection(String name, {String? nameRu}) async {
+    final model = await _remote.createSection(name, nameRu: nameRu);
     return model.toEntity();
   }
 
   @override
-  Future<Section> renameSection(String id, String name) async {
-    final model = await _remote.renameSection(id, name);
+  Future<Section> renameSection(
+    String id,
+    String name, {
+    String? nameRu,
+  }) async {
+    final model = await _remote.renameSection(id, name, nameRu: nameRu);
     return model.toEntity();
   }
 

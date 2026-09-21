@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:video_player/video_player.dart';
@@ -21,9 +22,24 @@ import 'package:tatislam_app/features/publications/domain/entities/local_media_r
 
 const double _glassOpacity = 0.25;
 const double _glassRadius = 12;
+const double _landscapeAspectRatio = 16 / 9;
 
 // Must match the Android applicationId in android/app/build.gradle.kts.
 const String _youtubeAppReferer = 'https://com.example.tatislam_app';
+
+/// Playback speeds cycled through by the speed button.
+const List<double> _kPlaybackSpeeds = <double>[0.5, 0.75, 1.0, 1.25, 1.5, 2.0];
+
+String _formatSpeed(double s) {
+  if (s == s.roundToDouble()) return '${s.toInt()}x';
+  return '${s}x';
+}
+
+String _formatDuration(Duration d) {
+  final minutes = d.inMinutes.remainder(60).toString().padLeft(2, '0');
+  final seconds = d.inSeconds.remainder(60).toString().padLeft(2, '0');
+  return '$minutes:$seconds';
+}
 
 class VideoContentWidget extends ConsumerStatefulWidget {
   final VideoContentBlock block;
@@ -34,7 +50,7 @@ class VideoContentWidget extends ConsumerStatefulWidget {
 
   /// Optional offline resolver — when it returns a local `file://` URI for
   /// [VideoContentBlock.videoPath], the uploaded video is played from that file
-  /// with the native player instead of a network WebView (fully offline).
+  /// with the native player (fully offline).
   final LocalMediaResolver? localMedia;
 
   final VideoUrlParserService urlParser;
@@ -76,8 +92,10 @@ class _VideoContentWidgetState extends ConsumerState<VideoContentWidget> {
 
     final sourceChanged =
         oldWidget.block.videoPath != widget.block.videoPath ||
-            oldWidget.block.source != widget.block.source;
-    if (oldWidget.block.url != widget.block.url || sourceChanged) {
+        oldWidget.block.source != widget.block.source;
+    if (oldWidget.block.url != widget.block.url ||
+        oldWidget.block.provider != widget.block.provider ||
+        sourceChanged) {
       _youtubeController = null;
       _rutubeController = null;
       _uploadedVideoController = null;
@@ -103,16 +121,12 @@ class _VideoContentWidgetState extends ConsumerState<VideoContentWidget> {
     _lastYoutubeId = videoId;
 
     if (kIsWeb) {
-      // On Web use our own iframe factory, just like RuTube.
-      // Do NOT create/register the view from build().
       _youtubeViewId = registerYoutubeView(videoId);
       return;
     }
 
-    // Android/iOS: use WebView. Android additionally sends the application
-    // Referer required by YouTube for direct embed loading.
     _youtubeController = _buildController(
-      'https://www.youtube.com/embed/$videoId',
+      'https://www.youtube.com/embed/$videoId?playsinline=1&rel=0',
       headers: const {'Referer': _youtubeAppReferer},
     );
   }
@@ -134,53 +148,32 @@ class _VideoContentWidgetState extends ConsumerState<VideoContentWidget> {
     }
   }
 
-  /// Sets up an inline player for an uploaded video (the URL is a public Storage
-  /// link to the mp4). On Web — a native HTML5 `<video>`, otherwise a WebView
-  /// loaded from a self-contained data: HTML page.
+  /// Web-only inline HTML5 player. On mobile we never use this — uploaded
+  /// videos are played by [_NativeVideoPlayer], which letterboxes portrait
+  /// and square content using the decoder's real aspect ratio and keeps its
+  /// controls strictly inside the card.
   void _ensureUploadedVideo(String url) {
-    if (_lastUploadedUrl == url &&
-        (kIsWeb
-            ? _uploadedVideoViewId != null
-            : _uploadedVideoController != null)) {
-      return;
-    }
+    if (_lastUploadedUrl == url && _uploadedVideoViewId != null) return;
 
     _lastUploadedUrl = url;
-
-    if (kIsWeb) {
-      _uploadedVideoViewId = registerUploadedVideoView(url);
-    } else {
-      _uploadedVideoController = _buildController(
-        _videoDataUrl(url),
-        headers: const <String, String>{},
-      );
-    }
-  }
-
-  /// Self-contained HTML with an inline `<video controls>` element.
-  static String _videoDataUrl(String url) {
-    final safeUrl = url.replaceAll('"', '%22').replaceAll("'", '%27');
-    final html =
-        '<!DOCTYPE html><html><head><meta name="viewport" '
-        'content="width=device-width, initial-scale=1"></head>'
-        '<body style="margin:0;background:#000">'
-        '<video controls playsinline preload="metadata" '
-        'style="width:100%;height:100%;object-fit:contain" '
-        'src="$safeUrl"></video></body></html>';
-    return 'data:text/html;base64,${base64Encode(utf8.encode(html))}';
+    _uploadedVideoViewId = registerUploadedVideoView(url);
   }
 
   WebViewController _buildController(
     String embedUrl, {
     Map<String, String>? headers,
   }) {
+    final embedUri = Uri.parse(embedUrl);
     return WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      ..setBackgroundColor(Colors.black)
       ..setNavigationDelegate(
         NavigationDelegate(
           onNavigationRequest: (request) {
-            if (request.url == embedUrl ||
-                request.url.startsWith('$embedUrl?')) {
+            final requestUri = Uri.tryParse(request.url);
+            if (requestUri != null &&
+                requestUri.host == embedUri.host &&
+                requestUri.path == embedUri.path) {
               return NavigationDecision.navigate;
             }
 
@@ -224,42 +217,37 @@ class _VideoContentWidgetState extends ConsumerState<VideoContentWidget> {
 
   @override
   Widget build(BuildContext context) {
-    // Загруженное в Storage видео (upload): показываем inline-плеер.
+    // ── Uploaded video ────────────────────────────────────────────────
     if (widget.block.source == VideoSourceType.upload) {
       final path = widget.block.videoPath ?? '';
       if (path.isEmpty || widget.mediaStorage == null) {
         return _buildUnavailable();
       }
 
-      // Offline copy: if a downloaded local file exists for this video, play it
-      // natively. Skipped on Web, where offline saving is unsupported.
       if (!kIsWeb) {
         final localUri = widget.localMedia?.call(path);
         if (localUri != null && localUri.isNotEmpty) {
-          return _LocalVideoPlayer(
+          return _NativeVideoPlayer(
             uri: localUri,
             title: widget.block.videoName,
           );
         }
+
+        final url = widget.mediaStorage!.publicUrlFor(path);
+        return _NativeVideoPlayer(uri: url, title: widget.block.videoName);
       }
 
+      // Web: browser-native <video> with its own controls.
       final url = widget.mediaStorage!.publicUrlFor(path);
       _ensureUploadedVideo(url);
-
-      if (kIsWeb && _uploadedVideoViewId != null) {
+      if (_uploadedVideoViewId != null) {
         return _buildUploadedWebView();
       }
 
-      if (!kIsWeb && _uploadedVideoController != null) {
-        return _buildEmbeddedVideo(controller: _uploadedVideoController!);
-      }
-
-      return _buildExternalLinkCard(
-        url: url,
-        title: widget.block.videoName,
-      );
+      return _buildExternalLinkCard(url: url, title: widget.block.videoName);
     }
 
+    // ── YouTube / RuTube / external link ──────────────────────────────
     if (widget.block.url.isEmpty) {
       return _buildUnavailable();
     }
@@ -276,7 +264,10 @@ class _VideoContentWidgetState extends ConsumerState<VideoContentWidget> {
       }
 
       if (!kIsWeb && _youtubeController != null) {
-        return _buildEmbeddedVideo(controller: _youtubeController!);
+        return _buildEmbeddedVideo(
+          controller: _youtubeController!,
+          contentAspectRatio: _youtubeContentAspectRatio,
+        );
       }
 
       return _buildYoutubeFallback(videoId: videoId);
@@ -305,7 +296,11 @@ class _VideoContentWidgetState extends ConsumerState<VideoContentWidget> {
     return _buildUnavailable();
   }
 
-  Widget _buildEmbeddedVideo({required WebViewController controller}) {
+  Widget _buildEmbeddedVideo({
+    required WebViewController controller,
+    double aspectRatio = _landscapeAspectRatio,
+    double? contentAspectRatio,
+  }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
       child: GlassContainer(
@@ -316,8 +311,11 @@ class _VideoContentWidgetState extends ConsumerState<VideoContentWidget> {
             top: Radius.circular(_glassRadius),
           ),
           child: AspectRatio(
-            aspectRatio: 16 / 9,
-            child: WebViewWidget(controller: controller),
+            aspectRatio: aspectRatio,
+            child: _buildEmbeddedPlayer(
+              contentAspectRatio: contentAspectRatio,
+              child: WebViewWidget(controller: controller),
+            ),
           ),
         ),
       ),
@@ -335,9 +333,34 @@ class _VideoContentWidgetState extends ConsumerState<VideoContentWidget> {
             top: Radius.circular(_glassRadius),
           ),
           child: AspectRatio(
-            aspectRatio: 16 / 9,
-            child: HtmlElementView(viewType: _youtubeViewId!),
+            aspectRatio: _landscapeAspectRatio,
+            child: _buildEmbeddedPlayer(
+              contentAspectRatio: _youtubeContentAspectRatio,
+              child: HtmlElementView(viewType: _youtubeViewId!),
+            ),
           ),
+        ),
+      ),
+    );
+  }
+
+  double? get _youtubeContentAspectRatio =>
+      widget.urlParser.isYouTubeShortsUrl(widget.block.url) ? 9 / 16 : null;
+
+  Widget _buildEmbeddedPlayer({
+    required Widget child,
+    double? contentAspectRatio,
+  }) {
+    if (contentAspectRatio == null) {
+      return ColoredBox(color: Colors.black, child: child);
+    }
+
+    return ColoredBox(
+      color: Colors.black,
+      child: Center(
+        child: AspectRatio(
+          aspectRatio: contentAspectRatio,
+          child: child,
         ),
       ),
     );
@@ -354,8 +377,11 @@ class _VideoContentWidgetState extends ConsumerState<VideoContentWidget> {
             top: Radius.circular(_glassRadius),
           ),
           child: AspectRatio(
-            aspectRatio: 16 / 9,
-            child: HtmlElementView(viewType: _uploadedVideoViewId!),
+            aspectRatio: _landscapeAspectRatio,
+            child: ColoredBox(
+              color: Colors.black,
+              child: HtmlElementView(viewType: _uploadedVideoViewId!),
+            ),
           ),
         ),
       ),
@@ -371,7 +397,7 @@ class _VideoContentWidgetState extends ConsumerState<VideoContentWidget> {
         opacity: _glassOpacity,
         borderRadius: _glassRadius,
         child: AspectRatio(
-          aspectRatio: 16 / 9,
+          aspectRatio: _landscapeAspectRatio,
           child: Container(
             width: double.infinity,
             decoration: const BoxDecoration(
@@ -402,10 +428,7 @@ class _VideoContentWidgetState extends ConsumerState<VideoContentWidget> {
                   padding: EdgeInsets.symmetric(horizontal: 16),
                   child: Text(
                     'Видео можно открыть напрямую в YouTube.',
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: Color(0xFFFEFEF7),
-                    ),
+                    style: TextStyle(fontSize: 11, color: Color(0xFFFEFEF7)),
                     textAlign: TextAlign.center,
                   ),
                 ),
@@ -435,8 +458,11 @@ class _VideoContentWidgetState extends ConsumerState<VideoContentWidget> {
             top: Radius.circular(_glassRadius),
           ),
           child: AspectRatio(
-            aspectRatio: 16 / 9,
-            child: HtmlElementView(viewType: _rutubeViewId!),
+            aspectRatio: _landscapeAspectRatio,
+            child: ColoredBox(
+              color: Colors.black,
+              child: HtmlElementView(viewType: _rutubeViewId!),
+            ),
           ),
         ),
       ),
@@ -450,7 +476,7 @@ class _VideoContentWidgetState extends ConsumerState<VideoContentWidget> {
         opacity: _glassOpacity,
         borderRadius: _glassRadius,
         child: AspectRatio(
-          aspectRatio: 16 / 9,
+          aspectRatio: _landscapeAspectRatio,
           child: Container(
             width: double.infinity,
             decoration: const BoxDecoration(
@@ -498,7 +524,7 @@ class _VideoContentWidgetState extends ConsumerState<VideoContentWidget> {
         opacity: _glassOpacity,
         borderRadius: _glassRadius,
         child: AspectRatio(
-          aspectRatio: 16 / 9,
+          aspectRatio: _landscapeAspectRatio,
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
@@ -558,26 +584,18 @@ class _VideoContentWidgetState extends ConsumerState<VideoContentWidget> {
     try {
       final uri = Uri.parse(url);
 
-      if (await launchUrl(
-        uri,
-        mode: LaunchMode.externalApplication,
-      )) {
+      if (await launchUrl(uri, mode: LaunchMode.externalApplication)) {
         return;
       }
 
-      if (await launchUrl(
-        uri,
-        mode: LaunchMode.platformDefault,
-      )) {
+      if (await launchUrl(uri, mode: LaunchMode.platformDefault)) {
         return;
       }
 
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(
-              AppLocalizations.of(ref).couldNotOpenUrl(url),
-            ),
+            content: Text(AppLocalizations.of(ref).couldNotOpenUrl(url)),
           ),
         );
       }
@@ -595,22 +613,27 @@ class _VideoContentWidgetState extends ConsumerState<VideoContentWidget> {
   }
 }
 
-/// Plays an offline-downloaded (uploaded) video from a local `file://` URI with
-/// the native [VideoPlayer], including minimal tap-to-toggle + progress
-/// controls. Falls back to an "unavailable" card when the file cannot be read.
-class _LocalVideoPlayer extends ConsumerStatefulWidget {
+/// Native player for uploaded videos. Uses the decoder's real aspect ratio,
+/// letterboxes portrait / square / ultrawide content inside a fixed 16:9 card,
+/// and keeps all playback controls inside the card so nothing ends up below
+/// the visible rectangle.
+class _NativeVideoPlayer extends ConsumerStatefulWidget {
   final String uri;
   final String? title;
 
-  const _LocalVideoPlayer({required this.uri, this.title});
+  const _NativeVideoPlayer({required this.uri, this.title});
 
   @override
-  ConsumerState<_LocalVideoPlayer> createState() => _LocalVideoPlayerState();
+  ConsumerState<_NativeVideoPlayer> createState() => _NativeVideoPlayerState();
 }
 
-class _LocalVideoPlayerState extends ConsumerState<_LocalVideoPlayer> {
+class _NativeVideoPlayerState extends ConsumerState<_NativeVideoPlayer> {
   VideoPlayerController? _controller;
   bool _failed = false;
+
+  /// Shared with the fullscreen page so playback speed survives the
+  /// transition between inline and fullscreen modes.
+  final ValueNotifier<double> _speed = ValueNotifier<double>(1.0);
 
   @override
   void initState() {
@@ -620,17 +643,24 @@ class _LocalVideoPlayerState extends ConsumerState<_LocalVideoPlayer> {
 
   Future<void> _init() async {
     final uri = Uri.tryParse(widget.uri);
-    if (uri == null || uri.scheme != 'file') {
+    if (uri == null ||
+        (uri.scheme != 'file' &&
+            uri.scheme != 'http' &&
+            uri.scheme != 'https')) {
       if (mounted) setState(() => _failed = true);
       return;
     }
 
-    final controller = VideoPlayerController.file(File(uri.toFilePath()));
+    final controller = uri.scheme == 'file'
+        ? VideoPlayerController.file(File(uri.toFilePath()))
+        : VideoPlayerController.networkUrl(uri);
     _controller = controller;
     try {
       await controller.initialize();
       await controller.setLooping(false);
       await controller.setVolume(1);
+      await controller.setPlaybackSpeed(_speed.value);
+      controller.addListener(_onControllerChanged);
       if (!mounted) return;
       await controller.play();
       setState(() {});
@@ -641,8 +671,53 @@ class _LocalVideoPlayerState extends ConsumerState<_LocalVideoPlayer> {
 
   @override
   void dispose() {
+    _controller?.removeListener(_onControllerChanged);
     _controller?.dispose();
+    _speed.dispose();
     super.dispose();
+  }
+
+  void _onControllerChanged() {
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _togglePlayback(VideoPlayerController controller) async {
+    if (controller.value.isPlaying) {
+      await controller.pause();
+    } else {
+      await controller.play();
+    }
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _cycleSpeed() async {
+    final controller = _controller;
+    if (controller == null) return;
+
+    final currentIndex = _kPlaybackSpeeds.indexOf(_speed.value);
+    final nextIndex = (currentIndex + 1) % _kPlaybackSpeeds.length;
+    final next = _kPlaybackSpeeds[nextIndex];
+    _speed.value = next;
+    try {
+      await controller.setPlaybackSpeed(next);
+    } catch (_) {
+      // Some platforms reject certain speeds; keep the UI value anyway.
+    }
+  }
+
+  void _openFullscreen() {
+    final controller = _controller;
+    if (controller == null) return;
+
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => _FullscreenVideoPage(
+          controller: controller,
+          speed: _speed,
+          title: widget.title,
+        ),
+      ),
+    );
   }
 
   Widget _buildUnavailableCard() {
@@ -675,10 +750,11 @@ class _LocalVideoPlayerState extends ConsumerState<_LocalVideoPlayer> {
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
       child: AspectRatio(
-        aspectRatio: 16 / 9,
-        child: Center(
-          child: CircularProgressIndicator(
-            color: Color(0xFFD4A843),
+        aspectRatio: _landscapeAspectRatio,
+        child: const ColoredBox(
+          color: Colors.black,
+          child: Center(
+            child: CircularProgressIndicator(color: Color(0xFFD4A843)),
           ),
         ),
       ),
@@ -693,10 +769,10 @@ class _LocalVideoPlayerState extends ConsumerState<_LocalVideoPlayer> {
       return _buildLoading();
     }
 
-    final aspectRatio = controller.value.aspectRatio > 0
-        ? controller.value.aspectRatio
-        : 16 / 9;
-    final isPlaying = controller.value.isPlaying;
+    final value = controller.value;
+    final videoAspectRatio =
+        value.aspectRatio > 0 ? value.aspectRatio : _landscapeAspectRatio;
+    final isPlaying = value.isPlaying;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
@@ -708,53 +784,386 @@ class _LocalVideoPlayerState extends ConsumerState<_LocalVideoPlayer> {
             top: Radius.circular(_glassRadius),
           ),
           child: AspectRatio(
-            aspectRatio: aspectRatio,
+            aspectRatio: _landscapeAspectRatio,
             child: Stack(
-              alignment: Alignment.center,
+              fit: StackFit.expand,
               children: [
-                VideoPlayer(controller),
-                // Tap anywhere toggles play/pause.
+                const ColoredBox(color: Colors.black),
+
+                // Letterboxed video frame.
+                Center(
+                  child: AspectRatio(
+                    aspectRatio: videoAspectRatio,
+                    child: VideoPlayer(controller),
+                  ),
+                ),
+
+                // Tap-to-toggle overlay.
                 Positioned.fill(
                   child: GestureDetector(
                     behavior: HitTestBehavior.opaque,
-                    onTap: () {
-                      setState(() {
-                        isPlaying
-                            ? controller.pause()
-                            : controller.play();
-                      });
-                    },
+                    onTap: () => _togglePlayback(controller),
                   ),
                 ),
-                // Center play/pause affordance when paused.
+
+                // Centre play icon when paused.
                 if (!isPlaying)
-                  Icon(
-                    Icons.play_circle_fill,
-                    size: 64,
-                    color: Colors.white.withValues(alpha: 0.9),
+                  IgnorePointer(
+                    child: Center(
+                      child: Icon(
+                        Icons.play_circle_fill,
+                        size: 64,
+                        color: Colors.white.withValues(alpha: 0.9),
+                        shadows: const [
+                          Shadow(blurRadius: 12, color: Colors.black54),
+                        ],
+                      ),
+                    ),
                   ),
-                // Progress / scrubbing bar at the bottom.
+
+                // Controls bar pinned to the bottom of the CARD.
                 Positioned(
                   left: 0,
                   right: 0,
                   bottom: 0,
-                  child: ColoredBox(
-                    color: Colors.black.withValues(alpha: 0.35),
-                    child: VideoProgressIndicator(
-                      controller,
-                      allowScrubbing: true,
-                      colors: const VideoProgressColors(
-                        playedColor: Color(0xFFD4A843),
-                        bufferedColor: Colors.white54,
-                        backgroundColor: Colors.white12,
-                      ),
-                    ),
+                  child: ValueListenableBuilder<double>(
+                    valueListenable: _speed,
+                    builder: (context, speed, _) {
+                      return _InlineControlsBar(
+                        controller: controller,
+                        speed: speed,
+                        onTogglePlay: () => _togglePlayback(controller),
+                        onCycleSpeed: _cycleSpeed,
+                        onToggleFullscreen: _openFullscreen,
+                      );
+                    },
                   ),
                 ),
               ],
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Bottom control bar for the inline player. Play/pause + current time + seek
+/// + duration + speed + fullscreen toggle, all anchored inside the card.
+class _InlineControlsBar extends StatelessWidget {
+  final VideoPlayerController controller;
+  final double speed;
+  final VoidCallback onTogglePlay;
+  final VoidCallback onCycleSpeed;
+  final VoidCallback onToggleFullscreen;
+
+  const _InlineControlsBar({
+    required this.controller,
+    required this.speed,
+    required this.onTogglePlay,
+    required this.onCycleSpeed,
+    required this.onToggleFullscreen,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final value = controller.value;
+    return Container(
+      color: Colors.black.withValues(alpha: 0.45),
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+      child: Row(
+        children: [
+          IconButton(
+            iconSize: 22,
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+            icon: Icon(
+              value.isPlaying ? Icons.pause : Icons.play_arrow,
+              color: Colors.white,
+            ),
+            onPressed: onTogglePlay,
+          ),
+          Text(
+            _formatDuration(value.position),
+            style: const TextStyle(color: Colors.white, fontSize: 11),
+          ),
+          Expanded(
+            child: VideoProgressIndicator(
+              controller,
+              allowScrubbing: true,
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 14),
+              colors: const VideoProgressColors(
+                playedColor: Color(0xFFD4A843),
+                bufferedColor: Colors.white54,
+                backgroundColor: Colors.white24,
+              ),
+            ),
+          ),
+          Text(
+            _formatDuration(value.duration),
+            style: const TextStyle(color: Colors.white, fontSize: 11),
+          ),
+          const SizedBox(width: 4),
+          TextButton(
+            onPressed: onCycleSpeed,
+            style: TextButton.styleFrom(
+              minimumSize: const Size(40, 36),
+              padding: EdgeInsets.zero,
+              foregroundColor: Colors.white,
+            ),
+            child: Text(
+              _formatSpeed(speed),
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          IconButton(
+            iconSize: 20,
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+            icon: const Icon(Icons.fullscreen, color: Colors.white),
+            onPressed: onToggleFullscreen,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Fullscreen page. Reuses the same [VideoPlayerController] so playback
+/// position, play/pause state and speed survive the transition.
+class _FullscreenVideoPage extends StatefulWidget {
+  final VideoPlayerController controller;
+  final ValueNotifier<double> speed;
+  final String? title;
+
+  const _FullscreenVideoPage({
+    required this.controller,
+    required this.speed,
+    this.title,
+  });
+
+  @override
+  State<_FullscreenVideoPage> createState() => _FullscreenVideoPageState();
+}
+
+class _FullscreenVideoPageState extends State<_FullscreenVideoPage> {
+  bool _controlsVisible = true;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.controller.addListener(_onChanged);
+    widget.speed.addListener(_onChanged);
+
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+    SystemChrome.setPreferredOrientations(const [
+      DeviceOrientation.landscapeLeft,
+      DeviceOrientation.landscapeRight,
+    ]);
+  }
+
+  @override
+  void dispose() {
+    widget.controller.removeListener(_onChanged);
+    widget.speed.removeListener(_onChanged);
+
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    SystemChrome.setPreferredOrientations(const [
+      DeviceOrientation.portraitUp,
+      DeviceOrientation.portraitDown,
+    ]);
+    super.dispose();
+  }
+
+  void _onChanged() {
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _togglePlayback() async {
+    if (widget.controller.value.isPlaying) {
+      await widget.controller.pause();
+    } else {
+      await widget.controller.play();
+    }
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _cycleSpeed() async {
+    final currentIndex = _kPlaybackSpeeds.indexOf(widget.speed.value);
+    final nextIndex = (currentIndex + 1) % _kPlaybackSpeeds.length;
+    final next = _kPlaybackSpeeds[nextIndex];
+    widget.speed.value = next;
+    try {
+      await widget.controller.setPlaybackSpeed(next);
+    } catch (_) {}
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = widget.controller;
+    final value = controller.value;
+    final isPlaying = value.isPlaying;
+    final videoAspectRatio =
+        value.aspectRatio > 0 ? value.aspectRatio : _landscapeAspectRatio;
+
+    return Scaffold(
+      backgroundColor: Colors.black,
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          // Letterboxed video frame, always centred.
+          Center(
+            child: AspectRatio(
+              aspectRatio: videoAspectRatio,
+              child: VideoPlayer(controller),
+            ),
+          ),
+
+          // Tap video toggles controls; separate tap zone to toggle playback
+          // would fight with each other, so tap = toggle controls only.
+          Positioned.fill(
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () =>
+                  setState(() => _controlsVisible = !_controlsVisible),
+            ),
+          ),
+
+          // Centre play icon when paused.
+          if (!isPlaying && _controlsVisible)
+            IgnorePointer(
+              child: Center(
+                child: Icon(
+                  Icons.play_circle_fill,
+                  size: 84,
+                  color: Colors.white.withValues(alpha: 0.9),
+                  shadows: const [
+                    Shadow(blurRadius: 16, color: Colors.black54),
+                  ],
+                ),
+              ),
+            ),
+
+          // Top bar: close + title.
+          if (_controlsVisible)
+            SafeArea(
+              child: Align(
+                alignment: Alignment.topLeft,
+                child: Padding(
+                  padding: const EdgeInsets.all(8),
+                  child: Row(
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.close, color: Colors.white),
+                        onPressed: () => Navigator.of(context).maybePop(),
+                      ),
+                      if (widget.title != null && widget.title!.isNotEmpty)
+                        Expanded(
+                          child: Text(
+                            widget.title!,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+
+          // Bottom controls bar.
+          if (_controlsVisible)
+            Align(
+              alignment: Alignment.bottomCenter,
+              child: SafeArea(
+                child: ValueListenableBuilder<double>(
+                  valueListenable: widget.speed,
+                  builder: (context, speed, _) {
+                    return Container(
+                      color: Colors.black.withValues(alpha: 0.45),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      child: Row(
+                        children: [
+                          IconButton(
+                            iconSize: 26,
+                            icon: Icon(
+                              isPlaying ? Icons.pause : Icons.play_arrow,
+                              color: Colors.white,
+                            ),
+                            onPressed: _togglePlayback,
+                          ),
+                          Text(
+                            _formatDuration(value.position),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                            ),
+                          ),
+                          Expanded(
+                            child: VideoProgressIndicator(
+                              controller,
+                              allowScrubbing: true,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 16,
+                              ),
+                              colors: const VideoProgressColors(
+                                playedColor: Color(0xFFD4A843),
+                                bufferedColor: Colors.white54,
+                                backgroundColor: Colors.white24,
+                              ),
+                            ),
+                          ),
+                          Text(
+                            _formatDuration(value.duration),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          TextButton(
+                            onPressed: _cycleSpeed,
+                            style: TextButton.styleFrom(
+                              minimumSize: const Size(48, 40),
+                              foregroundColor: Colors.white,
+                            ),
+                            child: Text(
+                              _formatSpeed(speed),
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                          IconButton(
+                            iconSize: 24,
+                            icon: const Icon(
+                              Icons.fullscreen_exit,
+                              color: Colors.white,
+                            ),
+                            onPressed: () =>
+                                Navigator.of(context).maybePop(),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }

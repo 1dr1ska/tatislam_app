@@ -11,12 +11,49 @@ class VideoUrlParserService {
   /// - `https://youtu.be/ID`
   /// - `https://youtube.com/embed/ID`
   /// - `https://youtube.com/v/ID`
+  /// - `https://youtube.com/shorts/ID`
   String? extractYouTubeId(String url) {
-    final regex = RegExp(
-      r'(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})',
-    );
-    final match = regex.firstMatch(url);
-    return match?.group(1);
+    final uri = Uri.tryParse(url);
+    if (uri == null) return null;
+
+    final host = uri.host.toLowerCase();
+    final isYoutube = host == 'youtube.com' || host.endsWith('.youtube.com');
+    final isShortUrl = host == 'youtu.be' || host.endsWith('.youtu.be');
+    if (!isYoutube && !isShortUrl) return null;
+
+    String? id;
+    if (isShortUrl) {
+      id = uri.pathSegments.isEmpty ? null : uri.pathSegments.first;
+    } else if (uri.path == '/watch') {
+      id = uri.queryParameters['v'];
+    } else if (uri.pathSegments.length >= 2 &&
+        const {
+          'embed',
+          'v',
+          'shorts',
+          'live',
+        }.contains(uri.pathSegments.first)) {
+      id = uri.pathSegments[1];
+    }
+
+    // YouTube IDs are currently 11 characters. Keeping this validation avoids
+    // turning unrelated YouTube URLs (channels, playlists, etc.) into embeds.
+    return id != null && RegExp(r'^[A-Za-z0-9_-]{11}$').hasMatch(id)
+        ? id
+        : null;
+  }
+
+  /// Whether the URL uses YouTube's Shorts route. Shorts are presented in a
+  /// portrait player by YouTube, so the embedding surface must not force 16:9.
+  bool isYouTubeShortsUrl(String url) {
+    final uri = Uri.tryParse(url);
+    if (uri == null) return false;
+    final host = uri.host.toLowerCase();
+    final isYoutube = host == 'youtube.com' || host.endsWith('.youtube.com');
+    return isYoutube &&
+        uri.pathSegments.length >= 2 &&
+        uri.pathSegments.first == 'shorts' &&
+        extractYouTubeId(url) != null;
   }
 
   /// Extracts Rutube video ID from various Rutube URL formats.

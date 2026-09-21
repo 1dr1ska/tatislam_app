@@ -655,7 +655,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                   if (r > 0) const SizedBox(height: 16),
                   rows[r],
                 ],
-                if (hasMore) ...[
+                if (page.isLoadingMore) ...[
                   const SizedBox(height: 12),
                   const Center(
                     child: Padding(
@@ -665,6 +665,17 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                         height: 28,
                         child: CircularProgressIndicator(strokeWidth: 2.5),
                       ),
+                    ),
+                  ),
+                ] else if (page.loadMoreError != null) ...[
+                  const SizedBox(height: 12),
+                  Center(
+                    child: TextButton.icon(
+                      onPressed: () => ref
+                          .read(mainPublicationsProvider.notifier)
+                          .loadMore(),
+                      icon: const Icon(Icons.refresh),
+                      label: Text(AppLocalizations.of(ref).retry),
                     ),
                   ),
                 ],

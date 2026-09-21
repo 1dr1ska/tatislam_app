@@ -8,23 +8,20 @@ import 'package:web/web.dart' as web;
 /// Registration happens once — subsequent calls with the same [videoId] return
 /// the previously registered view ID.
 String? registerYoutubeView(String videoId) {
-  final viewId =
-      'youtube_${videoId}_${DateTime.now().millisecondsSinceEpoch}';
+  final viewId = 'youtube_${videoId}_${DateTime.now().millisecondsSinceEpoch}';
 
-  ui_web.platformViewRegistry.registerViewFactory(
-    viewId,
-    (int viewId) {
-      final htmlIFrame = web.document.createElement('iframe')
-          as web.HTMLIFrameElement;
-      htmlIFrame.src = 'https://www.youtube.com/embed/$videoId';
-      htmlIFrame.style.width = '100%';
-      htmlIFrame.style.height = '100%';
-      htmlIFrame.style.border = 'none';
-      htmlIFrame.allow = 'autoplay; encrypted-media; picture-in-picture';
-      htmlIFrame.allowFullscreen = true;
-      return htmlIFrame;
-    },
-  );
+  ui_web.platformViewRegistry.registerViewFactory(viewId, (int viewId) {
+    final htmlIFrame =
+        web.document.createElement('iframe') as web.HTMLIFrameElement;
+    htmlIFrame.src =
+        'https://www.youtube.com/embed/$videoId?playsinline=1&rel=0';
+    htmlIFrame.style.width = '100%';
+    htmlIFrame.style.height = '100%';
+    htmlIFrame.style.border = 'none';
+    htmlIFrame.allow = 'autoplay; encrypted-media; picture-in-picture';
+    htmlIFrame.allowFullscreen = true;
+    return htmlIFrame;
+  });
 
   return viewId;
 }
